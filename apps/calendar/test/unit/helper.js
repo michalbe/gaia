@@ -1,5 +1,15 @@
 (function(window) {
 
+  var oldRequire = require;
+
+  require = function(path) {
+    if (path === 'stream') {
+      throw new Error('skip');
+    }
+    return oldRequire.apply(this, arguments);
+  };
+
+
   if (typeof(testSupport) === 'undefined') {
     testSupport = {};
   }
@@ -15,7 +25,23 @@
     },
 
     db: function() {
-      return new Calendar.Db('b2g-test-calendar');
+      var db = new Calendar.Db('b2g-test-calendar');
+      this._lastDb = db;
+      return this._lastDb;
+    },
+
+    clearStore: function(name, done) {
+      var trans = this._lastDb.transaction(name, 'readwrite');
+      var store = trans.objectStore(name);
+      var res = store.clear();
+
+      res.onerror = function() {
+        done(new Error('could not wipe accounts db'));
+      }
+
+      res.onsuccess = function() {
+        done(null);
+      }
     },
 
     app: function() {
@@ -153,6 +179,7 @@
   requireLib('calc.js');
   requireLib('router.js');
   requireLib('controllers/time.js');
+  requireLib('controllers/sync.js');
   requireLib('db.js');
   requireLib('app.js');
 

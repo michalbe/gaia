@@ -7,7 +7,9 @@ const GridManager = (function() {
   var windowWidth = window.innerWidth;
   var thresholdForPanning = window.innerWidth / 4;
   var thresholdForTapping = 10;
-
+  
+  document.getElementById('search').style.height = window.innerHeight + 'px';
+  
   var pages = [];
   pages.current = 0;
 
@@ -155,11 +157,19 @@ const GridManager = (function() {
         callback();
       });
     }
-
+    
+    // hide footer on EmbeddedSearch screen
+    var footerClassList = document.getElementById('footer').classList;
+    if (pages.current === 0) {
+      footerClassList.add('hidden');
+    } else {
+       footerClassList.remove('hidden');
+    }
+    
     pan(0, .2);
     updatePaginationBar();
   }
-
+  
   function goToNextPage(callback) {
     goToPage(pages.current + 1, callback);
   }

@@ -6,6 +6,10 @@ var KeyboardManager = (function() {
   var domain = host.replace(/(^[\w\d]+\.)?([\w\d]+\.[a-z]+)/, '$2');
   var KEYBOARD_URL = document.location.protocol + '//keyboard.' + domain;
 
+  if (KEYBOARD_URL.substring(0, 6) == 'app://') { // B2G bug 773884
+      KEYBOARD_URL += '/index.html';
+  }
+
   var keyboardFrame, keyboardOverlay;
 
   var init = function kbManager_init() {
@@ -26,6 +30,7 @@ var KeyboardManager = (function() {
         return;
 
       var app = WindowManager.getDisplayedApp();
+<<<<<<< HEAD
       if (!app) {
         // The homescreen could have the focus, just show/hide
         // the keyboard on top of it.
@@ -36,12 +41,20 @@ var KeyboardManager = (function() {
           keyboardOverlay.style.height = (height + 20) + 'px';
           keyboardFrame.classList.remove('hide');
         }
+=======
+      if (!app && !TrustedDialog.trustedDialogIsShown())
+>>>>>>> upstream/master
         return;
       }
 
-      // Reset the height of the app
-      WindowManager.setAppSize(app);
-      var currentApp = WindowManager.getAppFrame(app);
+      var currentApp;
+      if (TrustedDialog.trustedDialogIsShown()) {
+        currentApp = TrustedDialog.getFrame();
+      } else {
+        // Reset the height of the app
+        WindowManager.setAppSize(app);
+        currentApp = WindowManager.getAppFrame(app);
+      }
 
       if (!message.hidden) {
         var height = (parseInt(currentApp.style.height) -
