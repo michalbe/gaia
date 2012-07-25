@@ -105,3 +105,7 @@ html[dir=rtl] .apps ol > li {
 #app-frame.visible {
   -moz-transform: translateX(0);
 }
+
+#icongrid.darken {
+  background: none #344052;
+}

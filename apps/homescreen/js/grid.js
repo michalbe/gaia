@@ -142,6 +142,7 @@ const GridManager = (function() {
   }
 
   function goToPage(index, callback) {
+    var previousIndex = pages.current;
     var isSamePage = pages.current === index;
     pages.current = index;
     callback = callback || function() {};
@@ -150,11 +151,25 @@ const GridManager = (function() {
       delete document.body.dataset.transitioning;
       callback();
     } else {
-      var container = pageHelper.getCurrent().container;
-      container.addEventListener('transitionend', function tr_end(e) {
-        container.removeEventListener('transitionend', tr_end);
+      var currentPageContainer = pageHelper.getCurrent().container;
+
+      // From search page to app grid page
+      if (previousIndex === 0) {
+        container.classList.add('darken');
+        DockManager.page.container.classList.add('darken');
+      }
+
+      currentPageContainer.addEventListener('transitionend', function tr_end(e) {
+        currentPageContainer.removeEventListener('transitionend', tr_end);
         delete document.body.dataset.transitioning;
         callback();
+        Search.resetIcon();
+        if (index === 0) {
+          container.classList.remove('darken');
+          DockManager.page.container.classList.remove('darken');
+        } else {
+          pageHelper.getCurrent().bounce(previousIndex - index);
+        }
       });
     }
     
