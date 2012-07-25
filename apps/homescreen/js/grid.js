@@ -414,6 +414,7 @@ const GridManager = (function() {
      * Saves all pages state on the database
      */
     saveAll: function() {
+      console.error('WWWWWWWWWWWWWW');
       HomeState.saveGrid(pages.slice(1));
     },
 
@@ -516,7 +517,7 @@ const GridManager = (function() {
           }, 200);
         });
       }
-
+      console.error('QQQQQQQQQQQQQQQQQ');
       pageHelper.saveAll();
     },
 

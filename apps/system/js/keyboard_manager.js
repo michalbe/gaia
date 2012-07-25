@@ -30,20 +30,9 @@ var KeyboardManager = (function() {
         return;
 
       var app = WindowManager.getDisplayedApp();
-<<<<<<< HEAD
-      if (!app) {
-        // The homescreen could have the focus, just show/hide
-        // the keyboard on top of it.
-        if (message.hidden) {
-          keyboardFrame.classList.add('hide');
-        } else {
-          var height = message.keyboardHeight;
-          keyboardOverlay.style.height = (height + 20) + 'px';
-          keyboardFrame.classList.remove('hide');
-        }
-=======
-      if (!app && !TrustedDialog.trustedDialogIsShown())
->>>>>>> upstream/master
+
+      if (!app && !TrustedDialog.trustedDialogIsShown()) {
+
         return;
       }
 
