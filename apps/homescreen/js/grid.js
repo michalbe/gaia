@@ -204,16 +204,18 @@ const GridManager = (function() {
     DockManager.getShortcuts(function getShortcuts(shortcuts) {
       var max = pageHelper.getMaxPerPage();
       var list = [];
-
+console.error('aaaa ' + Object.prototype.toString.call(shortcuts));
       var apps = Applications.getAll();
+      
       for (var origin in apps) {
-        if (shortcuts.indexOf(origin) === -1) {
+        console.error('aaaa ' + origin);
+        /*if (shortcuts.indexOf(origin) === -1) {
           list.push(apps[origin]);
           if (list.length === max) {
             pageHelper.push(list);
             list = [];
           }
-        }
+        }*/
       }
 
       if (list.length > 0) {
@@ -236,6 +238,7 @@ const GridManager = (function() {
     var appsInDB = [];
     HomeState.getAppsByPage(
       function iterate(apps) {
+        
         pageHelper.push(apps);
         appsInDB = appsInDB.concat(apps);
       },
@@ -247,8 +250,10 @@ const GridManager = (function() {
 
         var installedApps = Applications.getInstalledApplications();
         var len = appsInDB.length;
+        
         for (var i = 0; i < len; i++) {
           var origin = appsInDB[i];
+          
           if (origin in installedApps) {
             delete installedApps[origin];
           }
@@ -256,14 +261,16 @@ const GridManager = (function() {
 
         DockManager.getShortcuts(function getShortcuts(shortcuts) {
           var len = shortcuts.length;
+          console.error('WWWWWW ' + len);
           for (var i = 0; i < len; i++) {
-            var origin = shortcuts[i];
+            var origin = shortcuts[i].origin;
             if (origin in installedApps) {
               delete installedApps[origin];
             }
           }
 
           for (var origin in installedApps) {
+            console.log(origin);
             GridManager.install(installedApps[origin]);
           }
 
@@ -429,7 +436,6 @@ const GridManager = (function() {
      * Saves all pages state on the database
      */
     saveAll: function() {
-      console.error('WWWWWWWWWWWWWW');
       HomeState.saveGrid(pages.slice(1));
     },
 
@@ -532,7 +538,6 @@ const GridManager = (function() {
           }, 200);
         });
       }
-      console.error('QQQQQQQQQQQQQQQQQ');
       pageHelper.saveAll();
     },
 

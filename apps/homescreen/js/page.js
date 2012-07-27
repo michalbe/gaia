@@ -44,6 +44,8 @@ Icon.prototype = {
     }
 
     container.dataset.origin = this.descriptor.origin;
+    container.dataset.name = this.descriptor.name;
+    container.dataset.icon = this.descriptor.icon;
 
     // Icon container
     var icon = this.icon = document.createElement('div');
@@ -207,16 +209,19 @@ Page.prototype = {
     this.olist = document.createElement('ol');
     for (var i = 0; i < len; i++) {
       var app = apps[i];
-      if (typeof app === 'string') {
-        // We receive an origin here else it's an app or icon
-        app = Applications.getByOrigin(app);
-      }
-
-      // We have to check if the app is installed just in case
-      // (DB could be corrupted)
-      if (app) {
-        this.append(app);
-      }
+      switch(app.type) {
+        case 'app':
+          app = Applications.getByOrigin(app.origin);
+          break;
+        case 'bookmark':
+          app = {
+            name: app.name,
+            origin: app.origin,
+            icon: app.icon
+          };
+          break;
+      } 
+      this.append(app);
     }
     target.appendChild(this.olist);
   },
@@ -469,10 +474,27 @@ Page.prototype = {
   getAppsList: function pg_getAppsList() {
     var nodes = this.olist.children;
     return Array.prototype.map.call(nodes, function extractOrigin(node) {
-      return node.dataset.origin;
+      var origin = node.dataset.origin;
+      console.log(origin);
+      if (Applications.getByOrigin(origin)) {
+        //it's an app!
+        return {
+          type: 'app',
+          origin: origin
+        }
+      } else {
+        // no! it's a bookmark!
+        return {
+          type: 'bookmark',
+          origin: origin,
+          name: node.dataset.name,
+          icon: node.dataset.icon
+          
+        }
+      }
     });
   },
-
+  
   /*
    * Movement feedback 
   */

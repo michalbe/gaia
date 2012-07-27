@@ -25,7 +25,7 @@ const Homescreen = (function() {
       });
     });
   }
-
+  
   // XXX Currently the home button communicate only with the
   // system application. It should be an activity that will
   // use the system message API.
@@ -149,7 +149,7 @@ const Homescreen = (function() {
     var appsInDockByDef = ['browser', 'dialer', 'music', 'gallery'];
     var protocol = window.location.protocol;
     appsInDockByDef = appsInDockByDef.map(function mapApp(name) {
-      return protocol + '//' + name + '.' + domain;
+      return { type: 'app', origin: protocol + '//' + name + '.' + domain }
     });
     HomeState.saveShortcuts(appsInDockByDef, start, start);
   }, start);
