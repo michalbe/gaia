@@ -204,18 +204,24 @@ const GridManager = (function() {
     DockManager.getShortcuts(function getShortcuts(shortcuts) {
       var max = pageHelper.getMaxPerPage();
       var list = [];
-console.error('aaaa ' + Object.prototype.toString.call(shortcuts));
       var apps = Applications.getAll();
       
       for (var origin in apps) {
-        console.error('aaaa ' + origin);
-        /*if (shortcuts.indexOf(origin) === -1) {
+        var inShortcuts = false;
+        shortcuts.forEach(function(element){
+          if (element.origin === origin) {
+            inShortcuts = true;
+          }
+        });
+        
+        
+        if (!inShortcuts) {
           list.push(apps[origin]);
           if (list.length === max) {
             pageHelper.push(list);
             list = [];
           }
-        }*/
+        }
       }
 
       if (list.length > 0) {
@@ -252,7 +258,7 @@ console.error('aaaa ' + Object.prototype.toString.call(shortcuts));
         var len = appsInDB.length;
         
         for (var i = 0; i < len; i++) {
-          var origin = appsInDB[i];
+          var origin = appsInDB[i].origin;
           
           if (origin in installedApps) {
             delete installedApps[origin];
@@ -261,7 +267,6 @@ console.error('aaaa ' + Object.prototype.toString.call(shortcuts));
 
         DockManager.getShortcuts(function getShortcuts(shortcuts) {
           var len = shortcuts.length;
-          console.error('WWWWWW ' + len);
           for (var i = 0; i < len; i++) {
             var origin = shortcuts[i].origin;
             if (origin in installedApps) {
@@ -270,7 +275,6 @@ console.error('aaaa ' + Object.prototype.toString.call(shortcuts));
           }
 
           for (var origin in installedApps) {
-            console.log(origin);
             GridManager.install(installedApps[origin]);
           }
 

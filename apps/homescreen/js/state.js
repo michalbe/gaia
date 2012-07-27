@@ -76,18 +76,6 @@ const HomeState = (function() {
   return {
     init: function(success, error) {
       openDB(success, error);
-      
-      // DEBUG
-      window.addEventListener('keydown', function(){ 
-        this.getAppsByPage(function(apps){
-          console.log('[D] ' + apps);
-        }, function(result){ 
-          console.log('[D] ' + result.toString());
-        });
-
-      }.bind(this), false);
-      ///////
-      
     },
 
     saveGrid: function(pages, success, error) {
