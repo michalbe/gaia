@@ -183,7 +183,7 @@ var Applications = (function() {
     return protocol + '//' + name + '.' + domain;
   });
 
-  coreApplications.push('https://marketplace.mozilla.org');
+  coreApplications.push('https://marketplace.mozilla.org/telefonica/');
 
   /*
    *  Returns true if it's a core application
@@ -235,7 +235,9 @@ var Applications = (function() {
     // have those). Otherwise return the url directly as it could be
     // a data: url.
     var icon = icons[getIconSize(sizes)];
-    if (icon.indexOf('data:') !== 0) {
+    if ((icon.indexOf('data:') !== 0) &&
+        (icon.indexOf('http://') !== 0) &&
+        (icon.indexOf('https://') !== 0)) {
       icon = origin + icon;
     }
 

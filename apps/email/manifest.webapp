@@ -6,6 +6,10 @@
     "name": "The Gaia Team",
     "url": "https://github.com/mozilla-b2g/gaia"
   },
+  "permissions": [
+    "systemXHR",
+    "settings"
+  ],
   "locales": {
     "ar": {
       "name": "E-Mail",
@@ -60,5 +64,10 @@
   "icons": {
     "60": "/style/icons/60/Email.png",
     "79": "/style/icons/Email.png"
+  },
+  "activities": {
+    "new": {
+      "filters": "mail"
+    }
   }
 }

@@ -5,6 +5,8 @@ const Homescreen = (function() {
   var host = document.location.host;
   var domain = host.replace(/(^[\w\d]+\.)?([\w\d]+\.[a-z]+)/, '$2');
 
+  var mode = 'normal';
+
   // Initialize the pagination scroller
   PaginationBar.init('.paginationScroller');
 
@@ -38,25 +40,15 @@ const Homescreen = (function() {
 
     switch (mode) {
       case 'home':
-        if (appFrameIsActive) {
-          closeApp();
-        } else if (document.body.dataset.mode === 'edit') {
-          document.body.dataset.mode = 'normal';
-          GridManager.saveState();
-          DockManager.saveState();
-          Permissions.hide();
-        } else {
-          var num = GridManager.pageHelper.getCurrentPageNumber();
-          switch (num) {
-            case 1:
-              GridManager.goToPage(0);
+              if (Homescreen.isInEditMode()) {
+                Homescreen.setMode('normal');
+                GridManager.saveState();
+                DockManager.saveState();
+                Permissions.hide();
+              } else if (GridManager.pageHelper.getCurrentPageNumber() !== 0) {
+                GridManager.goToPage(0);
+              }
               break;
-            default:
-              GridManager.goToPage(1);
-              break;
-          }
-        }
-        break;
       case 'open-in-app':
         openApp(json.data.url);
         break;
@@ -184,7 +176,13 @@ const Homescreen = (function() {
                        function onCancel() {});
     },
 
-    openApp: openApp
+
+    openApp: openApp,
+    isInEditMode: function() {
+      return mode === 'edit';
+    },
+    setMode: function(newMode) {
+      mode = document.body.dataset.mode = newMode;
+    }
   };
 })();
-

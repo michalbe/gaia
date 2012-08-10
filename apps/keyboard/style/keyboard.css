@@ -59,7 +59,7 @@ button::-moz-focus-inner {
   white-space: nowrap;
 }
 
-.keyboard-row:first-child {
+.keyboard-row.first-row {
   padding-top: 0.5rem;
   border-top: solid 1px #a6a9ab;
 }
@@ -367,6 +367,7 @@ background-position: center 2.2rem;
 #keyboard-accent-char-menu .keyboard-key > .visual-wrapper {
   background: none;
   border: none;
+  border-radius: 0;
   margin: 0;
   height: 5.8rem;
 }

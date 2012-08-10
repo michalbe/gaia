@@ -1,4 +1,4 @@
-/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- /
+/* -*- Mode: js; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- /
 /* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
 
 'use strict';
@@ -15,6 +15,32 @@ var Settings = {
     var settings = window.navigator.mozSettings;
     if (!settings) // e.g. when debugging on a browser...
       return;
+
+    settings.onsettingchange = function settingChanged(event) {
+      var key = event.settingName;
+      var value = event.settingValue;
+
+      var checkbox =
+          document.querySelector('input[type="checkbox"][name="' + key + '"]');
+      if (checkbox) {
+        if (checkbox.checked == value)
+          return;
+        checkbox.checked = value;
+        return;
+      }
+
+      var progressBar =
+          document.querySelector('[data-name="' + key + '"]');
+      if (progressBar) {
+        var intValue = Math.ceil(value * 10);
+        if (progressBar.value == intValue)
+          return;
+        progressBar.value = intValue;
+        return;
+      }
+
+      // XXX: if there are more values needs to be synced.
+    };
 
     // preset all inputs that have a `name' attribute
     var transaction = settings.getLock();
@@ -84,6 +110,32 @@ var Settings = {
         };
       })(progresses[i]);
     }
+
+    // handle web activity
+    navigator.mozSetMessageHandler('activity',
+      function settings_handleActivity(activityRequest) {
+        var name = activityRequest.source.name;
+        switch (name) {
+          case 'configure':
+            var section = activityRequest.source.data.section || 'root';
+
+            // Validate if the section exists
+            var actualSection = document.getElementById(section);
+            if (!actualSection || actualSection.tagName !== 'SECTION') {
+              var msg = 'Trying to open an unexistent section: ' + section;
+              console.warn(msg);
+              activityRequest.postError(msg);
+              return;
+            }
+
+            // Go to that section
+            setTimeout(function settings_goToSection() {
+              document.location.hash = section;
+            });
+            break;
+        }
+      }
+    );
   },
 
   handleEvent: function settings_handleEvent(evt) {

@@ -39,6 +39,9 @@
     <link rel="stylesheet" type="text/css" href="style/list_menu/list_menu.css">
     <script defer src="js/list_menu.js"></script>
 
+    <!-- Airplane Mode -->
+    <script defer src="js/airplane_mode.js"></script>
+
     <!-- Sleep Menu -->
     <script defer src="js/sleep_menu.js"></script>
 
@@ -105,65 +108,93 @@
     <link rel="stylesheet" type="text/css" href="style/trusted_dialog/trusted_dialog.css">
     <script defer src="js/trusted_dialog.js"></script>
 
+    <!-- Payment -->
+    <script defer src="js/payment.js"></script>
+
     <!-- Windows -->
     <!-- Any module that wants to intercept the Home button and prevent the -->
     <!-- homescreen from being displayed must come before this script. -->
     <script defer src="js/window_manager.js"></script>
+    
+    <!-- z-indexes of all the overlays in the system -->
+    <link rel="stylesheet" type="text/css" href="style/zindex.css">
+
+    <!-- Value selector -->
+    <link rel="stylesheet" type="text/css" href="style/value_selector/value_selector.css">
+    <script defer src="js/value_selector.js"></script>
   </head>
 
   <body onload="startup()">
     <div id="screen" class="screenoff locked">
-
-      <div id="keyboard-overlay"></div>
-
-      <div id="windows">
-        <!-- application windows are added here -->
-        <div id="popup-container">
-        </div>
-      </div>
-
-      <!-- keyboard -->
-      <iframe id="keyboard-frame" class="hide"></iframe>
-
       <!-- homescreen -->
-      <iframe id="homescreen" mozbrowser mozapp></iframe>
+      <iframe id="homescreen" mozbrowser mozapp data-z-index-level="homescreen"></iframe>
       <!-- <iframe id="homescreen" mozbrowser mozapp remote="true"></iframe>
       Crashing on load
         https://bugzilla.mozilla.org/show_bug.cgi?id=761933
       -->
 
-      <div id="modal-dialog">
-        <div id="modal-dialog-table">
-          <div id="modal-dialog-tablecell">
-            <div id="modal-dialog-alert">
-              <div class="modal-dialog-message-container">
-                <span id="modal-dialog-alert-message"></span>
+      <div id="windows" data-z-index-level="app">
+        <!-- application windows are added here -->
+      </div>
+      
+      <div id="dialog-overlay" data-z-index-level="dialog-overlay">
+        <div id="trustedDialog">
+        </div> 
+        <div id="popup-container">
+        </div>
+        <div id="modal-dialog">
+          <div id="modal-dialog-table">
+            <div id="modal-dialog-tablecell">
+              <div id="modal-dialog-alert">
+                <div class="modal-dialog-message-container">
+                  <span id="modal-dialog-alert-message"></span>
+                </div>
               </div>
-              <button id="modal-dialog-alert-ok" data-i10n-id="ok">OK</button>
-            </div>
 
-            <div id="modal-dialog-confirm">
-              <div class="modal-dialog-message-container">
-                <span id="modal-dialog-confirm-message"></span>
+              <div id="modal-dialog-confirm">
+                <div class="modal-dialog-message-container">
+                  <span id="modal-dialog-confirm-message"></span>
+                </div>
               </div>
-              <button id="modal-dialog-confirm-ok" data-i10n-id="ok">OK</button>
-              <button id="modal-dialog-confirm-cancel" data-i10n-id="cancel">Cancel</button>
-            </div>
 
-            <div id="modal-dialog-prompt">
-              <div class="modal-dialog-message-container">
-                <span id="modal-dialog-prompt-message"></span>
-                <input id="modal-dialog-prompt-input" />
+              <div id="modal-dialog-prompt">
+                <div class="modal-dialog-message-container">
+                  <span id="modal-dialog-prompt-message"></span>
+                  <input id="modal-dialog-prompt-input" />
+                </div>
               </div>
-              <button id="modal-dialog-prompt-ok" data-i10n-id="ok">OK</button>
-              <button id="modal-dialog-prompt-cancel" data-i10n-id="cancel">Cancel</button>
+
+              <div id="modal-dialog-authentication">
+                <div class="modal-dialog-message-container">
+                  <span id="modal-dialog-authentication-message"></span>
+                  <span data-l10n-id="username">Username</span>
+                  <input id="modal-dialog-username-input" />
+                  <span data-l10n-id="password">Password</span>
+                  <input id="modal-dialog-password-input" type="password" />
+                </div>
+              </div>
             </div>
           </div>
+          <div id="modal-dialog-buttons">
+            <button id="modal-dialog-alert-ok" data-l10n-id="ok">OK</button>
+            <button id="modal-dialog-confirm-ok" data-l10n-id="ok">OK</button>
+            <button id="modal-dialog-confirm-cancel" data-l10n-id="cancel">Cancel</button>
+            <button id="modal-dialog-prompt-ok" data-l10n-id="ok">OK</button>
+            <button id="modal-dialog-prompt-cancel" data-l10n-id="cancel">Cancel</button>
+          </div>
         </div>
+      </div> 
+      
+      <!-- value selector -->
+      <div id="value-selector" hidden data-z-index-level="value-selector">
+         <div id="value-selector-container" onmousedown="return false;"> </div>
+         <div id="value-selector-buttons">
+           <button id="value-selector-cancel" data-l10n-id="cancel">Cancel</button>
+           <button id="value-selector-confirm" data-l10n-id="ok" onmousedown="return false;">Ok</button>
+         </div>
       </div>
 
-      <!-- utility tray -->
-      <div id="utility-tray">
+      <div id="utility-tray" data-z-index-level="utility-tray">
         <!-- quick settings -->
         <div id="quick-settings">
           <a href="#" id="quick-settings-wifi" data-enabled="false" data-l10n-id="quick-settings-wifi">Wifi</a>
@@ -182,8 +213,10 @@
         <div id="utility-tray-grippy">
         </div>
       </div>
+      
+      <div id="lockscreen-camera" hidden data-z-index-level="lockscreen-camera"></div>
 
-      <div id="lockscreen" class="uninit" data-panel="">
+      <div id="lockscreen" class="uninit" data-panel="" data-z-index-level="lockscreen">
         <div id="lockscreen-container">
           <div id="lockscreen-main-panel" class="lockscreen-panel">
             <div id="lockscreen-notification" hidden>
@@ -193,8 +226,8 @@
               <div id="lockscreen-notification-detail"></div>
             </div>
             <div id="lockscreen-area"></div>
-            <div id="lockscreen-area-unlock" class="lockscreen-icon"></div>
-            <div id="lockscreen-area-camera" class="lockscreen-icon"></div>
+            <div id="lockscreen-area-unlock" class="lockscreen-icon lockscreen-icon-right"></div>
+            <div id="lockscreen-area-camera" class="lockscreen-icon lockscreen-icon-left"></div>
             <div id="lockscreen-rail-left" class="lockscreen-rail"></div>
             <div id="lockscreen-rail-right" class="lockscreen-rail"></div>
             <div id="lockscreen-area-handle"></div>
@@ -230,14 +263,10 @@
           </div>
           <h2 id="lockscreen-emergency-title" data-l10n-id="emergency-call">Emergency Call</h2>
           <div id="lockscreen-emergency-pad">TBD</div>
-
-          <div id="lockscreen-panel-camera" class="lockscreen-panel">
-            <div id="lockscreen-camera"></div>
-          </div>
         </div>
       </div>
-
-      <div id="pinkeypadscreen">
+      
+      <div id="pinkeypadscreen" data-z-index-level="pinkeypadscreen">
         <div id="pinkeypadscreen-container">
           <p id="pinkeypadscreen-desc"><span>Enter PIN</span></p>
           <p id="pinkeypadscreen-code">
@@ -260,10 +289,12 @@
           </div>
         </div>
       </div>
-
-      <div id="statusbar">
+      
+      <div id="statusbar" data-z-index-level="statusbar">
         <!-- Loading -->
         <div id="statusbar-loading" hidden></div>
+        <!-- Carrier & date label -->
+        <div id="statusbar-label" class="sb-start-upper"></div>
         <!-- Notification -->
         <div id="statusbar-notification" class="sb-start sb-icon sb-icon-notification"
           data-num="" hidden></div>
@@ -279,7 +310,6 @@
         <div id="statusbar-data" class="sb-icon sb-icon-data"
           data-type="" hidden></div>
         <div id="statusbar-flight-mode" class="sb-icon sb-icon-flight-mode" hidden></div>
-        <div id="statusbar-conn" hidden></div>
         <div id="statusbar-signal" class="sb-icon sb-icon-signal"
           data-level="5" hidden></div>
 
@@ -290,50 +320,60 @@
         <div id="statusbar-mute" class="sb-icon sb-icon-mute" hidden></div>
         <div id="statusbar-recording" class="sb-icon sb-icon-recording" hidden></div>
         <div id="statusbar-sms" class="sb-icon sb-icon-sms" hidden></div>
-        <div id="statusbar-voicemail" data-show-num="false" data-num="" hidden></div>
         <div id="statusbar-geolocation" class="sb-icon sb-icon-geolocation" hidden></div>
         <div id="statusbar-usb" class="sb-icon sb-icon-usb" hidden></div>
       </div>
-
-      <div id="notification-toaster" class="notification">
+      
+      <div id="notification-toaster" class="notification" data-z-index-level="notification-toaster">
         <img id="toaster-icon" />
         <div id="toaster-title"></div>
         <div id="toaster-detail"></div>
       </div>
-
-      <!-- attention screen -->
-      <div id="attention-screen">
+      
+      <div id="attention-screen" data-z-index-level="attention-screen">
         <div id="attention-bar"></div>
       </div>
 
-    </div>
+      <div id="listmenu" data-z-index-level="list-menu">
+        <div class="list-menu" id="listmenu-container">
+        </div>
+      </div>
+      
+      <div id="keyboard-overlay" data-z-index-level="keyboard-overlay"></div>
 
-    <div id="cardsView">
-      <ul>
+      <!-- keyboard -->
+      <iframe id="keyboard-frame" class="hide" data-z-index-level="keyboard-frame"></iframe>
 
-      </ul>
-    </div>
+      <div id="cardsView" data-z-index-level="cardsview">
+        <ul>
+        </ul>
+      </div>
+      
+      <div id="sleep-menu" data-z-index-level="sleep-menu">
+        <div class="sleepmenu" id="sleepmenu-container">
+        </div>
+      </div>
 
-    <div id="listmenu">
-      <div class="list-menu" id="listmenu-container">
+      <div id="system-overlay" data-z-index-level="system-overlay">
+        <div id="battery">
+        </div>
+
+        <div id="usb">
+        </div>
+
+        <div id="volume" class="vibration">
+          <div class="active"></div>
+          <div class="active"></div>
+          <div class="active"></div>
+          <div class="active"></div>
+          <div class="active"></div>
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+        </div>
       </div>
     </div>
-
-    <div id="volume" class="vibration">
-      <div class="active"></div>
-      <div class="active"></div>
-      <div class="active"></div>
-      <div class="active"></div>
-      <div class="active"></div>
-      <div></div>
-      <div></div>
-      <div></div>
-      <div></div>
-      <div></div>
-    </div>
-
-    <div id="trustedDialog">
-    </div>
-
   </body>
 </html>

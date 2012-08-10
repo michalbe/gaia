@@ -3,52 +3,35 @@
 
 'use strict';
 
-// Duplicated code in several places
-// TODO Better settings observe interface?
-var SettingsListener = {
-  _callbacks: {},
-
-  init: function sl_init() {
-    if ('mozSettings' in navigator && navigator.mozSettings)
-      navigator.mozSettings.onsettingchange = this.onchange.bind(this);
-  },
-
-  onchange: function sl_onchange(evt) {
-    var callback = this._callbacks[evt.settingName];
-    if (callback) {
-      callback(evt.settingValue);
-    }
-  },
-
-  observe: function sl_observe(name, defaultValue, callback) {
-    var settings = window.navigator.mozSettings;
-    if (!settings) {
-      window.setTimeout(function() { callback(defaultValue); });
-      return;
-    }
-
-    var req = settings.getLock().get(name);
-    req.addEventListener('success', (function onsuccess() {
-      callback(typeof(req.result[name]) != 'undefined' ?
-        req.result[name] : defaultValue);
-    }));
-
-    this._callbacks[name] = callback;
-  }
-};
-
-SettingsListener.init();
-
 /* Debugging code for the environment without mozKeyboard,
  * such as Firefox Nightly build */
 if (!window.navigator.mozKeyboard) {
-  window.navigator.mozKeyboard = {};
-}
+  window.navigator.mozKeyboard = {
+    sendKey: function emulateSendKey(charCode, keyCode) {
+      console.log('moz sendKey: (' + charCode + ', ' + keyCode + ')');
+    }
+  };
+} else {
+  var focusChangeTimeout = 0;
+  var focusChangeDelay = 20;
+  window.navigator.mozKeyboard.onfocuschange = function onfocuschange(evt) {
 
-if (!window.navigator.mozKeyboard.sendKey) {
-  window.navigator.mozKeyboard.sendKey = function moz_sendKey(charCode,
-                                                              keyCode) {
-    console.log('moz sendKey: (' + charCode + ', ' + keyCode + ')');
+    var typeToSkip = ['select-one', 'select-multiple', 'date',
+                        'time', 'datetime', 'datetime-local'];
+    var type = evt.detail.type;
+    // Skip the <select> element and inputs with type of date/time,
+    // handled in system app for now
+    if (typeToSkip.indexOf(type) != -1)
+      return;
+
+    clearTimeout(focusChangeTimeout);
+    focusChangeTimeout = setTimeout(function switchKeyboard() {
+      if (type === 'blur') {
+        IMEController.hideIME();
+      } else {
+        IMEController.showIME(type);
+      }
+    }, focusChangeDelay);
   };
 }
 
@@ -163,26 +146,6 @@ const IMEManager = {
         );
       })(key);
     }
-
-    // Handle event from system app, i.e. keyboard manager
-    // Now this is for keyboard demo only
-    window.addEventListener('message', function receiver(evt) {
-      var event = JSON.parse(evt.data);
-      IMEManager.handleEvent(event);
-    });
-
-    window.navigator.mozKeyboard.onfocuschange = function(e) {
-      var exclusionList = [
-        'button', 'checkbox', 'file',
-        'image', 'reset', 'submit'
-      ];
-      if (e.detail.type === 'blur') {
-        IMEController.hideIME();
-      } else {
-        if (exclusionList.indexOf(e.detail.type) === -1)
-          IMEController.showIME(e.detail.type);
-      }
-    };
   },
 
   uninit: function km_uninit() {
@@ -197,56 +160,29 @@ const IMEManager = {
   },
 
   // TODO: Build a closure and convert these to private variables
-  _hideIMETimer: 0,
   _formerWidth: window.innerWidth,
   _formerHeight: window.innerHeight,
 
   handleEvent: function km_handleEvent(evt) {
     var target = evt.target;
     switch (evt.type) {
-      case 'showime':
-        clearTimeout(this._hideIMETimer);
-        this.showIME(evt.detail.type);
-
-        break;
-
-      // Now this is for keyboard demo only
-      case 'hideime':
-        this.hideIMETimer = window.setTimeout((function execHideIME() {
-          IMEController.hideIME();
-        }).bind(this), 0);
-
-        break;
-
-      // Now this is for keyboard demo only
-      case 'appwillclose':
-        IMEController.hideIME(true);
-
-        break;
-
       case 'resize':
         var currentWidth = window.innerWidth;
         var currentHeight = window.innerHeight;
         var formerWidth = this._formerWidth;
         var formerHeight = this._formerHeight;
 
-        IMEController.onResize(
-          currentWidth, currentHeight,
-          formerWidth, formerHeight
-        );
+        IMEController.onResize(currentWidth, currentHeight,
+                               formerWidth, formerHeight);
 
         this._formerWidth = currentWidth;
         this._formerHeight = currentHeight;
-      break;
+        break;
 
       case 'unload':
         this.uninit();
-      break;
+        break;
     }
-  },
-
-  showIME: function km_showIME(type) {
-    IMEController.showIME(type);
   }
 };
 
@@ -268,6 +204,26 @@ function getWindowLeft(obj) {
   }
   return left;
 }
+
+var SettingsListener = {
+  observe: function sl_observe(name, defaultValue, callback) {
+    var settings = window.navigator.mozSettings;
+    if (!settings) {
+      window.setTimeout(function() { callback(defaultValue); });
+      return;
+    }
+
+    var req = settings.getLock().get(name);
+    req.addEventListener('success', (function onsuccess() {
+      callback(typeof(req.result[name]) != 'undefined' ?
+        req.result[name] : defaultValue);
+    }));
+
+    settings.addObserver(name, function settingChanged(evt) {
+      callback(evt.settingValue);
+    });
+  }
+};
 
 window.addEventListener('load', function initIMEManager(evt) {
   window.removeEventListener('load', initIMEManager);

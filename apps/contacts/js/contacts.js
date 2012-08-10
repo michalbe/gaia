@@ -1,6 +1,7 @@
 ﻿'use strict';
 
 var _ = navigator.mozL10n.get;
+var TAG_OPTIONS;
 
 function navigationStack(currentView) {
   var transitions = {
@@ -114,28 +115,6 @@ var Contacts = (function() {
     navigation.go('view-contact-form', 'right-left');
   }
 
-  var TAG_OPTIONS = {
-    'phone-type' : [
-      {value: _('mobile')},
-      {value: _('home')},
-      {value: _('work')},
-      {value: _('personal')},
-      {value: _('faxHome')},
-      {value: _('faxOffice')},
-      {value: _('faxOther')},
-      {value: _('another')}
-    ],
-    'email-type' : [
-      {value: _('personal')},
-      {value: _('home')},
-      {value: _('work')}
-    ],
-    'address-type' : [
-      {value: _('home')},
-      {value: _('work')}
-    ]
-  };
-
   var numberEmails = 0;
   var numberPhones = 0;
   var numberAddresses = 0;
@@ -162,7 +141,8 @@ var Contacts = (function() {
       saveButton,
       deleteContactButton,
       favoriteMessage,
-      cover;
+      cover,
+      thumb;
 
   var currentContact = {};
 
@@ -173,7 +153,8 @@ var Contacts = (function() {
     var hash = hasParams[0];
     var sectionId = hash.substr(1, hash.length) || '';
     var cList = contacts.List;
-    var params = extractParams(hasParams[1]);
+    var params = hasParams.length > 1 ?
+      extractParams(hasParams[1]) : -1;
 
     switch (sectionId) {
       case 'view-contact-details':
@@ -193,8 +174,6 @@ var Contacts = (function() {
 
       case 'view-contact-form':
         if (params == -1 || !('id' in params)) {
-          // Adding new Contact
-          currentContact = {};
           showAdd(params);
         } else {
           // Editing existing contact
@@ -205,16 +184,18 @@ var Contacts = (function() {
               showEdit();
             }, function onError() {
               console.log('Error retrieving contact to be edited');
-              currentContact = {};
               showAdd();
             });
           }
         }
         break;
 
-      default:
-        loadList();
     }
+
+    if (!contactsList.loaded) {
+      loadList();
+    }
+
   }
 
   var extractParams = function extractParams(url) {
@@ -251,20 +232,80 @@ var Contacts = (function() {
     customTag = document.getElementById('custom-tag');
     favoriteMessage = document.getElementById('toggle-favorite').children[0];
     cover = document.getElementById('cover-img');
+    thumb = document.getElementById('thumbnail-photo');
+    TAG_OPTIONS = {
+      'phone-type' : [
+        {value: _('mobile')},
+        {value: _('home')},
+        {value: _('work')},
+        {value: _('personal')},
+        {value: _('faxHome')},
+        {value: _('faxOffice')},
+        {value: _('faxOther')},
+        {value: _('another')}
+      ],
+      'email-type' : [
+        {value: _('personal')},
+        {value: _('home')},
+        {value: _('work')}
+      ],
+      'address-type' : [
+        {value: _('home')},
+        {value: _('work')}
+      ]
+    };
   };
 
-  window.addEventListener('load', function initContacts(evt) {
+  window.addEventListener('localized', function initContacts(evt) {
+    initLanguages();
     initContainers();
     initPullEffect(cover);
+    initContactsList();
     checkUrl();
     window.addEventListener('hashchange', checkUrl);
+    document.body.classList.remove('hide');
   });
 
-  var loadList = function loadList() {
+  var initContactsList = function initContactsList() {
     var list = document.getElementById('groups-list');
     contactsList.init(list);
-    contactsList.load();
+  }
 
+  var initLanguages = function initLanguages() {
+    document.documentElement.lang = navigator.mozL10n.language.code;
+    document.documentElement.dir = navigator.mozL10n.language.direction;
+  };
+
+  document.addEventListener('input', function input(event) {
+    checkDisableButton();
+  });
+
+  // When the cancel button inside the input is clicked
+  document.addEventListener('cancelInput', function() {
+    checkDisableButton();
+  });
+
+  var checkDisableButton = function checkDisable() {
+    var saveButton = document.getElementById('save-button');
+    if (emptyForm('contact-form')) {
+      saveButton.setAttribute('disabled', 'disabled');
+    } else {
+      saveButton.removeAttribute('disabled');
+    }
+  };
+
+  var emptyForm = function emptyForm(id) {
+    var form = document.getElementById(id);
+    var inputs = form.querySelectorAll('input.textfield');
+    for (var i = 0; i < inputs.length; i++) {
+      if (inputs[i].value != '')
+        return false;
+    }
+    return true;
+  }
+
+  var loadList = function loadList() {
+    contactsList.load();
     contactsList.handleClick(function handleClick(id) {
       var options = {
         filterBy: ['id'],
@@ -372,6 +413,19 @@ var Contacts = (function() {
       listContainer.appendChild(template);
     }
 
+    if (contact.bday) {
+      var bdayTemplate = document.getElementById('birthday-template-#i#');
+
+      // TODO: Fix this with a locale function for dates!!!!
+      var months = ['January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November',
+                    'December'];
+      var bdayString = contact.bday.getDate() + ', ' +
+                                            months[contact.bday.getMonth()];
+      var e = utils.templates.render(bdayTemplate, {bday: bdayString});
+      listContainer.appendChild(e);
+    }
+
     var selector = document.getElementById('address-details-template-#i#');
     var addressesTemplate = selector;
     if (contact.adr) {
@@ -380,7 +434,7 @@ var Contacts = (function() {
         // Sanity check
         if (isEmpty(currentAddress, ['streetAddress', 'postalCode',
           'locality', 'countryName'])) {
-          return;
+          continue;
         }
         var addressField = {
           streetAddress: currentAddress['streetAddress'] || '',
@@ -413,9 +467,7 @@ var Contacts = (function() {
       }
     }
 
-
-    var existsPhoto = 'photo' in contact && contact.photo;
-    if (existsPhoto) {
+    if (contact.photo && contact.photo.length > 0) {
       var detailsInner = document.getElementById('contact-detail-inner');
       contactDetails.classList.add('up');
       var photoOffset = (photoPos + 1) * 10;
@@ -424,7 +476,7 @@ var Contacts = (function() {
       } else {
         cover.style.overflow = null;
       }
-      cover.style.backgroundImage = 'url(' + (contact.photo || '') + ')';
+      updatePhoto(contact.photo[0], cover);
     } else {
       cover.style.overflow = null;
       cover.style.backgroundImage = null;
@@ -441,6 +493,9 @@ var Contacts = (function() {
     givenName.value = currentContact.givenName;
     familyName.value = currentContact.familyName;
     company.value = currentContact.org;
+    if (currentContact.photo && currentContact.photo.length > 0) {
+      updatePhoto(currentContact.photo[0], thumb);
+    }
     var default_type = TAG_OPTIONS['phone-type'][0].value;
     for (var tel in currentContact.tel) {
       var currentTel = currentContact.tel[tel];
@@ -520,14 +575,30 @@ var Contacts = (function() {
     edit();
   };
 
+  var updatePhoto = function updatePhoto(photo, dest) {
+    var photoURL = URL.createObjectURL(photo);
+    dest.style.backgroundImage = 'url(' + photoURL + ')';
+  };
+
+  // Checks if an object fields are empty, by empty means
+  // field is null and if it's an array it's length is 0
   var isEmpty = function isEmpty(obj, fields) {
     if (obj == null || typeof(obj) != 'object' ||
         !fields || !fields.length) {
       return true;
     }
+    var attr;
+    var isArray;
     for (var i = 0; i < fields.length; i++) {
-      if (obj.hasOwnProperty(fields[i]) && obj[fields[i]]) {
-        return false;
+      attr = fields[i];
+      if (obj.hasOwnProperty(attr) && obj[attr]) {
+        if (Array.isArray(obj[attr])) {
+          if (obj[attr].length > 0) {
+            return false;
+          }
+        } else {
+          return false;
+        }
       }
     }
     return true;
@@ -624,14 +695,12 @@ var Contacts = (function() {
     this.goBack();
   };
 
-  var sendSms = function sendSms() {
+  var sendSms = function sendSms(number) {
     if (!ActivityHandler.currentlyHandling)
-      SmsIntegration.sendSms(currentContact.tel[0].number);
+      SmsIntegration.sendSms(number);
   }
 
-  var callOrPick = function callOrPick() {
-    // FIXME: only handling 1 number
-    var number = currentContact.tel[0].number;
+  var callOrPick = function callOrPick(number) {
     if (ActivityHandler.currentlyHandling) {
       ActivityHandler.postPickSuccess(number);
     } else {
@@ -650,7 +719,11 @@ var Contacts = (function() {
   }
 
   var showAdd = function showAdd(params) {
+    if (!params || params == -1 || !('id' in params)) {
+      currentContact = {};
+    }
     resetForm();
+    saveButton.setAttribute('disabled', 'disabled');
     deleteContactButton.classList.add('hide');
     formTitle.innerHTML = _('addContact');
 
@@ -671,7 +744,7 @@ var Contacts = (function() {
     for (var i in paramsMapping) {
       paramsMapping[i].call(this, params[i] || 0);
     }
-
+    checkDisableButton();
     edit();
   };
 
@@ -727,23 +800,56 @@ var Contacts = (function() {
 
   var saveContact = function saveContact() {
     saveButton.setAttribute('disabled', 'disabled');
-    var name = [givenName.value] || [''];
-    var lastName = [familyName.value] || [''];
-    var org = [company.value] || [''];
     var myContact = {
       id: document.getElementById('contact-form-id').value,
-      givenName: name,
-      familyName: lastName,
       additionalName: '',
-      org: org,
-      name: name[0] + ' ' + lastName[0],
-      category: currentContact.category || []
+      name: ''
     };
+
+    var inputs = {
+      'givenName': givenName,
+      'familyName': familyName,
+      'org': company
+    };
+
+    for (field in inputs) {
+      var value = inputs[field].value;
+      if (value && value.length > 0) {
+        myContact[field] = [value];
+      } else {
+        myContact[field] = null;
+      }
+    }
+
+    var fields = ['photo', 'category'];
+
+    for (var i = 0; i < fields.length; i++) {
+      var currentField = fields[i];
+      if (currentContact[currentField]) {
+        myContact[currentField] = currentContact[currentField];
+      }
+    }
+
+    if (myContact.givenName || myContact.familyName) {
+      var name = myContact.givenName || '';
+      name += ' ';
+      if (myContact.familyName) {
+        name += myContact.familyName;
+      }
+      myContact.name = [name];
+    }
 
     getPhones(myContact);
     getEmails(myContact);
     getAddresses(myContact);
     getNotes(myContact);
+
+    // Use the isEmpty function to check fields but address
+    // and inspect address by it self.
+    if (isEmpty(myContact, ['givenName', 'familyName', 'org', 'tel',
+      'email', 'note', 'adr'])) {
+      return;
+    }
 
     var contact;
     if (myContact.id) { //Editing a contact
@@ -751,6 +857,7 @@ var Contacts = (function() {
       currentContact.email = [];
       currentContact.adr = [];
       currentContact.note = [];
+      currentContact.photo = [];
       for (var field in myContact) {
         currentContact[field] = myContact[field];
       }
@@ -770,15 +877,14 @@ var Contacts = (function() {
         myContact.id = savedContact.id;
         myContact.photo = savedContact.photo;
         myContact.category = savedContact.category;
+        contactsList.refresh(myContact);
         if (ActivityHandler.currentlyHandling) {
           ActivityHandler.postNewSuccess(myContact);
         } else {
-          contactsList.refresh(myContact);
           reloadContactDetails();
-          navigation.back();
         }
+        navigation.back();
       }, function onError() {
-        saveButton.removeAttribute('disabled');
         console.error('Error reloading contact');
         if (ActivityHandler.currentlyHandling) {
           ActivityHandler.postCancel();
@@ -852,6 +958,13 @@ var Contacts = (function() {
       var postalCode = document.getElementById(selector).value || '';
       selector = 'countryName_' + arrayIndex;
       var countryName = document.getElementById(selector).value || '';
+
+      // Sanity check for pameters, check all params but the typeField
+      if (addressValue == '' && locality == '' &&
+          postalCode == '' && countryName == '') {
+        continue;
+      }
+
       contact['adr'] = contact['adr'] || [];
       contact['adr'][i] = {
         streetAddress: addressValue,
@@ -940,6 +1053,7 @@ var Contacts = (function() {
     givenName.value = '';
     familyName.value = '';
     company.value = '';
+    thumb.style.backgroundImage = '';
     var phones = document.getElementById('contacts-form-phones');
     var emails = document.getElementById('contacts-form-emails');
     var addresses = document.getElementById('contacts-form-addresses');
@@ -980,6 +1094,84 @@ var Contacts = (function() {
     }
   };
 
+  var pickImage = function pickImage() {
+    var activity = new MozActivity({
+      name: 'pick',
+      data: {
+        type: 'image/jpeg'
+      }
+    });
+
+    var reopenApp = function reopen() {
+      navigator.mozApps.getSelf().onsuccess = function getSelfCB(evt) {
+        var app = evt.target.result;
+        app.launch();
+      };
+    };
+
+    activity.onsuccess = function success() {
+      reopenApp();
+      var currentImg = this.result.filename;
+      updateContactPhoto(currentImg);
+    }
+
+    activity.onerror = function error() {
+      reopenApp();
+    }
+  }
+
+  var updateContactPhoto = function updateContactPhoto(image) {
+    if (!navigator.getDeviceStorage) {
+      console.log('Device storage unavailable');
+      return;
+    }
+    var storageAreas = navigator.getDeviceStorage('pictures');
+    var storage = storageAreas[0] || storageAreas;
+    var request = storage.get(image);
+    request.onsuccess = function() {
+      var img = document.createElement('img');
+      var imgSrc = URL.createObjectURL(request.result);
+      img.src = imgSrc;
+      this.img = img;
+      img.onload = function() {
+        var dataImg = getPhoto(this.img);
+        updatePhoto(dataImg, thumb);
+        currentContact.photo = currentContact.photo || [];
+        currentContact.photo[0] = dataImg;
+      }.bind(this);
+    };
+    request.onerror = function() {
+      console.log('Error loading img');
+    };
+  }
+
+  var getPhoto = function getContactImg(contactImg) {
+    // Checking whether the image was actually loaded or not
+    var canvas = document.createElement('canvas');
+    var ratio = 2.5;
+    canvas.width = thumb.width * ratio;
+    canvas.height = thumb.height * ratio;
+    var ctx = canvas.getContext('2d');
+    var widthBigger = contactImg.width > contactImg.height;
+    var toCut = widthBigger ? 'width' : 'height';
+    var toScale = widthBigger ? 'height' : 'width';
+    var scaled = contactImg[toScale] / canvas[toScale];
+    var scaleValue = 1 / scaled;
+    ctx.scale(scaleValue, scaleValue);
+    var margin = ((contactImg[toCut] / scaled) - canvas[toCut]) / 2;
+
+    if (widthBigger) {
+      ctx.drawImage(contactImg, -margin, 0);
+    } else {
+      ctx.drawImage(contactImg, 0, -margin);
+    }
+    var filename = 'contact_' + new Date().getTime();
+    var ret = canvas.mozGetAsFile(filename);
+    contactImg = null;
+    canvas = null;
+    return ret;
+  }
+
   return {
     'showEdit' : showEdit,
     'doneTag': doneTag,
@@ -994,71 +1186,16 @@ var Contacts = (function() {
     'saveContact': saveContact,
     'toggleFavorite': toggleFavorite,
     'callOrPick': callOrPick,
-    'navigation': navigation
+    'pickImage': pickImage,
+    'navigation': navigation,
+    'updatePhoto': updatePhoto
   };
 })();
 
-var ActivityHandler = {
-  _currentActivity: null,
-
-  get currentlyHandling() {
-    return !!this._currentActivity;
-  },
-
-  get activityName() {
-    if (!this._currentActivity) {
-      return null;
-    }
-
-    return this._currentActivity.source.name;
-  },
-
-  handle: function ah_handle(activity) {
-    this._currentActivity = activity;
-
-    switch (this.activityName) {
-      case 'new':
-        document.location.hash = 'view-contact-form';
-        if (this._currentActivity.source.data.params) {
-          var param, params = [];
-          for (var i in this._currentActivity.source.data.params) {
-            param = this._currentActivity.source.data.params[i];
-            params.push(i + '=' + param);
-          }
-          document.location.hash += '?' + params.join('&');
-        }
-        break;
-      case 'pick':
-        Contacts.navigation.home();
-        break;
-    }
-  },
-
-  postNewSuccess: function ah_postNewSuccess(contact) {
-    this._currentActivity.postResult({contact: contact});
-    this._currentActivity = null;
-  },
-
-  postPickSuccess: function ah_postPickSuccess(number) {
-    this._currentActivity.postResult({ number: number });
-    this._currentActivity = null;
-  },
-
-  postCancel: function ah_postCancel() {
-    this._currentActivity.postError('canceled');
-    this._currentActivity = null;
-  }
-};
-
-// set the 'lang' and 'dir' attributes to <html> when the page is translated
-window.addEventListener('localized', function showPanel() {
-  document.documentElement.lang = navigator.mozL10n.language.code;
-  document.documentElement.dir = navigator.mozL10n.language.direction;
-  document.body.classList.remove('hide');
-});
-
-var actHandler = ActivityHandler.handle.bind(ActivityHandler);
-window.navigator.mozSetMessageHandler('activity', actHandler);
+if (window.navigator.mozSetMessageHandler) {
+  var actHandler = ActivityHandler.handle.bind(ActivityHandler);
+  window.navigator.mozSetMessageHandler('activity', actHandler);
+}
 
 document.addEventListener('mozvisibilitychange', function visibility(e) {
   if (document.mozHidden) {

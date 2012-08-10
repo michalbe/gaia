@@ -129,11 +129,14 @@ var photoFrames = $('photo-frames');
 var thumbnailListView = $('thumbnail-list-view');
 var thumbnailSelectView = $('thumbnail-select-view');
 var photoView = $('photo-view');
+var pickView = $('pick-view');
 var editView = $('edit-view');
 
 // These are the top-level view objects.
 // This array is used by setView()
-var views = [thumbnailListView, thumbnailSelectView, photoView, editView];
+var views = [
+  thumbnailListView, thumbnailSelectView, photoView, pickView, editView
+];
 var currentView;
 
 // These three divs hold the previous, current and next photos
@@ -165,36 +168,99 @@ var languageDirection;
 // Each array element is an object that includes a filename and metadata
 var images = [];
 
-var photodb = new MediaDB('pictures', metadataParser, {
-  indexes: ['metadata.date'],
-  mimeTypes: ['image/jpeg', 'image/png']
+// The MediaDB object that manages the filesystem and the database of metadata
+// See initPhotoDB()
+var photodb;
+
+
+// The localized event is the main entry point for the app.
+// We don't do anything until we receive it.
+window.addEventListener('localized', function showBody() {
+  // Set the 'lang' and 'dir' attributes to <html> when the page is translated
+  document.documentElement.lang = navigator.mozL10n.language.code;
+  document.documentElement.dir = navigator.mozL10n.language.direction;
+
+  // <body> children are hidden until the UI is translated
+  document.body.classList.remove('hidden');
+
+  try {
+    photodb = initPhotoDB();
+
+    // Start off in thumbnail list view, unless there is a pending activity
+    // request message. In that case, the message handler will set the
+    // initial view
+    if (!navigator.mozHasPendingMessage('activity'))
+      setView(thumbnailListView);
+
+    // Register a handler for activities
+    navigator.mozSetMessageHandler('activity', webActivityHandler);
+  }
+  catch (e) {
+    if (e.message == 'nosdcard') {
+      // XXX eventually we want to distinguish the nocard case
+      // from the cardinuse case.
+      showOverlay('nocard');
+    }
+    else // something else went wrong
+      throw e;
+  }
 });
 
-photodb.onready = function() {
-  createThumbnailList();  // Display thumbnails for the images we know about
-  photodb.scan();         // Go look for more.
 
-  // Since DeviceStorage doesn't send notifications yet, we're going
-  // to rescan the files every time our app becomes visible again.
-  // This means that if we switch to camera and take a photo, then when
-  // we come back to gallery we should be able to find the new photo.
-  // Eventually DeviceStorage will do notifications and MediaDB will
-  // report them so we don't need to do this.
-  document.addEventListener('mozvisibilitychange', function visibilityChange() {
-    if (!document.mozHidden) {
-      photodb.scan();
+
+function initPhotoDB() {
+
+  // If there is no SD card installed, this will throw an error.
+  var db = new MediaDB('pictures', metadataParser, {
+      indexes: ['metadata.date'],
+      mimeTypes: ['image/jpeg', 'image/png']
+    });
+
+  db.onready = function() {
+    createThumbnailList();  // Display thumbnails for the images we know about
+    scan();
+
+    // Since DeviceStorage doesn't send notifications yet, we're going
+    // to rescan the files every time our app becomes visible again.
+    // This means that if we switch to camera and take a photo, then when
+    // we come back to gallery we should be able to find the new photo.
+    // Eventually DeviceStorage will do notifications and MediaDB will
+    // report them so we don't need to do this.
+    document.addEventListener('mozvisibilitychange', function vc() {
+        if (!document.mozHidden) {
+          scan();
+        }
+      });
+  };
+
+  db.onchange = function(type, files) {
+    if (type === 'deleted') {
+      files.forEach(imageDeleted);
     }
-  });
-};
+    else if (type === 'created') {
+      files.forEach(imageCreated);
+    }
+  };
 
-photodb.onchange = function(type, files) {
-  if (type === 'deleted') {
-    files.forEach(function(f) { imageDeleted(f); });
-  }
-  else if (type === 'created') {
-    files.forEach(function(f) { imageCreated(f); });
-  }
-};
+  return db;
+}
+
+function scan() {
+  //
+  // XXX: is it too intrusive to display the scan overlay every time?
+  //
+  // Can I do it on first launch only and after that
+  // display some smaller scanning indicator that does not prevent
+  // the user from using the app right away?
+  //
+  showOverlay('scanning');   // Tell the user we're scanning
+  photodb.scan(function() {  // Run this function when scan is complete
+    if (images.length === 0)
+      showOverlay('nopix');
+    else
+      showOverlay(null);     // Hide the overlay
+  });
+}
 
 function imageDeleted(fileinfo) {
   // Find the deleted file in our images array
@@ -230,8 +296,14 @@ function imageDeleted(fileinfo) {
   // If we're in single photo display mode, then the only way this function,
   // gets called is when we delete the currently displayed photo.  This means
   // that we need to redisplay.
-  if (currentView === photoView) {
+  if (currentView === photoView && images.length > 0) {
     showPhoto(currentPhotoIndex);
+  }
+
+  // If there are no more photos show the "no pix" overlay
+  if (images.length === 0) {
+    setView(thumbnailListView);
+    showOverlay('nopix');
   }
 }
 
@@ -248,9 +320,13 @@ function deleteImage(n) {
 function imageCreated(fileinfo) {
   var insertPosition;
 
+  // If we were showing the 'no pictures' overlay, hide it
+  if (currentOverlay === 'nopix')
+    showOverlay(null);
+
   // If this new image is newer than the first one, it goes first
   // This is the most common case for photos, screenshots, and edits
-  if (fileinfo.date > images[0].date)
+  if (images.length === 0 || fileinfo.date > images[0].date)
     insertPosition = 0;
   else {
     // Otherwise we have to search for the right insertion spot
@@ -342,11 +418,11 @@ function setView(view) {
   // In particular, we've got to move the thumbnails list into each view
   switch (view) {
   case thumbnailListView:
-    view.appendChild(thumbnails);
+    thumbnailListView.appendChild(thumbnails);
     thumbnails.style.width = '';
     break;
   case thumbnailSelectView:
-    view.appendChild(thumbnails);
+    thumbnailSelectView.appendChild(thumbnails);
     thumbnails.style.width = '';
     // Set the view header to a localized string
     updateSelectionState();
@@ -361,7 +437,10 @@ function setView(view) {
     // XXX: avoid using hardcoded 50px per image?
     thumbnails.style.width = (images.length * 50) + 'px';
     break;
-
+  case pickView:
+    pickView.appendChild(thumbnails);
+    thumbnails.style.width = '';
+    break;
   case editView:
     // We don't display the thumbnails in edit view.
     // the editPhoto() function does the necessary setup and
@@ -379,11 +458,6 @@ function createThumbnailList() {
   photodb.enumerate('metadata.date', null, 'prev', function(imagedata) {
     if (imagedata === null) // No more images
       return;
-
-    // If this is the first image we've found,
-    // remove the 'no images' message
-    if (images.length === 0)
-      $('nophotos').classList.add('hidden');
 
     images.push(imagedata);                             // remember the image
     var thumbnail = createThumbnail(images.length - 1); // create its thumbnail
@@ -408,23 +482,65 @@ function createThumbnail(imagenum) {
 }
 
 //
-// Event handlers
+// Web Activities
 //
 
-// Wait for the "localized" event before displaying the document content
-window.addEventListener('localized', function showBody() {
-  // Set the 'lang' and 'dir' attributes to <html> when the page is translated
-  document.documentElement.lang = navigator.mozL10n.language.code;
-  document.documentElement.dir = navigator.mozL10n.language.direction;
+// Register this with navigator.mozSetMessageHandler
+function webActivityHandler(activityRequest) {
+  if (pendingPick)
+    cancelPick();
 
-  // <body> children are hidden until the UI is translated
-  document.body.classList.remove('hidden');
+  var activityName = activityRequest.source.name;
 
-  // Start off in thumbnail list view.
-  // XXX: if we're invoked by a web activity, we may want to
-  // start in some different mode
+  switch (activityName) {
+  case 'browse':
+    // The 'browse' activity is just the way we launch the app
+    // There's nothing else to do here.
+    setView(thumbnailListView);
+    break;
+  case 'pick':
+    startPick(activityRequest);
+    break;
+  }
+}
+
+var pendingPick;
+
+function startPick(activityRequest) {
+  pendingPick = activityRequest;
+  setView(pickView);
+}
+
+function finishPick(filename) {
+  pendingPick.postResult({
+    type: 'image/jpeg',
+    filename: filename
+  });
+  pendingPick = null;
   setView(thumbnailListView);
+}
+
+function cancelPick() {
+  pendingPick.postError('pick cancelled');
+  pendingPick = null;
+  setView(thumbnailListView);
+}
+
+// XXX
+// If the user goes to the homescreen or switches to another app
+// the pick request is implicitly cancelled
+// Remove this code when https://github.com/mozilla-b2g/gaia/issues/2916
+// is fixed and replace it with an onerror handler on the activity to
+// switch out of pickView.
+window.addEventListener('mozvisiblitychange', function() {
+  if (document.mozHidden && pendingPick)
+    cancelPick();
 });
+
+
+//
+// Event handlers
+//
 
 // Each of the photoFrame <div> elements may be subject to animated
 // transitions. So give them transitionend event handlers that
@@ -441,8 +557,10 @@ nextPhotoFrame.addEventListener('transitionend', removeTransition);
 // This will generate tap, pan, swipe and transform events
 new GestureDetector(photoFrames).startDetecting();
 
-// Clicking on a thumbnail displays the photo
-// FIXME: add a transition here
+// Clicking on a thumbnail does different things depending on the view.
+// In thumbnail list mode, it displays the image. In thumbanilSelect mode
+// it selects the image. In pick mode, it finishes the pick activity
+// with the image filename
 thumbnails.addEventListener('click', function thumbnailsClick(evt) {
   var target = evt.target;
   if (!target || !target.classList.contains('thumbnail'))
@@ -454,6 +572,9 @@ thumbnails.addEventListener('click', function thumbnailsClick(evt) {
   else if (currentView === thumbnailSelectView) {
     target.classList.toggle('selected');
     updateSelectionState();
+  }
+  else if (currentView === pickView) {
+    finishPick(images[parseInt(target.dataset.index)].name);
   }
 });
 
@@ -489,6 +610,30 @@ $('thumbnails-select-button').onclick = function() {
 $('thumbnails-cancel-button').onclick = function() {
   setView(thumbnailListView);
 };
+
+// Clicking on the pick cancel button cancels the pick activity, which sends
+// us back to thumbail list view
+$('pick-cancel-button').onclick = function() {
+  cancelPick();
+};
+
+// The camera buttons should both launch the camera app
+$('photos-camera-button').onclick =
+  $('thumbnails-camera-button').onclick = function() {
+    var a = new MozActivity({
+      name: 'record',
+      data: {
+        type: 'photos'
+      }
+    });
+    a.onsuccess = function() {
+      console.log('camera launch success:', JSON.stringify(a));
+    }
+    a.onerror = function() {
+      console.log('camera launch error:', JSON.stringify(a));
+    }
+  };
+
 
 // Clicking on the delete button in thumbnail select mode deletes all
 // selected photos
@@ -1121,9 +1266,13 @@ var editSettings;
 var imageEditor;
 
 var editOptionButtons =
-  Array.slice($('edit-options').querySelectorAll('a.button'), 0);
+  Array.slice($('edit-options').querySelectorAll('a.radio.button'), 0);
+
+var editBgImageButtons =
+  Array.slice($('edit-options').querySelectorAll('a.bgimage.button'), 0);
 
 editOptionButtons.forEach(function(b) { b.onclick = editOptionsHandler; });
+
 
 function editPhoto(n) {
   editedPhotoIndex = n;
@@ -1134,9 +1283,8 @@ function editPhoto(n) {
       x: 0, y: 0, w: images[n].metadata.width, h: images[n].metadata.height
     },
     gamma: 1,
-    effect: 'none',
     borderWidth: 0,
-    borderColor: '#fff'
+    borderColor: [0, 0, 0, 0]
   };
 
   // Start looking up the image file
@@ -1145,13 +1293,21 @@ function editPhoto(n) {
     // preview image and all the buttons that need it.
     editedPhotoURL = URL.createObjectURL(file);
 
+    // Create the image editor object
+    // This has to come after setView or the canvas size is wrong.
     imageEditor = new ImageEditor(editedPhotoURL,
                                   $('edit-preview-area'),
                                   editSettings);
 
+    // Configure the exposure tool as the first one shown
+    setEditTool('exposure');
+
+    // Set the exposure slider to its default value
+    exposureSlider.setExposure(0);
+
     // Set the background for all of the image buttons
     var backgroundImage = 'url(' + editedPhotoURL + ')';
-    editOptionButtons.forEach(function(b) {
+    editBgImageButtons.forEach(function(b) {
       b.style.backgroundImage = backgroundImage;
     });
   });
@@ -1159,38 +1315,48 @@ function editPhoto(n) {
   // Display the edit screen
   setView(editView);
 
-  // Configure the exposure tool as the first one shown
-  setEditTool('exposure');
-
-  // Set the exposure slider to its default value
-  exposureSlider.setExposure(0);
 
   // Set the default option buttons to correspond to those edits
   editOptionButtons.forEach(function(b) { b.classList.remove('selected'); });
+  $('edit-crop-aspect-free').classList.add('selected');
   $('edit-effect-none').classList.add('selected');
   $('edit-border-none').classList.add('selected');
-
 }
 
-// Effects and border buttons call this
+// Crop, Effect and border buttons call this
 function editOptionsHandler() {
   // First, unhighlight all buttons in this group and then
   // highlight the button that has just been chosen. These
   // buttons have radio behavior
   var parent = this.parentNode;
-  var buttons = parent.querySelectorAll('a.button');
+  var buttons = parent.querySelectorAll('a.radio.button');
   Array.forEach(buttons, function(b) { b.classList.remove('selected'); });
   this.classList.add('selected');
 
-  if (this.dataset.effect)
-    editSettings.effect = this.dataset.effect;
-  if (this.dataset.borderWidth) {
-    editSettings.borderWidth = parseFloat(this.dataset.borderWidth);
+  if (this === $('edit-crop-aspect-free'))
+    imageEditor.setCropAspectRatio();
+  else if (this === $('edit-crop-aspect-portrait'))
+    imageEditor.setCropAspectRatio(2, 3);
+  else if (this === $('edit-crop-aspect-landscape'))
+    imageEditor.setCropAspectRatio(3, 2);
+  else if (this === $('edit-crop-aspect-square'))
+    imageEditor.setCropAspectRatio(1, 1);
+  else if (this.dataset.effect) {
+    editSettings.matrix = ImageProcessor[this.dataset.effect + '_matrix'];
+    imageEditor.edit();
   }
-  if (this.dataset.borderColor) {
-    editSettings.borderColor = this.dataset.borderColor;
+  else {
+    if (this.dataset.borderWidth) {
+      editSettings.borderWidth = parseFloat(this.dataset.borderWidth);
+    }
+    if (this.dataset.borderColor === 'white') {
+      editSettings.borderColor = [1, 1, 1, 1];
+    }
+    else if (this.dataset.borderColor === 'black') {
+      editSettings.borderColor = [0, 0, 0, 1];
+    }
+    imageEditor.edit();
   }
-  imageEditor.edit(editSettings);
 }
 
 /*
@@ -1282,7 +1448,7 @@ $('exposure-slider').onchange = function() {
   var factor = -1;  // XXX: adjust this factor to get something reasonable.
   var gamma = Math.pow(2, stops * factor);
   editSettings.gamma = gamma;
-  imageEditor.edit(editSettings);
+  imageEditor.edit();
 };
 
 function setEditTool(tool) {
@@ -1292,11 +1458,23 @@ function setEditTool(tool) {
   var options = $('edit-options').querySelectorAll('div.edit-options-bar');
   Array.forEach(options, function(o) { o.classList.add('hidden'); });
 
+  // If we were in crop mode, perform the crop and then
+  // exit crop mode. If the user tapped the Crop button then we'll go
+  // right back into crop mode, but this means that the Crop button both
+  // acts as a mode switch button and a "do the crop now" button.
+  imageEditor.cropImage();
+  imageEditor.hideCropOverlay();
+
   // Now select and show the correct set based on tool
   switch (tool) {
   case 'exposure':
     $('edit-exposure-button').classList.add('selected');
     $('exposure-slider').classList.remove('hidden');
+    break;
+  case 'crop':
+    $('edit-crop-button').classList.add('selected');
+    $('edit-crop-options').classList.remove('hidden');
+    imageEditor.showCropOverlay();
     break;
   case 'effect':
     $('edit-effect-button').classList.add('selected');
@@ -1310,8 +1488,19 @@ function setEditTool(tool) {
 }
 
 $('edit-exposure-button').onclick = function() { setEditTool('exposure'); };
+$('edit-crop-button').onclick = function() { setEditTool('crop'); };
 $('edit-effect-button').onclick = function() { setEditTool('effect'); };
 $('edit-border-button').onclick = function() { setEditTool('border'); };
+$('edit-crop-none').onclick = function() {
+  // Switch to free-form cropping
+  Array.forEach($('edit-crop-options').querySelectorAll('a.radio.button'),
+                function(b) { b.classList.remove('selected'); });
+  $('edit-crop-aspect-free').classList.add('selected');
+  imageEditor.setCropAspectRatio(); // freeform
+
+  // And revert to full-size image
+  imageEditor.undoCrop();
+};
 
 function exitEditMode(saved) {
   // Revoke the blob URL we've been using
@@ -1319,7 +1508,7 @@ function exitEditMode(saved) {
   editedPhotoURL = null;
 
   // close the editor object
-  imageEditor.close();
+  imageEditor.destroy();
   imageEditor = null;
 
   // We came in to edit mode from photoView.  If the user cancels the edit
@@ -1345,7 +1534,7 @@ function exitEditMode(saved) {
 // change event when we manually add something to it or at least have that
 // option
 $('edit-save-button').onclick = function() {
-  imageEditor.getFullSizeBlob(editSettings, 'image/jpeg', function(blob) {
+  imageEditor.getFullSizeBlob('image/jpeg', function(blob) {
 
     var original = images[editedPhotoIndex].name;
     var basename, extension, filename;
@@ -1383,3 +1572,34 @@ $('edit-save-button').onclick = function() {
     exitEditMode(true);
   });
 };
+
+//
+// Overlay messages
+//
+var currentOverlay;  // The id of the current overlay or null if none.
+
+//
+// If id is null then hide the overlay. Otherwise, look up the localized
+// text for the specified id and display the overlay with that text.
+// Supported ids include:
+//
+//   nocard: no sdcard is installed in the phone
+//   cardinuse: the sdcard is being used by USB mass storage
+//   nopix: no pictures found
+//   scanning: the app is scanning for new photos
+//
+// Localization is done using the specified id with "-title" and "-text"
+// suffixes.
+//
+function showOverlay(id) {
+  currentOverlay = id;
+
+  if (id === null) {
+    $('overlay').classList.add('hidden');
+    return;
+  }
+
+  $('overlay-title').textContent = navigator.mozL10n.get(id + '-title');
+  $('overlay-text').textContent = navigator.mozL10n.get(id + '-text');
+  $('overlay').classList.remove('hidden');
+}

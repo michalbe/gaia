@@ -5,7 +5,7 @@
 
 var StatusBar = {
   /* Timeout for 'recently active' indicators */
-  ACTIVE_INDICATOR_TIMEOUT: 60 * 1000,
+  kActiveIndicatorTimeout: 60 * 1000,
 
   /* Whether or not status bar is actively updating or not */
   active: true,
@@ -16,16 +16,36 @@ var StatusBar = {
   /* Keep the DOM element references here */
   icons: {},
 
-  wifiConnected: false,
+  /* A mapping table between technology names
+     we would get from API v.s. the icon we want to show. */
+  mobileDataIconTypes: {
+    'lte': '4G', // 4G LTE
+    'ehrpd': '4G', // 4G CDMA
+    'hspa+': 'H+', // 3.5G HSPA+
+    'hsdpa': 'H', 'hsupa': 'H', 'hspa': 'H', // 3.5G HSDPA
+    'evdo0': '3G', 'evdoa': '3G', 'evdob': '3G', '1xrtt': '3G', // 3G CDMA
+    'umts': '3G', // 3G
+    'edge': 'E', // EDGE
+    'is95a': '2G', 'is95b': '2G', // 2G CDMA
+    'gprs': '2G'
+  },
 
   geolocationActive: false,
   geolocationTimer: null,
+
+  /* For other app to acquire */
+  get height() {
+    if (this.screen.classList.contains('active-statusbar'))
+      return this.attentionBar.offsetHeight;
+    else
+      return this.element.offsetHeight;
+  },
 
   init: function sb_init() {
     this.getAllElements();
 
     var settings = {
-      'ril.radio.disabled': ['signal', 'data', 'voicemail'],
+      'ril.radio.disabled': ['signal', 'data'],
       'ril.data.enabled': ['data'],
       'wifi.enabled': ['wifi'],
       'bluetooth.enabled': ['bluetooth'],
@@ -73,14 +93,11 @@ var StatusBar = {
 
       case 'voicechange':
         this.update.signal.call(this);
+        this.update.label.call(this);
         break;
 
       case 'datachange':
         this.update.data.call(this);
-        break;
-
-      case 'statuschanged':
-        this.update.voicemail.call(this);
         break;
 
       case 'mozChromeEvent':
@@ -127,13 +144,6 @@ var StatusBar = {
         // connected or not here.
         this.update.bluetooth.call(this);
       }
-
-      var voicemail = window.navigator.mozVoicemail;
-      if (voicemail) {
-        voicemail.addEventListener('statuschanged', this);
-        this.update.voicemail.call(this);
-      }
-
     } else {
       clearTimeout(this._clockTimer);
 
@@ -149,25 +159,51 @@ var StatusBar = {
         conn.removeEventListener('voicechange', this);
         conn.removeEventListener('datachange', this);
       }
-
-      var voicemail = window.navigator.mozVoicemail;
-      if (voicemail) {
-        voicemail.removeEventListener('statuschanged', this);
-      }
     }
   },
 
   update: {
+    label: function sb_updateLabel() {
+      var conn = window.navigator.mozMobileConnection;
+      var label = this.icons.label;
+      var l10nArgs = JSON.parse(label.dataset.l10nArgs || '{}');
+
+      if (!conn.voice || !conn.voice.connected ||
+          conn.voice.emergencyCallsOnly) {
+        delete l10nArgs.operator;
+        label.dataset.l10nArgs = JSON.stringify(l10nArgs);
+
+        label.dataset.l10nId = '';
+        label.textContent = l10nArgs.date;
+
+        return;
+      }
+
+      l10nArgs.operator = conn.voice.network.shortName;
+      label.dataset.l10nArgs = JSON.stringify(l10nArgs);
+
+      label.dataset.l10nId = 'statusbarLabel';
+      label.textContent = navigator.mozL10n.get('statusbarLabel', l10nArgs);
+    },
+
     time: function sb_updateTime() {
       // Schedule another clock update when a new minute rolls around
       var now = new Date();
       var sec = now.getSeconds();
+      window.clearTimeout(this._clockTimer);
       this._clockTimer =
         window.setTimeout((this.update.time).bind(this), (59 - sec) * 1000);
 
       // XXX: respect clock format in Settings,
       // but drop the AM/PM part according to spec
       this.icons.time.textContent = now.toLocaleFormat('%R');
+
+      var label = this.icons.label;
+      var l10nArgs = JSON.parse(label.dataset.l10nArgs || '{}');
+      // XXX: respect date format in Settings
+      l10nArgs.date = now.toLocaleFormat('%e %B');
+      label.dataset.l10nArgs = JSON.stringify(l10nArgs);
+      this.update.label.call(this);
     },
 
     battery: function sb_updateBattery() {
@@ -190,27 +226,32 @@ var StatusBar = {
       var voice = conn.voice;
       var icon = this.icons.signal;
       var flightModeIcon = this.icons.flightMode;
-      var connLabel = this.icons.conn;
       var _ = navigator.mozL10n.get;
 
       if (this.settingValues['ril.radio.disabled']) {
+        // "Airplane Mode"
         icon.hidden = true;
-        connLabel.hidden = true;
         flightModeIcon.hidden = false;
         return;
       }
 
       flightModeIcon.hidden = true;
+      icon.hidden = false;
 
       icon.dataset.roaming = voice.roaming;
       if (!voice.connected && !voice.emergencyCallsOnly) {
-        icon.hidden = true;
-        connLabel.hidden = false;
-        connLabel.dataset.l10nId = 'searching';
-        connLabel.textContent = _('searching') || '';
+        // "No Network" / "Searching"
+        icon.dataset.level = -1;
+
+        // Possible value of voice.state are
+        // 'notSearching', 'searching', 'denied', 'registered',
+        // where the later three means the phone is trying to grabbing
+        // the network. See
+        // https://bugzilla.mozilla.org/show_bug.cgi?id=777057
+        icon.dataset.searching = (voice.state !== 'notSearching');
+
       } else {
-        icon.hidden = false;
-        connLabel.hidden = true;
+        // "Emergency Calls Only (REASON)" / "Carrier" / "Carrier (Roaming)"
         icon.dataset.level = Math.floor(voice.relSignalStrength / 20); // 0-5
       }
     },
@@ -225,102 +266,60 @@ var StatusBar = {
 
       if (this.settingValues['ril.radio.disabled'] ||
           !this.settingValues['ril.data.enabled'] ||
-          this.wifiConnected || !data.connected) {
+          !this.icons.wifi.hidden || !data.connected) {
         icon.hidden = true;
 
         return;
       }
 
       icon.hidden = false;
-      var type = '';
-
-      switch (data.type) {
-        case 'lte':
-          type = 'LTE';
-          break;
-
-        // This icon is not used
-        // type = '4G';
-        //  break;
-
-        // 3.5G, show them as 3G
-        case 'hsdpa':
-        case 'hsupa':
-        case 'hspa+':
-
-        // CDMA 3G
-        case 'evdo0':
-        case 'evdoa':
-        case 'evdob':
-        case '1xrtt':
-
-        // 3G
-        case 'umts':
-          type = '3G';
-          break;
-
-        case 'edge':
-          type = 'EDGE';
-          break;
-
-        // CDMA 2G
-        case 'is95a':
-        case 'is95b':
-
-        // 2G
-        case 'gprs':
-        default:
-          type = '2G';
-      }
-
-      icon.dataset.type = type;
+      icon.dataset.type =
+        this.mobileDataIconTypes[data.type] || 'circle';
     },
 
 
-    wifi: function sb_updateWifi(evt) {
+    wifi: function sb_updateWifi() {
       var wifiManager = window.navigator.mozWifiManager;
       if (!wifiManager)
         return;
 
       var icon = this.icons.wifi;
+      var wasHidden = icon.hidden;
 
       if (!this.settingValues['wifi.enabled']) {
         icon.hidden = true;
-
-        var updateData = this.wifiConnected;
-        this.wifiConnected = false;
-        if (updateData)
+        if (!wasHidden)
           this.update.data.call(this);
 
         return;
       }
 
-      var connected = !!wifiManager.connection.network;
-      var updateData = (this.wifiConnected !== connected);
+      switch (wifiManager.connection.status) {
+        case 'disconnected':
+          icon.hidden = true;
 
-      this.wifiConnected = connected;
-      if (updateData)
+          break;
+
+        case 'connecting':
+        case 'associated':
+          icon.hidden = false;
+          icon.dataset.connecting = true;
+          icon.dataset.level = 0;
+
+          break;
+
+        case 'connected':
+          icon.hidden = false;
+
+          var relSignalStrength =
+            wifiManager.connectionInformation.relSignalStrength;
+          icon.dataset.level = Math.floor(relSignalStrength / 25);
+
+          break;
+      }
+
+      if (icon.hidden !== wasHidden)
         this.update.data.call(this);
-
-      if (!this.wifiConnected) {
-        icon.hidden = true;
-        return;
-      }
-
-      icon.hidden = false;
-      var relSignalStrength = 0;
-      if (evt && evt.relSignalStrength) {
-        relSignalStrength = evt.relSignalStrength;
-      } else if (wifiManager.connectionInformation &&
-                 wifiManager.connectionInformation.relSignalStrength) {
-        relSignalStrength =
-          wifiManager.connectionInformation.relSignalStrength;
-      } else {
-        console.error(
-          'Status Bar: WIFI is connected but signal strength is unknown.');
-      }
-
-      icon.dataset.level = Math.floor(relSignalStrength / 25);
     },
 
     tethering: function sb_updateTethering() {
@@ -340,6 +339,7 @@ var StatusBar = {
 
       // XXX no way to active state of BlueTooth for now,
       // make it always active
+      // https://github.com/mozilla-b2g/gaia/issues/2664
       icon.dataset.active = 'true';
     },
 
@@ -354,57 +354,42 @@ var StatusBar = {
 
     recording: function sb_updateRecording() {
       // XXX no way to probe active state of microphone and camera
+      // https://github.com/mozilla-b2g/gaia/issues/2336
+
       // this.icon.recording.hidden = ?
       // this.icon.recording.dataset.active = ?;
     },
 
     sms: function sb_updateSms() {
-      // TBD
+      // We are not going to show this for v1
+
       // this.icon.sms.hidden = ?
       // this.icon.sms.dataset.num = ?;
     },
 
-    voicemail: function sb_updateVoicemail() {
-      var voicemail = window.navigator.mozVoicemail;
-      if (!voicemail) {
-        return;
-      }
-
-      var status = voicemail.status;
-      if (!status) {
-        return;
-      }
-
-      var showCount = status.hasMessages && status.messageCount > 0;
-      this.icons.voicemail.hidden = !status.hasMessages;
-      this.icons.voicemail.dataset.showNum = showCount;
-
-      if (showCount) {
-        this.icons.voicemail.dataset.num = status.messageCount;
-      }
-
-      Voicemail.updateNotification(status);
-    },
-
     geolocation: function sb_updateGeolocation() {
-      if (this.geolocationTimer) {
-        window.clearTimeout(this.geolocationTimer);
-        this.geolocationTimer = null;
-      }
+      window.clearTimeout(this.geolocationTimer);
+
+      var icon = this.icons.geolocation;
+      icon.dataset.active = this.geolocationActive;
+
       if (this.geolocationActive) {
-        this.icons.geolocation.hidden = false;
-        this.icons.geolocation.dataset.active = true;
-      } else {
-        this.icons.geolocation.dataset.active = false;
-        this.geolocationTimer = window.setTimeout((function() {
-          this.geolocationTimer = null;
-          this.icons.geolocation.hidden = true;
-        }).bind(this), this.ACTIVE_INDICATOR_TIMEOUT);
+        // Geolocation is currently active, show the active icon.
+        icon.hidden = false;
+        return;
       }
+
+      // Geolocation is currently inactive.
+      // Show the inactive icon and hide it after kActiveIndicatorTimeout
+      this.geolocationTimer = window.setTimeout(function hideGeoIcon() {
+        icon.hidden = true;
+      }, this.kActiveIndicatorTimeout);
     },
 
     usb: function sb_updateUsb() {
       // XXX no way to probe active state of USB mess storage right now
+      // https://github.com/mozilla-b2g/gaia/issues/2333
+
       // this.icon.usb.hidden = ?
     }
   },
@@ -427,9 +412,9 @@ var StatusBar = {
   getAllElements: function sb_getAllElements() {
     // ID of elements to create references
     var elements = ['notification', 'time',
-    'battery', 'wifi', 'data', 'flight-mode', 'conn', 'signal',
+    'battery', 'wifi', 'data', 'flight-mode', 'signal',
     'tethering', 'alarm', 'bluetooth', 'mute',
-    'recording', 'sms', 'voicemail', 'geolocation', 'usb'];
+    'recording', 'sms', 'geolocation', 'usb', 'label'];
 
     var toCamelCase = function toCamelCase(str) {
       return str.replace(/\-(.)/g, function replacer(str, p1) {
@@ -441,6 +426,10 @@ var StatusBar = {
       this.icons[toCamelCase(name)] =
         document.getElementById('statusbar-' + name);
     }).bind(this));
+
+    this.element = document.getElementById('statusbar');
+    this.screen = document.getElementById('screen');
+    this.attentionBar = document.getElementById('attention-bar');
   }
 };
 

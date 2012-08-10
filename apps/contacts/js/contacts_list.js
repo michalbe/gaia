@@ -6,6 +6,7 @@ contacts.List = (function() {
   var groupsList,
       favoriteGroup,
       inSearchMode = false,
+      loaded = false,
       cancel = document.getElementById('cancel-search'),
       conctactsListView = document.getElementById('view-contacts-list'),
       searchBox = document.getElementById('search-contact'),
@@ -17,14 +18,12 @@ contacts.List = (function() {
     groupsList.addEventListener('click', onClickHandler);
 
     // Populating contacts by groups
-    var alphabet = [{group: 'favorites', letter: ''}];
+    renderGroupHeader('favorites', '');
     for (var i = 65; i <= 90; i++) {
       var letter = String.fromCharCode(i);
-      alphabet.push({group: letter, letter: letter});
+      renderGroupHeader(letter, letter);
     }
-    alphabet.push({group: 'und', letter: '#'});
-
-    utils.templates.append(groupsList, alphabet);
+    renderGroupHeader('und', '#');
     favoriteGroup = document.getElementById('group-favorites').parentNode;
   }
 
@@ -36,50 +35,160 @@ contacts.List = (function() {
 
     getContactsByGroup(onError, contacts);
     getFavorites();
+    this.loaded = true;
   };
 
-  var iterateOverGroup = function iterateOverGroup(group, contacts) {
-    if (contacts.length === 0)
-      return;
+  var renderGroupHeader = function renderGroupHeader(group, letter) {
+    var li = document.createElement('li');
+    var title = document.createElement('h2');
+    title.id = 'group-' + group;
+    title.className = 'block-title hide';
+    title.innerHTML = '<abbr title="Contacts listed ' + group + '">';
+    title.innerHTML += letter + '</abbr>';
+    var contactsContainer = document.createElement('ol');
+    contactsContainer.id = 'contacts-list-' + group;
+    contactsContainer.dataset.group = group;
+    li.appendChild(title);
+    li.appendChild(contactsContainer);
+    groupsList.appendChild(li);
+  }
 
-    var container = groupsList.querySelector('#contacts-list-' + group);
-    if (container) {
-      utils.templates.append(container, contacts);
-      showGroup(group);
+  var renderContact = function renderContact(contact) {
+    contact.givenName = contact.givenName || '';
+    contact.familyName = contact.familyName || '';
+    contact.org = contact.org || '';
+    var contactContainer = document.createElement('li');
+    contactContainer.className = 'block-item';
+    contactContainer.dataset.uuid = contact.id;
+    var link = document.createElement('a');
+    link.href = '#';
+    link.className = 'item';
+    var figure = document.createElement('figure');
+    figure.className = 'item-media pull-right block-media';
+    var img = document.createElement('img');
+    if (contact.photo && contact.photo.length > 0) {
+      Contacts.updatePhoto(contact.photo[0], img);
     }
-  };
+    figure.appendChild(img);
+    link.appendChild(figure);
+    var body = document.createElement('p');
+    body.className = 'item-body';
+    var name = document.createElement('strong');
+    name.className = 'block-name';
+    name.innerHTML = contact.givenName;
+    name.innerHTML += ' <b>' + contact.familyName + '</b>';
+    var searchInfo = [];
+    var searchable = ['givenName', 'familyName', 'org'];
+    searchable.forEach(function(field) {
+      if (contact[field] && contact[field][0]) {
+        searchInfo.push(contact[field][0]);
+      }
+    });
+    body.dataset['search'] = normalizeText(searchInfo.join(' '));
+    body.appendChild(name);
+    var small = document.createElement('small');
+    small.className = 'block-company';
+    small.textContent = contact.org;
+    body.appendChild(small);
 
+    // Label the contact concerning social networks
+    if (contact.category) {
+      var marks = buildSocialMarks(contact.category);
+      if (marks.length > 0) {
+        if (!contact.org) {
+          marks[0].classList.add('notorg');
+        }
+        marks.forEach(function(mark) {
+          body.appendChild(mark);
+        });
+      }
+    }
+
+    link.appendChild(body);
+    contactContainer.appendChild(link);
+    return contactContainer;
+  }
+
+  function buildSocialMarks(category) {
+    var marks = [];
+    if (category.indexOf('facebook') !== -1) {
+      marks.push(markAsFb(createSocialMark()));
+    }
+
+    if (category.indexOf('twitter') !== -1) {
+      marks.push(markAsTw(createSocialMark()));
+    }
+
+    return marks;
+  }
+
+  function createSocialMark() {
+    var span = document.createElement('span');
+    span.classList.add('icon-social');
+
+    return span;
+  }
+
+  function markAsFb(ele) {
+    ele.classList.add('icon-fb');
+
+    return ele;
+  }
+
+  function markAsTw(ele) {
+    ele.classList.add('icon-tw');
+
+    return ele;
+  }
+
+  var getSimContacts = function getSimContacts() {
+    var container = groupsList.parentNode; // #groups-container
+    var button = document.createElement('button');
+    button.setAttribute('class', 'simContacts action action-add');
+    button.textContent = _('simContacts-import');
+    container.appendChild(button);
+
+    button.onclick = function readFromSIM() {
+      // replace the button with a throbber
+      container.removeChild(button);
+      var span = document.createElement('span');
+      span.textContent = _('simContacts-importing');
+      var small = document.createElement('small');
+      small.textContent = _('simContacts-reading');
+      var throbber = document.createElement('p');
+      throbber.className = 'simContacts';
+      throbber.appendChild(span);
+      throbber.appendChild(small);
+      container.appendChild(throbber);
+
+      // import SIM contacts
+      importSIMContacts(
+          function onread() {
+            small.textContent = _('simContacts-storing');
+          },
+          function onimport() {
+            container.removeChild(throbber);
+            getContactsByGroup();
+          },
+          function onerror() {
+            container.removeChild(throbber);
+            console.log('Error reading SIM contacts.');
+          }
+      );
+    };
+  }
 
   var buildContacts = function buildContacts(contacts) {
-    var group = null;
-
-    var count = contacts.length;
-    if (count > 0) {
-      group = getGroupName(contacts[0]);
+    for (var i = 0; i < contacts.length; i++) {
+      var group = getGroupName(contacts[i]);
+      var listContainer = document.getElementById('contacts-list-' + group);
+      var newContact = renderContact(refillContactData(contacts[i]));
+      listContainer.appendChild(newContact);
+      showGroup(group);
     }
-
-    var ret = [];
-    for (var i = 0; i < count; i++) {
-      var letter = getGroupName(contacts[i]);
-
-      if (letter === group) {
-        ret.push(contacts[i]);
-        continue;
-      }
-
-      iterateOverGroup(group, ret);
-      ret = [contacts[i]];
-      group = letter;
-    }
-
-    if (ret.length > 0) {
-      iterateOverGroup(group, ret);
-    }
+    var selector = 'h2.block-title:not(.hide)';
+    FixedHeader.init('#groups-container', '#fixed-container', selector);
   };
-
-  var buildFavorites = function buildFavorites(favorites) {
-    iterateOverGroup('favorites', favorites);
-  }
 
   var getFavorites = function getFavorites() {
     var options = {
@@ -91,13 +200,17 @@ contacts.List = (function() {
     };
 
     var request = navigator.mozContacts.find(options);
+    var group = 'contacts-list-favorites';
+    var container = document.getElementById(group);
     request.onsuccess = function favoritesCallback() {
       //request.result is an object, transform to an array
-      var result = [];
-      for (var i in request.result) {
-        result.push(request.result[i]);
+      if (request.result.length > 0) {
+        showGroup('favorites');
       }
-      buildFavorites(result);
+      for (var i in request.result) {
+        var newContact = renderContact(request.result[i]);
+        container.appendChild(newContact);
+      }
     }
   };
 
@@ -114,7 +227,11 @@ contacts.List = (function() {
 
     var request = navigator.mozContacts.find(options);
     request.onsuccess = function findCallback() {
-      buildContacts(request.result);
+      if (request.result.length === 0) {
+        getSimContacts();
+      } else {
+        buildContacts(request.result);
+      }
     };
 
     request.onerror = errorCb;
@@ -146,7 +263,7 @@ contacts.List = (function() {
 
     addToGroup(contact, list);
 
-    if (list.children.length === 2) {
+    if (list.children.length === 1) {
       // template + new record
       showGroup(group);
     }
@@ -156,19 +273,37 @@ contacts.List = (function() {
       list = document.getElementById('contacts-list-favorites');
       addToGroup(contact, list);
 
-      if (list.children.length === 2) {
+      if (list.children.length === 1) {
         showGroup('favorites');
       }
     }
+    FixedHeader.refresh();
+  }
+
+  // Fills the contact data to display if no givenName and familyName
+  var refillContactData = function refillContactData(contact) {
+    if (!contact.givenName && !contact.familyName) {
+      if (contact.tel && contact.tel.length > 0) {
+        contact.givenName = contact.tel[0].number;
+      } else if (contact.email && contact.email.length > 0) {
+        contact.givenName = contact.email[0].address;
+      } else {
+        contact.givenName = _('noName');
+      }
+    }
+
+    return contact;
   }
 
   var addToGroup = function addToGroup(contact, list) {
     var newLi;
     var cName = getStringToBeOrdered(contact);
 
+    refillContactData(contact);
+
     var liElems = list.getElementsByTagName('li');
     var len = liElems.length;
-    for (var i = 1; i < len; i++) {
+    for (var i = 0; i < len; i++) {
       var liElem = liElems[i];
       var familyName = liElem.querySelector('strong > b').textContent.trim();
       var givenName = liElem.querySelector('strong');
@@ -178,14 +313,15 @@ contacts.List = (function() {
         givenName: [givenName]
       });
       if (name >= cName) {
-        newLi = utils.templates.render(liElems[0], contact);
+        newLi = renderContact(contact);
         list.insertBefore(newLi, liElem);
         break;
       }
     }
 
     if (!newLi) {
-      utils.templates.append(list, contact);
+      newLi = renderContact(contact);
+      list.appendChild(newLi);
     }
 
     return list.children.length;
@@ -206,7 +342,7 @@ contacts.List = (function() {
     Array.prototype.forEach.call(items, function removeItem(item) {
       var ol = item.parentNode;
       ol.removeChild(item);
-      if (ol.children.length === 1) {
+      if (ol.children.length === 0) {
         // Only template
         hideGroup(ol.dataset.group);
       }
@@ -216,8 +352,15 @@ contacts.List = (function() {
   var getStringToBeOrdered = function getStringToBeOrdered(contact) {
     var ret = [];
 
-    ret.push(contact.familyName ? contact.familyName[0] : '');
-    ret.push(contact.givenName ? contact.givenName[0] : '');
+    ret.push(contact.familyName && contact.familyName.length > 0 ?
+      contact.familyName[0] : '');
+    ret.push(contact.givenName && contact.givenName.length > 0 ?
+      contact.givenName[0] : '');
+    ret.push(contact.tel && contact.tel.length > 0 ?
+      contact.tel[0].number : '');
+    ret.push(contact.email && contact.email.length > 0 ?
+      contact.email[0].address : '');
+    ret.push('#');
 
     return ret.join('');
   }
@@ -278,6 +421,7 @@ contacts.List = (function() {
 
   var exitSearchMode = function exitSearchMode() {
     cancel.classList.add('hide');
+    searchNoResult.classList.add('hide');
     conctactsListView.classList.remove('searching');
     searchBox.value = '';
     inSearchMode = false;
@@ -311,18 +455,17 @@ contacts.List = (function() {
 
   var search = function performSearch() {
 
-    var pattern = new RegExp(searchBox.value, 'i');
+    var pattern = new RegExp(normalizeText(searchBox.value), 'i');
     var count = 0;
 
     var allContacts = getContactsDom();
     for (var i = 0; i < allContacts.length; i++) {
       var contact = allContacts[i];
       contact.classList.add('search');
-      var text = contact.querySelector('.item-body').textContent;
+      var text = contact.querySelector('.item-body').dataset['search'];
       if (!pattern.test(text)) {
         contact.classList.add('hide');
-      }
-       else {
+      } else {
         contact.classList.remove('hide');
         count++;
       }
@@ -363,5 +506,6 @@ contacts.List = (function() {
     'search': search,
     'enterSearchMode': enterSearchMode,
     'exitSearchMode': exitSearchMode,
+    'loaded': loaded
   };
 })();
