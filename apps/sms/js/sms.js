@@ -264,7 +264,7 @@ var ThreadListUI = {
     return this.view = document.getElementById('thread-list-container');
   },
   get selectAllButton() {
-    delete this.selectAllButton;
+    //delete this.selectAllButton;
     return this.selectAllButton = document.getElementById('select-all-threads');
   },
   get deselectAllButton() {
