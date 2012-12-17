@@ -78,7 +78,8 @@ var ModalDialog = {
         var frameType = evt.target.dataset.frameType;
         if (frameType != 'window' && frameType != 'inline-activity')
           return;
-
+        
+        console.log('EDT', evt.detail.type);
         /* fatal case (App crashing) is handled in Window Manager */
         // XXX: Before https://bugzilla.mozilla.org/show_bug.cgi?id=816452 is
         // confirmed and fixed, display the gecko error page instead of

@@ -1416,7 +1416,7 @@ var WindowManager = (function() {
 
     var origin = e.target.dataset.frameOrigin;
     var manifestURL = e.target.getAttribute('mozapp');
-
+      console.log('kraszło!', e.stack);
     if (e.target.dataset.frameType == 'inline-activity') {
       stopInlineActivity();
       handleAppCrash(origin, manifestURL);
@@ -1545,7 +1545,7 @@ var WindowManager = (function() {
         searchName = features.search.name.replace(regExp, ' ');
         searchURL = decodeURIComponent(features.search.url);
       }
-    } catch (ex) { }
+    } catch (ex) {}
 
     // If we don't reuse an existing app, open a brand new one
     var frame;
@@ -1572,7 +1572,7 @@ var WindowManager = (function() {
       var app = appendFrame(frame, origin, url, title, {
         'name': title
       }, null);
-
+      
       // Set the window name in order to reuse this app if we try to open
       // a new window with same name
       app.windowName = name;
