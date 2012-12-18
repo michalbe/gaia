@@ -278,15 +278,21 @@ var UIManager = {
       window.location.hash = '#languages';
 
     };
-    req.onerror = function sp_unlockError() {
+    
+    /*
+    req.onerror = function sp_unlockError(data) {
       // TODO Include same error handling as in Settings
       document.getElementById('sim-pin').classList.add('onerror');
       document.getElementById('sim-pin').value = '';
+      console.log('qweqwetezd');
+      console.log('qwe', JSON.stringify(data));
+      console.log('qweqwe', data.retryCount);
       document.getElementById('fake-sim-pin').value = '';
-      var retry = (req.result && req.result.retryCount) ?
-        parseInt(req.result.retryCount, 10) : -1;
+      var retry = (data.result && data.result.retryCount) ?
+        parseInt(data.result.retryCount, 10) : -1;
       document.getElementById('pin_error').innerHTML = 'Error ' + retry;
     };
+    */
   },
 
   chooseNetwork: function ui_cn(event) {
