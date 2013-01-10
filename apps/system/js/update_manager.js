@@ -472,6 +472,7 @@ var UpdateManager = {
 
     if (detail.type && detail.type === 'update-available') {
       this.systemUpdatable.size = detail.size;
+      this.systemUpdatable.persistKnownUpdate();
       this.addToUpdatesQueue(this.systemUpdatable);
     }
   },

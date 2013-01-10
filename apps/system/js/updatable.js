@@ -128,6 +128,11 @@ function SystemUpdatable() {
   this.size = 0;
   this.downloading = false;
   this.paused = false;
+
+  this.ifKnownUpdate(function() {
+    UpdateManager.checkForUpdates(true);
+  });
+
   window.addEventListener('mozChromeEvent', this);
 }
 
@@ -202,6 +207,9 @@ SystemUpdatable.prototype.errorCallBack = function() {
 SystemUpdatable.prototype.showApplyPrompt = function() {
   var _ = navigator.mozL10n.get;
 
+  // Update will be complited after restart
+  this.forgetKnownUpdate();
+
   var cancel = {
     title: _('later'),
     callback: this.declineInstall.bind(this)
@@ -227,6 +235,25 @@ SystemUpdatable.prototype.declineInstall = function() {
 SystemUpdatable.prototype.acceptInstall = function() {
   CustomDialog.hide();
   this._dispatchEvent('update-prompt-apply-result', 'restart');
+};
+
+SystemUpdatable.prototype.persistKnownUpdate = function() {
+  asyncStorage.setItem('sysupdate-available-not-declined', true);
+};
+
+SystemUpdatable.prototype.ifKnownUpdate = function(callback) {
+  if (typeof callback !== 'function') {
+    return;
+  }
+  asyncStorage.getItem('sysupdate-available-not-declined', function(value) {
+    if (value) {
+      callback();
+    }
+  });
+};
+
+SystemUpdatable.prototype.forgetKnownUpdate = function() {
+  asyncStorage.removeItem('sysupdate-available-not-declined');
 };
 
 SystemUpdatable.prototype._dispatchEvent = function(type, result) {
