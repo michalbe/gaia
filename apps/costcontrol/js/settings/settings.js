@@ -1,4 +1,3 @@
-
 /*
  * Settings is in charge of setup the setting section. It uses an AutoSettings
  * object to automatically bind markup with local settings.
@@ -14,6 +13,7 @@ var Settings = (function() {
   var costcontrol, vmanager, autosettings, initialized;
   var plantypeSelector, phoneActivityTitle, phoneActivitySettings;
   var balanceTitle, balanceSettings, reportsTitle;
+
   function configureUI() {
     CostControl.getInstance(function _onCostControl(instance) {
       costcontrol = instance;
@@ -44,26 +44,17 @@ var Settings = (function() {
       ConfigManager.observe('plantype', updateUI, true);
 
       // Update views
-      ConfigManager.observe('lastTelephonyActivity',
-        function _updateTelephony(activity, old, key, settings) {
-          updateTelephony(activity, settings.lastTelephonyReset);
-        },
-        true
-      );
+      ConfigManager.observe('lastTelephonyActivity', function _updateTelephony(activity, old, key, settings) {
+        updateTelephony(activity, settings.lastTelephonyReset);
+      }, true);
 
-      ConfigManager.observe('lastDataUsage',
-        function _updateDataUsage(stats, old, key, settings) {
-          updateDataUsage(stats, settings.lastDataReset);
-        },
-        true
-      );
+      ConfigManager.observe('lastDataUsage', function _updateDataUsage(stats, old, key, settings) {
+        updateDataUsage(stats, settings.lastDataReset);
+      }, true);
 
-      ConfigManager.observe('lastBalance',
-        function _updateBalance(balance) {
-          updateBalance(balance, balance.currency);
-        },
-        true
-      );
+      ConfigManager.observe('lastBalance', function _updateBalance(balance) {
+        updateBalance(balance, balance.currency);
+      }, true);
 
       function _updateNextReset(value, old, key, settings) {
         updateNextReset(settings.trackingPeriod, settings.resetTime);
@@ -89,7 +80,7 @@ var Settings = (function() {
       src.innerHTML = xhr.responseText;
       var reference = document.getElementById('plantype-settings');
       var parent = reference.parentNode;
-      [].forEach.call(src.childNodes, function (node) {
+      [].forEach.call(src.childNodes, function(node) {
         reference = parent.insertBefore(node, reference.nextSibling);
       });
     }
@@ -129,8 +120,8 @@ var Settings = (function() {
       vmanager.closeCurrentView();
     });
 
-    // Cancel reset
-    var cancel = dialog.querySelector('.close-dialog');
+    // temporary solution untill views' dependencies will be refactored
+    var cancel = dialog.querySelector('.close-reset-dialog');
     cancel.addEventListener('click', function _onCancelReset() {
       vmanager.closeCurrentView();
     });
@@ -186,7 +177,9 @@ var Settings = (function() {
       }
 
       // Views
-      var requestObj = { type: 'datausage' };
+      var requestObj = {
+        type: 'datausage'
+      };
       costcontrol.request(requestObj, function _onDataStats(result) {
         var stats = result.data;
         updateDataUsage(stats, settings.lastDataReset);
@@ -247,8 +240,7 @@ var Settings = (function() {
       unit: 'SMS'
     });
     var timestamp = document.getElementById('telephony-timestamp');
-    timestamp.innerHTML = formatTimeHTML(lastTelephonyReset,
-                                         activity.timestamp);
+    timestamp.innerHTML = formatTimeHTML(lastTelephonyReset, activity.timestamp);
   }
 
   return {
@@ -257,3 +249,11 @@ var Settings = (function() {
   };
 
 }());
+
+var close = document.getElementById('close-settings');
+close.addEventListener('click', function() {
+  CostControlApp.getSettingsVManager().closeCurrentView();
+});
+
+// temporary solution untill views' dependencies will be refactored
+Settings.initialize();

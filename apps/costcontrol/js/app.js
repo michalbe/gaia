@@ -13,6 +13,7 @@ var CostControlApp = (function() {
 
   // XXX: This is the point of entry, check common.js for more info
   waitForDOMAndMessageHandler(window, onReady);
+  var settingsVManager;
 
   var vmanager;
   var costcontrol, initialized = false;
@@ -60,12 +61,13 @@ var CostControlApp = (function() {
     }
   });
 
-  var tabmanager, settingsVManager;
+  var tabmanager;
   function setupApp() {
     // View managers for dialogs and settings
     tabmanager = new ViewManager(
       ['balance-tab', 'telephony-tab', 'datausage-tab']
     );
+
     settingsVManager = new ViewManager();
 
     // Configure settings
@@ -77,21 +79,6 @@ var CostControlApp = (function() {
         });
       }
     );
-
-    var close = document.getElementById('close-settings');
-    close.addEventListener('click', function _onClose() {
-      settingsVManager.closeCurrentView();
-    });
-
-    Settings.initialize();
-
-    // Configure dialogs
-    var closeButtons = document.querySelectorAll('.close-dialog');
-    [].forEach.call(closeButtons, function(closeButton) {
-      closeButton.addEventListener('click', function() {
-        vmanager.closeCurrentView();
-      });
-    });
 
     // Handle 'open activity' sent by the user via the widget
     navigator.mozSetMessageHandler('activity',
@@ -149,25 +136,32 @@ var CostControlApp = (function() {
     }
   }
 
+  function mainScreenTabsInit() {
+    ConfigManager.requestSettings(function _onSettings(settings) {
+      var mode = costcontrol.getApplicationMode(settings);
+      currentMode = mode;
+      DataUsageTab.initialize(tabmanager);
+      if (mode === 'PREPAID') {
+        TelephonyTab.finalize();
+        BalanceTab.initialize(tabmanager, vmanager);
+      } else if (mode === 'POSTPAID') {
+        BalanceTab.finalize();
+        TelephonyTab.initialize(tabmanager);
+      }
+    });
+  }
+
   var currentMode;
   function updateUI() {
     ConfigManager.requestSettings(function _onSettings(settings) {
       var mode = costcontrol.getApplicationMode(settings);
       debug('App UI mode: ', mode);
 
+      mainScreenTabsInit();
+
       // Layout
       if (mode !== currentMode) {
         currentMode = mode;
-
-        // Initialize on demand
-        DataUsageTab.initialize(tabmanager);
-        if (mode === 'PREPAID') {
-          TelephonyTab.finalize();
-          BalanceTab.initialize(tabmanager, vmanager);
-        } else if (mode === 'POSTPAID') {
-          BalanceTab.finalize();
-          TelephonyTab.initialize(tabmanager);
-        }
 
         // Stand alone mode when data usage only
         if (mode === 'DATA_USAGE_ONLY') {
@@ -198,10 +192,14 @@ var CostControlApp = (function() {
     });
   }
 
+  // temporary solution untill we will refactor this code
   return {
-    showBalanceTab: function _showBalanceTab () {
+    getSettingsVManager: function _getSettingsVManager() {
+      return settingsVManager;
+    },
+    showBalanceTab: function _showBalanceTab() {
       tabmanager.changeViewTo('balance-tab');
-    }
+    },
+    mainScreenTabsInit: mainScreenTabsInit
   };
-
 }());

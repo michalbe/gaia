@@ -26,11 +26,16 @@ var BalanceTab = (function() {
       tabmanager = tmgr;
       vmanager = vmgr;
 
+      // we need to load topUpDialog to get elements from inside
+      // it should be a separate function run on startup of the module
+      // after HTML is generated
+      topUpDialog = document.getElementById('topup-dialog');
+      vmanager.loadPanel(topUpDialog);
+
       // HTML entities
       view = document.getElementById('balance-tab');
       updateButton = document.getElementById('balance-tab-update-button');
       sendCode = document.getElementById('topup-send-button');
-      topUpDialog = document.getElementById('topup-dialog');
       topUpUSSD = document.getElementById('balance-tab-topup-ussd-button');
       topUp = document.getElementById('balance-tab-topup-button');
       topUpCodeInput = document.getElementById('topup-code-input');
@@ -360,7 +365,7 @@ var BalanceTab = (function() {
     'no_coverage': { priority: 2, string: 'no-coverage-error-message' },
     'topup_timeout': { priority: 3, string: 'top-up-timed-out' },
     'balance_error': { priority: 4, string: 'balance-error-message' },
-    'non_free_in_roaming': { priority: 4, string: 'on-roaming-message' },
+    'non_free_in_roaming': { priority: 4, string: 'on-roaming-message' }
   };
   var currentError = '';
 
@@ -389,3 +394,5 @@ var BalanceTab = (function() {
     finalize: finalize
   };
 }());
+
+CostControlApp.mainScreenTabsInit();
