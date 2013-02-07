@@ -1,3 +1,4 @@
+
 /*
  * The data usage tab is in charge of usage charts of mobile and wi-fi networks.
  *
@@ -137,6 +138,7 @@ var DataUsageTab = (function() {
   }
 
   // UPDATES
+
   // On visibility change
   function updateWhenVisible(evt) {
     if (!document.mozHidden) {
@@ -145,9 +147,7 @@ var DataUsageTab = (function() {
   }
 
   function requestDataUsage() {
-    var requestObj = {
-      type: 'datausage'
-    };
+    var requestObj = { type: 'datausage' };
     costcontrol.request(requestObj, updateCharts);
   }
 
@@ -265,7 +265,6 @@ var DataUsageTab = (function() {
 
   // Expand the model with some computed values
   var today = toMidnight(new Date());
-
   function expandModel(base) {
 
     // Update today
@@ -293,8 +292,8 @@ var DataUsageTab = (function() {
     };
 
     // Y max value
-    base.axis.Y.maxValue = Math.max(base.limits.value, 
-                                    base.data.mobile.total, 
+    base.axis.Y.maxValue = Math.max(base.limits.value,
+                                    base.data.mobile.total,
                                     base.data.wifi.total);
 
     // Y axis projection function and automatic values
@@ -363,7 +362,6 @@ var DataUsageTab = (function() {
   }
 
   var todayLabel = {};
-
   function drawTodayLayer(model) {
     var canvas = document.getElementById('today-layer');
     var height = canvas.height = model.height;
@@ -406,8 +404,7 @@ var DataUsageTab = (function() {
     // Start drawing Y axis
     var step = model.axis.Y.step;
     var dataStep = model.axis.Y.upper - model.axis.Y.maxValue;
-    var offsetX = model.originX / 2,
-        marginBottom = 4;
+    var offsetX = model.originX / 2, marginBottom = 4;
     var fontsize = 14;
     ctx.font = '500 ' + fontsize + 'px Arial';
     ctx.textAlign = 'center';
@@ -433,7 +430,8 @@ var DataUsageTab = (function() {
 
       lastUnit = u;
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = (value === model.limits.value) && model.limits.enabled ? '#b50202' : '#6a6a6a';
+      ctx.fillStyle = (value === model.limits.value) && model.limits.enabled ?
+                      '#b50202' : '#6a6a6a';
       ctx.fillText(label, offsetX, y);
     }
 
@@ -447,7 +445,8 @@ var DataUsageTab = (function() {
     ctx.textBaseline = 'top';
     ctx.textAlign = 'start';
 
-    var isBelowToday = todayLabel.x0 <= model.originX + ctx.measureText(leftTag).width;
+    var isBelowToday = todayLabel.x0 <=
+                       model.originX + ctx.measureText(leftTag).width;
     if (!isBelowToday) {
       ctx.fillText(leftTag, model.originX, model.originY + marginTop);
     }
@@ -456,7 +455,8 @@ var DataUsageTab = (function() {
     var rightTag = dateFormatter.localeFormat(model.axis.X.upper, dateFormat);
     ctx.textAlign = 'end';
 
-    isBelowToday = todayLabel.x1 >= model.endX - ctx.measureText(rightTag).width;
+    isBelowToday = todayLabel.x1 >=
+                   model.endX - ctx.measureText(rightTag).width;
     if (!isBelowToday) {
       ctx.fillText(rightTag, model.endX, model.originY + marginTop);
     }
@@ -476,7 +476,8 @@ var DataUsageTab = (function() {
     var fontsize = 12;
     var marginLeft = 4;
     var marginTop = 1;
-    var offsetY = set ? Math.floor(model.axis.Y.get(model.limits.value)) : fontsize + 2 * marginTop;
+    var offsetY = set ? Math.floor(model.axis.Y.get(model.limits.value)) :
+                        fontsize + 2 * marginTop;
 
     // The dashed limit line
     var lineLength = 15;
@@ -484,7 +485,7 @@ var DataUsageTab = (function() {
     ctx.strokeStyle = color;
     ctx.beginPath();
     for (var x = model.originX, y = offsetY - 0.5;
-    x < model.endX; x += gapLength) {
+         x < model.endX; x += gapLength) {
       ctx.moveTo(x, y);
       ctx.lineTo(Math.min(x += lineLength, model.endX), y);
     }
@@ -507,10 +508,8 @@ var DataUsageTab = (function() {
     ctx.strokeStyle = '#8b9052';
     ctx.lineWidth = 2;
     ctx.moveTo(model.originX, model.originY);
-    var sum = 0;
-    var x, y, slopeX;
-    var lastX = model.originX,
-        lastY = model.axis.Y.get(sum);
+    var sum = 0; var x, y, slopeX;
+    var lastX = model.originX, lastY = model.axis.Y.get(sum);
     for (var i = 0, len = samples.length; i < len; i++) {
 
       var sample = samples[i];
@@ -583,10 +582,8 @@ var DataUsageTab = (function() {
     ctx.strokeStyle = '#762d4a';
     ctx.lineWidth = 2;
 
-    var sum = 0;
-    var x, y, slopeX;
-    var lastX = model.originX,
-        lastY = model.axis.Y.get(sum);
+    var sum = 0; var x, y, slopeX;
+    var lastX = model.originX, lastY = model.axis.Y.get(sum);
     for (var i = 0, len = samples.length; i < len; i++) {
       var sample = samples[i];
       if (sample.value == undefined) {
@@ -643,11 +640,14 @@ var DataUsageTab = (function() {
     // Warning mode
     if (mobileUsage <= model.limits.value) {
       var limitValue = Math.floor(model.axis.Y.get(model.limits.value));
-      var warningValue = Math.round(model.axis.Y.get(model.limits.warningValue));
+      var warningValue =
+        Math.round(model.axis.Y.get(model.limits.warningValue));
       ctx.beginPath();
       ctx.fillStyle = 'rgba(255, 112, 0, 0.5)';
       ctx.fillRect(
-      model.originX, limitValue, model.axis.X.len + 0.5, warningValue - limitValue);
+        model.originX, limitValue,
+        model.axis.X.len + 0.5, warningValue - limitValue
+      );
 
       return;
     }
@@ -657,7 +657,9 @@ var DataUsageTab = (function() {
     ctx.beginPath();
     ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
     ctx.fillRect(
-    model.originX, 0, model.axis.X.len + 0.5, limitValue);
+      model.originX, 0,
+      model.axis.X.len + 0.5, limitValue
+    );
   }
 
   return {

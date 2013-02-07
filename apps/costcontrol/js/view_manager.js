@@ -41,7 +41,9 @@ ViewManager.prototype.changeViewTo = function _changeViewTo(viewId, callback) {
   // Note here how we set the same value with different semantincs.
   // This is used at the end of the function and the names are the correct
   // because, depending on if the view is a tab or not, semantics may change.
-  previousViewId = currentViewId = this._currentView ? this._currentView.id : null;
+  previousViewId = currentViewId = 
+    this._currentView ? this._currentView.id : null;
+    
   var isTab = this._isTab(viewId);
 
   // Tabs are treated in a different way than overlay views
@@ -49,16 +51,18 @@ ViewManager.prototype.changeViewTo = function _changeViewTo(viewId, callback) {
     // Hide all
     for (var tabId in this._tabs) if (this._tabs.hasOwnProperty(tabId)) {
       document.getElementById(tabId).dataset.viewport = 'behind';
-      document.getElementById(tabId + '-filter').setAttribute('aria-selected', 'false');
+      document.getElementById(tabId + '-filter')
+        .setAttribute('aria-selected', 'false');
     }
 
     // Show the proper one
     view.dataset.viewport = '';
-    document.getElementById(viewId + '-filter').setAttribute('aria-selected', 'true');
+    document.getElementById(viewId + '-filter')
+      .setAttribute('aria-selected', 'true');
 
     this._currentTab = viewId;
 
-    // Overlay view
+  // Overlay view
   } else {
     var previousViewId = this._currentView ? this._currentView.id : '';
     this._currentView = {
