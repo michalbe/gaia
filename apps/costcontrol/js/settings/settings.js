@@ -44,17 +44,26 @@ var Settings = (function() {
       ConfigManager.observe('plantype', updateUI, true);
 
       // Update views
-      ConfigManager.observe('lastTelephonyActivity', function _updateTelephony(activity, old, key, settings) {
-        updateTelephony(activity, settings.lastTelephonyReset);
-      }, true);
+      ConfigManager.observe('lastTelephonyActivity',
+        function _updateTelephony(activity, old, key, settings) {
+          updateTelephony(activity, settings.lastTelephonyReset);
+        },
+        true
+      );
 
-      ConfigManager.observe('lastDataUsage', function _updateDataUsage(stats, old, key, settings) {
-        updateDataUsage(stats, settings.lastDataReset);
-      }, true);
+      ConfigManager.observe('lastDataUsage',
+        function _updateDataUsage(stats, old, key, settings) {
+          updateDataUsage(stats, settings.lastDataReset);
+        },
+        true
+      );
 
-      ConfigManager.observe('lastBalance', function _updateBalance(balance) {
-        updateBalance(balance, balance.currency);
-      }, true);
+      ConfigManager.observe('lastBalance',
+        function _updateBalance(balance) {
+          updateBalance(balance, balance.currency);
+        },
+        true
+      );
 
       function _updateNextReset(value, old, key, settings) {
         updateNextReset(settings.trackingPeriod, settings.resetTime);
@@ -240,7 +249,10 @@ var Settings = (function() {
       unit: 'SMS'
     });
     var timestamp = document.getElementById('telephony-timestamp');
-    timestamp.innerHTML = formatTimeHTML(lastTelephonyReset, activity.timestamp);
+    timestamp.innerHTML = formatTimeHTML(
+      lastTelephonyReset,
+      activity.timestamp
+    );
   }
 
   return {

@@ -41,9 +41,9 @@ ViewManager.prototype.changeViewTo = function _changeViewTo(viewId, callback) {
   // Note here how we set the same value with different semantincs.
   // This is used at the end of the function and the names are the correct
   // because, depending on if the view is a tab or not, semantics may change.
-  previousViewId = currentViewId = 
+  previousViewId = currentViewId =
     this._currentView ? this._currentView.id : null;
-    
+
   var isTab = this._isTab(viewId);
 
   // Tabs are treated in a different way than overlay views
