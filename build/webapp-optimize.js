@@ -37,7 +37,9 @@ const JS_AGGREGATION_BLACKLIST = [
   // https://bugzilla.mozilla.org/show_bug.cgi?id=839454
   'communications',
   // https://bugzilla.mozilla.org/show_bug.cgi?id=839574
-  'system'
+  'system',
+  
+  'costcontrol'
 ];
 
 /**

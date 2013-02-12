@@ -29,16 +29,16 @@ var BalanceTab = (function() {
       // we need to load topUpDialog to get elements from inside
       // it should be a separate function run on startup of the module
       // after HTML is generated
-      topUpDialog = document.getElementById('topup-dialog');
-      vmanager.loadPanel(topUpDialog);
+      // topUpDialog = document.getElementById('topup-dialog');
+      // sendCode = document.getElementById('topup-send-button');
+      // topUpUSSD = document.getElementById('balance-tab-topup-ussd-button');
+      // topUp = document.getElementById('balance-tab-topup-button');
+      // topUpCodeInput = document.getElementById('topup-code-input');
+      //vmanager.loadPanel(topUpDialog);
 
       // HTML entities
       view = document.getElementById('balance-tab');
       updateButton = document.getElementById('balance-tab-update-button');
-      sendCode = document.getElementById('topup-send-button');
-      topUpUSSD = document.getElementById('balance-tab-topup-ussd-button');
-      topUp = document.getElementById('balance-tab-topup-button');
-      topUpCodeInput = document.getElementById('topup-code-input');
 
       window.addEventListener('localized', localize);
 
@@ -54,15 +54,6 @@ var BalanceTab = (function() {
       ConfigManager.observe('lowLimit', toogleLimits, true);
       ConfigManager.observe('lastBalance', onBalance, true);
       ConfigManager.observe('errors', onBalanceTimeout, true);
-
-      // Configure top up
-      topUpUSSD.addEventListener('click', topUpWithUSSD);
-      topUp.addEventListener('click', topUpWithCode);
-      topUpCodeInput.addEventListener('input', toogleSend);
-      sendCode.addEventListener('click', requestTopUp);
-      ConfigManager.observe('waitingForTopUp', onConfirmation, true);
-      ConfigManager.observe('errors', onTopUpErrors, true);
-      toogleSend();
 
       updateUI();
       initialized = true;
@@ -86,16 +77,34 @@ var BalanceTab = (function() {
     ConfigManager.removeObserver('lastBalance', onBalance);
     ConfigManager.removeObserver('errors', onBalanceTimeout);
 
-    topUpUSSD.removeEventListener('click', topUpWithUSSD);
-    topUp.removeEventListener('click', topUpWithCode);
-    topUpCodeInput.removeEventListener('input', toogleSend);
-    sendCode.removeEventListener('click', requestTopUp);
-    ConfigManager.removeObserver('waitingForTopUp', onConfirmation);
-    ConfigManager.removeObserver('errors', onTopUpErrors);
+    // topUpUSSD.removeEventListener('click', topUpWithUSSD);
+    // topUp.removeEventListener('click', topUpWithCode);
+    // topUpCodeInput.removeEventListener('input', toogleSend);
+    // sendCode.removeEventListener('click', requestTopUp);
+    // ConfigManager.removeObserver('waitingForTopUp', onConfirmation);
+    // ConfigManager.removeObserver('errors', onTopUpErrors);
 
     initialized = false;
   }
 
+  var postLoadActions = function(){
+    topUpDialog = document.getElementById('topup-dialog');
+    sendCode = document.getElementById('topup-send-button');
+    topUpUSSD = document.getElementById('balance-tab-topup-ussd-button');
+    topUp = document.getElementById('balance-tab-topup-button');
+    topUpCodeInput = document.getElementById('topup-code-input');
+    
+    console.log('--------------- SOM?', sendCode, '------', topUpCodeInput);
+    // Configure top up
+    topUpUSSD.addEventListener('click', topUpWithUSSD);
+    topUp.addEventListener('click', topUpWithCode);
+    topUpCodeInput.addEventListener('input', toogleSend);
+    sendCode.addEventListener('click', requestTopUp);
+    ConfigManager.observe('waitingForTopUp', onConfirmation, true);
+    ConfigManager.observe('errors', onTopUpErrors, true);
+    toogleSend();
+  }
+  
   // BALANCE ACTIONS
 
   // On showing the application
@@ -391,8 +400,7 @@ var BalanceTab = (function() {
   return {
     topUpWithCode: topUpWithCode,
     initialize: setupTab,
-    finalize: finalize
+    finalize: finalize,
+    postLoadActions: postLoadActions
   };
 }());
-
-CostControlApp.mainScreenTabsInit();

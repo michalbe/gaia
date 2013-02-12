@@ -6,7 +6,7 @@
 // The ViewManager is in charge of simply manage the different views of the
 // applications. ViewManager.changeViewTo() valid values are listed above
 // these lines.
-var ViewManager = function ViewManager(tabs) {
+var ViewManager = function ViewManager(tabs, globalCallback, tabsCallbacks) {
   tabs = tabs || [];
 
   this._tabs = {};
@@ -16,8 +16,37 @@ var ViewManager = function ViewManager(tabs) {
 
   this._currentView = null;
   this._currentTab = null;
+  
+  this.globalCallback = globalCallback;
+  this.tabsCallbacks = tabsCallbacks;
 
+  this.currentViewScripts = 0;
+  this.currentPanel = null;
+  
 };
+
+var postLoadCallbacks = function() {
+  var panel = this.currentPanel;
+  this.currentViewScripts--;
+  console.log('-------------------postload run', panel.id);
+  if (this.currentViewScripts < 1) {
+    console.log('-------------------callbacks run', panel.id);
+    if (
+      this.globalCallback && 
+      typeof this.globalCallback === 'function'
+    ) {
+      this.globalCallback.call(this, panel);
+    }
+
+    if (
+      this.tabsCallbacks && 
+      this.tabsCallbacks[panel.id] && 
+      typeof this.tabsCallbacks[panel.id] === 'function'
+    ) {
+      this.tabsCallbacks[panel.id].call(this, panel);
+    }
+  }
+}
 
 // Return true if the passed view is a tab
 ViewManager.prototype._isTab = function _isTab(view) {
@@ -81,7 +110,11 @@ ViewManager.prototype.changeViewTo = function _changeViewTo(viewId, callback) {
 
 ViewManager.prototype.loadPanel = function _loadPanel(panel) {
   if (!panel || panel.hidden === false) return;
-
+  
+  console.log('------------- loadPanel: ', panel.id);
+  this.currentPanel = panel;
+  console.log('------------- loadPanel: ', this.currentPanel.id);
+    
   // apply the HTML markup stored in the first comment node
   for (var i = 0; i < panel.childNodes.length; i++) {
     if (panel.childNodes[i].nodeType == document.COMMENT_NODE) {
@@ -90,9 +123,27 @@ ViewManager.prototype.loadPanel = function _loadPanel(panel) {
     }
   }
 
+  // activate all scripts
+  var scripts = panel.querySelectorAll('script');
+  var len = this.currentViewId = scripts.length;
+  for (var i = 0, j = scripts.length; i < j; i++) {
+    var src = scripts[i].getAttribute('src');
+    if (!document.getElementById(src)) {
+      var script = document.createElement('script');
+      script.onload = script.onerror = postLoadCallbacks.bind(this);
+      script.type = 'application/javascript';
+      script.src = script.id = src;
+      document.head.appendChild(script);
+    } else {
+      // We have this script already, probably loaded by different 
+      // View, so we need to decrease number of scripts to load
+      postLoadCallbacks.call(this);
+    }
+  }
+  
   //activate all styles
   var styles = panel.querySelectorAll('link');
-  for (var i = 0; i < styles.length; i++) {
+  for (var i = 0, j = styles.length; i < j; i++) {
     var styleHref = styles[i].href;
     if (!document.getElementById(styleHref)) {
       var style = document.createElement('link');
@@ -107,26 +158,8 @@ ViewManager.prototype.loadPanel = function _loadPanel(panel) {
   // translate content
   navigator.mozL10n.translate(panel);
 
-  // activate all scripts
-  var scripts = panel.querySelectorAll('script');
-  for (var i = 0; i < scripts.length; i++) {
-    var src = scripts[i].getAttribute('src');
-    if (!document.getElementById(src)) {
-      var script = document.createElement('script');
-      script.type = 'application/javascript';
-      script.src = script.id = src;
-      document.head.appendChild(script);
-    }
-  }
-
-  //add listeners
-  var closeButtons = panel.querySelectorAll('.close-dialog');
-  var that = this;
-  [].forEach.call(closeButtons, function(closeButton) {
-    closeButton.addEventListener('click', function() {
-      that.closeCurrentView();
-    });
-  });
+  //run callbacks
+  
 
   panel.hidden = false;
 };

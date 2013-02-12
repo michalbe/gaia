@@ -65,10 +65,34 @@ var CostControlApp = (function() {
   function setupApp() {
     // View managers for dialogs and settings
     tabmanager = new ViewManager(
-      ['balance-tab', 'telephony-tab', 'datausage-tab']
+      ['balance-tab', 'telephony-tab', 'datausage-tab'],
+      function _globalTabsCallback(panel){
+        console.log('--------- dodamy closy?', panel.id);
+        var closeButtons = panel.querySelectorAll('.close-dialog');
+        [].forEach.call(closeButtons, function(closeButton) {
+          closeButton.addEventListener('click', function() {
+            console.log('--------- dodano close!');
+            this.closeCurrentView();
+          });
+        });
+      },
+      {
+        'balance-tab': function _balanceTabViewCallback(){
+          CostControlApp.mainScreenTabsInit();
+          BalanceTab.postLoadActions();
+        },
+        'telephony-tab': function _telephonyTabViewCallback(){
+          CostControlApp.mainScreenTabsInit();
+        }
+      }
     );
 
-    settingsVManager = new ViewManager();
+    settingsVManager = new ViewManager(null, function _globalSettingsViewCallback() {
+      var close = document.getElementById('close-settings');
+      close.addEventListener('click', function() {
+        this.closeCurrentView();
+      }.bind(this));
+    });
 
     // Configure settings
     var settingsButtons = document.querySelectorAll('.settings-button');
@@ -141,12 +165,18 @@ var CostControlApp = (function() {
       var mode = costcontrol.getApplicationMode(settings);
       currentMode = mode;
       DataUsageTab.initialize(tabmanager);
-      if (mode === 'PREPAID') {
-        TelephonyTab.finalize();
-        BalanceTab.initialize(tabmanager, vmanager);
-      } else if (mode === 'POSTPAID') {
-        BalanceTab.finalize();
-        TelephonyTab.initialize(tabmanager);
+      
+      if (
+        typeof TelephonyTab !== 'undefined' &&
+        typeof BalanceTab !== 'undefined'
+      ) {
+        if (mode === 'PREPAID') {
+          TelephonyTab.finalize();
+          BalanceTab.initialize(tabmanager, vmanager);
+        } else if (mode === 'POSTPAID') {
+          BalanceTab.finalize();
+          TelephonyTab.initialize(tabmanager);
+        }
       }
     });
   }
@@ -194,9 +224,6 @@ var CostControlApp = (function() {
 
   // temporary solution untill we will refactor this code
   return {
-    getSettingsVManager: function _getSettingsVManager() {
-      return settingsVManager;
-    },
     showBalanceTab: function _showBalanceTab() {
       tabmanager.changeViewTo('balance-tab');
     },

@@ -262,10 +262,4 @@ var Settings = (function() {
 
 }());
 
-var close = document.getElementById('close-settings');
-close.addEventListener('click', function() {
-  CostControlApp.getSettingsVManager().closeCurrentView();
-});
-
-// temporary solution untill views' dependencies will be refactored
 Settings.initialize();
