@@ -11,7 +11,7 @@ var CardsView = (function() {
 
   //display icon of an app on top of app's card
   var DISPLAY_APP_ICON = false;
-  var USER_DEFINED_ORDERING = false;
+  var USER_DEFINED_ORDERING = true;
   // If 'true', scrolling moves the list one card
   // at time, and snaps the list so the current card
   // is centered in the view
@@ -21,6 +21,8 @@ var CardsView = (function() {
   // if 'true' user can close the app
   // by dragging it upwards
   var MANUAL_CLOSING = true;
+
+  var CARDS_STRUCTURE = true;
 
   var cardsView = document.getElementById('cards-view');
   var screenElement = document.getElementById('screen');
@@ -49,7 +51,8 @@ var CardsView = (function() {
   var userSortedApps = [];
   var HVGA = document.documentElement.clientWidth < 480;
   var cardsViewShown = false;
-
+  var homescreenFrame = null;
+  
   // init events
   var gd = new GestureDetector(cardsView);
   gd.startDetecting();
@@ -181,24 +184,32 @@ var CardsView = (function() {
       cardsView.addEventListener('mousedown', CardsView);
     }
 
+    if (CARDS_STRUCTURE) {
+      homescreenFrame = WindowManager.getAppFrame(WindowManager.getHomescreen());
+      homescreenFrame.hidden = true;
+    }
+    
     // Make sure we're in portrait mode
     screen.mozLockOrientation('portrait-primary');
 
     // If there is a displayed app, take keyboard focus away
     if (displayedApp)
       runningApps[displayedApp].frame.blur();
-
+    
     function addCard(origin, app, displayedAppCallback) {
       // Display card switcher background first to make user focus on the
       // frame closing animation without disturbing by homescreen display.
       if (displayedApp == origin && displayedAppCallback) {
         setTimeout(displayedAppCallback);
       }
-      // Not showing homescreen
-      if (app.frame.classList.contains('homescreen')) {
-        return;
+      
+      if (!CARDS_STRUCTURE) {
+        // Not showing homescreen
+        if (app.frame.classList.contains('homescreen')) {
+          return;
+        }
       }
-
+      
       // Build a card representation of each window.
       // And add it to the card switcher
       var card = document.createElement('li');
@@ -294,7 +305,9 @@ var CardsView = (function() {
 
       // Set up event handling
       // A click elsewhere in the card switches to that task
-      card.addEventListener('tap', runApp);
+      card.addEventListener('tap', 
+        app.frame.classList.contains('homescreen') ? hideCardSwitcher : runApp
+      );
     }
   }
 
@@ -377,9 +390,6 @@ var CardsView = (function() {
     if (removeImmediately) {
       cardsView.classList.add('no-transition');
     }
-    // Make the cardsView overlay inactive
-    cardsView.classList.remove('active');
-    cardsViewShown = false;
 
     // And remove all the cards from the document after the transition
     function removeCards() {
@@ -396,6 +406,20 @@ var CardsView = (function() {
     } else {
       cardsView.addEventListener('transitionend', removeCards);
     }
+    
+    var hideAll = function(){
+      homescreenFrame.hidden = false;
+      // Make the cardsView overlay inactive
+      cardsView.classList.remove('active');
+    }
+    
+    //XXX: swipe homescreen card on the main position
+    currentDisplayed = 0;
+    alignCurrentCard(function() {
+      cardsList.firstElementChild.addEventListener('transitionend', hideAll);
+      cardsList.firstElementChild.classList.add('fullscreen-card');
+    });
+    cardsViewShown = false;
   }
 
   function cardSwitcherIsShown() {
@@ -421,7 +445,7 @@ var CardsView = (function() {
   // it's hard for us to evaluate that here.
   var removeCardThreshold = 100;
 
-  function alignCurrentCard() {
+  function alignCurrentCard(callback) {
     var number = currentDisplayed;
     if (!cardsList.children[number]) {
       return;
@@ -433,11 +457,13 @@ var CardsView = (function() {
 
     var scrollDiff = scrollLeft - targetScrollLeft;
     if (!scrollDiff) {
+      if (typeof callback === 'function') callback();
       return;
     }
 
     if (Math.abs(scrollDiff) < 4) {
       cardsView.scrollLeft = targetScrollLeft;
+      if (typeof callback === 'function') callback();
       return;
     }
 
@@ -445,7 +471,7 @@ var CardsView = (function() {
     target.transform = '';
 
     window.mozRequestAnimationFrame(function newFrameCallback() {
-      alignCurrentCard();
+      alignCurrentCard(callback);
     });
   }
 

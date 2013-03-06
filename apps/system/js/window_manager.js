@@ -2104,7 +2104,10 @@ var WindowManager = (function() {
     restoreCurrentApp: restoreCurrentApp,
     retrieveHomescreen: retrieveHomescreen,
     retrieveFTU: retrieveFTU,
-    screenshots: screenshots
+    screenshots: screenshots,
+    getHomescreen: function() {
+      return homescreen;
+    }
   };
 }());
 

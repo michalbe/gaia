@@ -9,7 +9,7 @@
   opacity: 0;
   -moz-user-select: none;
   overflow: scroll;
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: transparent;
 }
 
 #cards-view.active {
@@ -43,6 +43,11 @@
   background-position: center center;
   background-repeat: no-repeat;
   transform: scale(0.6);
+  transition: transform 1s ease;
+}
+
+#cards-view .fullscreen-card {
+  transform: scale(1) !important;
 }
 
 #cards-view .card h1 {
@@ -55,6 +60,7 @@
   font-weight: 300;
   text-overflow: ellipsis;
   overflow-x: hidden;
+  text-shadow: 2px 2px #000000;
 }
 
 #cards-view .card header {
