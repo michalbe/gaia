@@ -106,6 +106,10 @@ var CardsView = (function() {
     if (cardSwitcherIsShown())
       return;
 
+    // we open CardsView from HomeScreen
+    if (~WindowManager.getDisplayedApp().indexOf('homescreen')) {
+      var fromHomescreen = true;
+    }
     // events to handle
     window.addEventListener('lock', CardsView);
 
@@ -455,6 +459,10 @@ var CardsView = (function() {
     var scrollLeft = cardsView.scrollLeft;
     var targetScrollLeft = target.offsetLeft;
 
+    if (number === 0 && scrollLeft === 0) {
+      if (typeof callback === 'function') callback();
+      return;
+    }
     var scrollDiff = scrollLeft - targetScrollLeft;
     if (!scrollDiff) {
       if (typeof callback === 'function') callback();
@@ -502,7 +510,7 @@ var CardsView = (function() {
         // We don't want user to scroll the CardsView when one of the card is
         // already dragger upwards
         draggingCardUp = true;
-        evt.target.style.MozTransform = 'scale(0.6) translate(0, -' +
+        evt.target.style.MozTransform = 'scale(0.7) translate(0, -' +
                                         differenceY + 'px)';
       }
     }
@@ -527,7 +535,7 @@ var CardsView = (function() {
                        differenceX - (dragMargin / 0.6);
 
       reorderedCard.style.MozTransform =
-        'scale(0.6) translate(' + moveOffset + 'px, 0)';
+        'scale(0.7) translate(' + moveOffset + 'px, 0)';
 
       if (Math.abs(differenceX) > threshold) {
         // We don't want to jump to the next page immediately,
