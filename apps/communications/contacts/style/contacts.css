@@ -223,10 +223,6 @@ section[role="region"] > header:first-child .icon.icon-edit-contact {
   border-radius: 0.3rem 0.3rem 0 0;
 }
 
-.view-edit-contact #thumbnail-action:active {
-  background-color: #b2f2ff;
-}
-
 /* FB info (non-editable) */
 .view-edit-contact .facebook fieldset {
   border-color: #255c95;
@@ -435,10 +431,6 @@ section[role="region"] > header .icon.icon-settings
 #view-settings [data-type="list"] li aside label {
   height: 100%;
   width: 6.5rem;
-}
-
-li.contact-item:active {
-  background-color: #b2f2ff;
 }
 
 /* Extending BB buttons Icons at left side*/

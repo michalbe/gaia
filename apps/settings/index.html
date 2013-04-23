@@ -272,7 +272,9 @@
         </header>
         <ul>
           <li>
-            <button id="joinHidden" data-l10n-id="joinHiddenNetwork">Join Hidden Networks</button>
+            <label>
+              <button id="joinHidden" data-l10n-id="joinHiddenNetwork">Join Hidden Networks</button>
+            </label>
           </li>
         </ul>
       <div>
@@ -331,7 +333,9 @@
             <progress></progress><span data-l10n-id="scanning">Searching…</span>
           </li>
           <li data-state="ready">
-            <button data-l10n-id="scanNetworks">Search Again</button>
+            <label>
+              <button data-l10n-id="scanNetworks">Search Again</button>
+            </label>
           </li>
         </ul>
 
@@ -340,7 +344,9 @@
         </header>
         <ul>
           <li>
-            <button id="manageNetworks" data-l10n-id="manageNetworks">Manage Networks</button>
+            <label>
+              <button id="manageNetworks" data-l10n-id="manageNetworks">Manage Networks</button>
+            </label>
           </li>
         </ul>
       </div>
@@ -604,7 +610,9 @@
             Searching…
           </li>
           <li data-state="ready">
-            <button data-l10n-id="scanNetworks">Search Again</button>
+            <label>
+              <button data-l10n-id="scanNetworks">Search Again</button>
+            </label>
           </li>
         </ul>
       </div>
@@ -866,20 +874,28 @@
         </header>
         <ul>
           <li>
-            <button data-href="#carrier-operatorSettings"
-              data-l10n-id="networkOperator"> Network Operator </button>
+            <label>
+              <button data-href="#carrier-operatorSettings"
+                data-l10n-id="networkOperator"> Network Operator </button>
+            </label>
           </li>
           <li>
-            <button data-href="#carrier-dataSettings"
-              data-l10n-id="dataSettings">Data Settings</button>
+            <label>
+              <button data-href="#carrier-dataSettings"
+                data-l10n-id="dataSettings">Data Settings</button>
+            </label>
           </li>
           <li hidden>
-            <button data-href="#carrier-mmsSettings"
-              data-l10n-id="mmsSettings">MMS Settings</button>
+            <label>
+              <button data-href="#carrier-mmsSettings"
+                data-l10n-id="mmsSettings">MMS Settings</button>
+            </label>
           </li>
           <li>
-            <button data-href="#carrier-suplSettings"
-              data-l10n-id="suplSettings">A-GPS Settings</button>
+            <label>
+              <button data-href="#carrier-suplSettings"
+                data-l10n-id="suplSettings">A-GPS Settings</button>
+            </label>
           </li>
         </ul>
       </div>
@@ -919,7 +935,9 @@
             <a data-l10n-id="bluetooth-visible-to-all">Visible to all</a>
           </li>
           <li hidden id="bluetooth-rename">
-            <button id="rename-device" data-l10n-id="rename-device" disabled>Rename My Device</button>
+            <label>
+              <button id="rename-device" data-l10n-id="rename-device" disabled>Rename My Device</button>
+            </label>
           </li>
         </ul>
 
@@ -939,7 +957,9 @@
         </div>
         <ul hidden id="bluetooth-search">
           <li>
-            <button id="search-device" data-l10n-id="search-device" disabled>Search for Devices</button>
+            <label>
+              <button id="search-device" data-l10n-id="search-device" disabled>Search for Devices</button>
+            </label>
           </li>
         </ul>
       </div>
@@ -1044,8 +1064,10 @@
             </a>
           </li>
           <li id="hotspot-settings-section">
-            <button class="hotspot-wifiSettings-btn"
-              data-l10n-id="hotspotSettings">Hotspot Settings</button>
+            <label>
+              <button class="hotspot-wifiSettings-btn"
+                data-l10n-id="hotspotSettings">Hotspot Settings</button>
+            </label>
           </li>
         </ul>
 
@@ -1604,7 +1626,9 @@
             </p>
           </li>
           <li class="passcode-enabled">
-            <button data-l10n-id="change-passcode" id="passcode-edit">Change Passcode</button>
+            <label>
+              <button data-l10n-id="change-passcode" id="passcode-edit">Change Passcode</button>
+            </label>
           </li>
         </ul>
       </div>
@@ -1632,6 +1656,10 @@
           <div id="errorMsg" class="error" hidden>
             <div id="messageHeader">The PIN was incorrect.</div>
             <span id="messageBody">3 tries left.</span>
+          </div>
+
+          <div id="inputCodeRetriesLeft" data-l10-id="inputCodeRetriesLeft">
+            3 tries left
           </div>
 
           <div id="pinArea" class="sim-code-area">
@@ -1714,7 +1742,9 @@
         </ul>
         <ul>
           <li id="simpin-change">
-            <button data-l10n-id="changeSimPin" name="changeSimPin">Change PIN</button>
+            <label>
+              <button data-l10n-id="changeSimPin" name="changeSimPin">Change PIN</button>
+            </label>
           </li>
         </ul>
       </div>
@@ -1924,7 +1954,9 @@
             <a data-l10n-id="console-enabled">Console enabled</a>
           </li>
           <li>
-            <button id="ftuLauncher" data-l10n-id="launch-ftu">Launch FTU</button>
+            <label>
+              <button id="ftuLauncher" data-l10n-id="launch-ftu">Launch FTU</button>
+            </label>
           </li>
         </ul>
 
@@ -2004,7 +2036,9 @@
             <span data-l10n-id="update-channel"> Update Channel </span>
           </li>
           <li>
-            <button id="reset-phone" data-l10n-id="reset-phone">Reset Phone</button>
+            <label>
+              <button id="reset-phone" data-l10n-id="reset-phone">Reset Phone</button>
+            </label>
           </li>
         </ul>
 
@@ -2023,8 +2057,10 @@
         </header>
         <ul>
           <li>
-            <button data-href="#about-moreInfo-developer"
-              data-l10n-id="developer">Developer</button>
+            <label>
+              <button data-href="#about-moreInfo-developer"
+                data-l10n-id="developer">Developer</button>
+            </label>
           </li>
         </ul>
       </div>
@@ -2204,8 +2240,10 @@
             <span data-l10n-id="last-updated"> Last Updated </span>
           </li>
           <li>
-            <button data-href="#about-moreInfo"
-              data-l10n-id="more-info"> More Information </button>
+            <label>
+              <button data-href="#about-moreInfo"
+                data-l10n-id="more-info"> More Information </button>
+            </label>
           </li>
         </ul>
 
@@ -2225,8 +2263,10 @@
             </p>
           </li>
           <li>
-            <button id="check-update-now"
-              data-l10n-id="check-update-now"> Check Now </button>
+            <label>
+              <button id="check-update-now"
+                data-l10n-id="check-update-now"> Check Now </button>
+            </label>
           </li>
           <li id="update-status" class="description update-status">
             <p class="description general-information"
@@ -2245,16 +2285,22 @@
             keeping the power of the Web in your hands.
           </li>
           <li>
-            <button data-href="#about-yourRights"
-              data-l10n-id="your-rights"> Your Rights </button>
+            <label>
+              <button data-href="#about-yourRights"
+                data-l10n-id="your-rights"> Your Rights </button>
+            </label>
           </li>
           <li>
-            <button data-href="#about-yourPrivacy"
-              data-l10n-id="your-privacy"> Your Privacy </button>
+            <label>
+              <button data-href="#about-yourPrivacy"
+                data-l10n-id="your-privacy"> Your Privacy </button>
+            </label>
           </li>
           <li>
-            <button data-href="#about-legal"
-              data-l10n-id="about-legal-info"> Legal Information </button>
+            <label>
+              <button data-href="#about-legal"
+                data-l10n-id="about-legal-info"> Legal Information </button>
+            </label>
           </li>
         </ul>
       </div>
@@ -2477,7 +2523,9 @@
       <div>
         <ul>
           <li>
-            <button data-href="http://input.mozilla.org/feedback" data-l10n-id="sendMozillaFeedback"></button>
+            <label>
+              <button data-href="http://input.mozilla.org/feedback" data-l10n-id="sendMozillaFeedback"></button>
+            </label>
           </li>
         </ul>
 
@@ -2564,7 +2612,9 @@
             </span>
           </li>
           <li>
-            <button data-l10n-id="user-guide"> User Guide </button>
+            <label>
+              <button data-l10n-id="user-guide"> User Guide </button>
+            </label>
           </li>
           <li class="no-support-info">
             <label for="" class="description">

@@ -35,9 +35,10 @@ ul li > span {
   padding: 0 3rem;
 }
 
-ul li a:active,
-ul li input:active,
-ul li button:active {
+ul li.active,
+ul li:not(.explanation):active,
+ul li:not(.disabled) > small + a:active,
+ul li:not(.disabled) > a[href]:active {
   background-color: #b2f2ff;
   color: #222;
 }

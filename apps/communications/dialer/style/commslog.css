@@ -148,10 +148,6 @@ ul[role="tablist"][data-type="filter"] > [role="tab"].selected > a {
   pointer-events: none;
 }
 
-.log-item:active {
-  background-color: #b2f2ff;
-}
-
 .log-item .pack-end {
   position: absolute;
   right: 0;

@@ -956,9 +956,7 @@ button::-moz-focus-inner {
   background: transparent;
   transition: background 200ms ease;
 }
-.tabs-button:hover {
-  background: transparent;
-}
+
 .tabs-button:active {
   background: rgb(0, 138, 170);
 }

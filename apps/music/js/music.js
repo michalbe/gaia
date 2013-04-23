@@ -1413,7 +1413,7 @@ var TabBar = {
   init: function tab_init() {
     this.option = '';
     this.view.addEventListener('click', this);
-
+        
     this.playlistArray.localize = function() {
       this.forEach(function(playList) {
         if (playList) {
@@ -1433,9 +1433,9 @@ var TabBar = {
   handleEvent: function tab_handleEvent(evt) {
     if (this.disabled)
       return;
-
+    evt.stopPropagation();
     switch (evt.type) {
-      case 'click':
+      case 'click': // no 'break' because we want 
         var target = evt.target;
 
         if (!target)

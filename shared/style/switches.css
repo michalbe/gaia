@@ -57,11 +57,6 @@ label:not([for]).danger input[type="radio"] + span {
  * ON/OFF SWITCHES
  * ---------------------------------- */
 
-label {
-  position: relative;
-  z-index: 1;
-}
-
 label input[type="checkbox"][data-type="switch"] + span {
   position: absolute;
   left: 50%;
