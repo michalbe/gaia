@@ -714,6 +714,7 @@ function startPick() {
 
 // Called when the user clicks on a thumbnail in pick mode
 function cropPickedImage(fileinfo) {
+  console.log('=======', fileinfo);
   pickedFile = fileinfo;
 
   // Do we actually want to allow the user to crop the image?

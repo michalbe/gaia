@@ -14,7 +14,7 @@ window.onload = function() {
   var url;
 
   function startShare(request) {
-    cancelButton.addEventListener('click', cancelShare);
+    //cancelButton.addEventListener('click', cancelShare);
 
     activity = request;
     blob = activity.source.data.blobs[0];
