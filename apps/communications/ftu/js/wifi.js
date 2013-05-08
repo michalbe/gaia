@@ -2,10 +2,6 @@
 
 var WifiManager = {
   init: function wn_init() {
-    document.getElementById('join-hidden-button').addEventListenet('click', function() {
-      document.getElementById('hidden-wifi-authentication').classList.remove('hidden');
-      console.log('------------ elo');
-    });
     if ('mozWifiManager' in window.navigator) {
       this.api = window.navigator.mozWifiManager;
       this.changeStatus();
@@ -313,6 +309,15 @@ var WifiUI = {
   },
 
   renderNetworks: function wui_rn(networks) {
+    try {
+      console.log('--------AAAAA');
+      document.getElementById('join-hidden-button').addEventListener('click', function() {
+        window.location.hash = '#hidden-wifi-authentication';
+        console.log('------------ elo');
+      });
+    } catch (e) {
+      console.log('-------------- eorr', e);
+    }
     var networksDOM = document.getElementById('networks');
     networksDOM.innerHTML = '';
     var networksList;

@@ -394,17 +394,27 @@ aside.connecting {
 /*
   Wifi configuration
 */
-
+#hidden-wifi-authentication form,
 #configure_network_params form {
   padding: 1rem 1.5rem;
 }
 
+#hidden-wifi-authentication form label,
 #configure_network_params form label {
   display: block;
   padding: 1.5rem 1.5rem 0.5rem 1.5rem ;
   font-size: 1.5rem;
 }
 
+#hidden-wifi-authentication form select {
+  -moz-apperance: none;
+  width: 100%;
+  padding: 0.5rem 1.5rem 0.5rem 1.5rem ;
+  font-size: 1.5rem;
+}
+
+#hidden-wifi-authentication form select,
+#hidden-wifi-authentication form input,
 #configure_network_params form input {
   padding-left: 1.5rem;
 }
@@ -420,10 +430,14 @@ aside.connecting {
   width: auto;
   height: auto;
 }
+
+#hidden-wifi-authentication label span,
 #configure_network_params label span {
   top: 2rem;
   left: 3rem;
 }
+
+#hidden-wifi-authentication label p,
 #configure_network_params label p {
   width: auto;
   float: right;
