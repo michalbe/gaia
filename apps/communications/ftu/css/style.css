@@ -326,13 +326,12 @@ html, body {
 /*
   No result container
 */
-#networks {
-  top: 0;
-  bottom: 0;
-}
-
 #networks-list:first-child {
   padding-top: 0;
+}
+
+#join-hidden-button {
+  margin-top: 15px;
 }
 
 #wifi #no-result-container {

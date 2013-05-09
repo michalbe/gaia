@@ -2,6 +2,10 @@
 
 var WifiManager = {
   init: function wn_init() {
+    document.getElementById('join-hidden-button').addEventListenet('click', function() {
+      document.getElementById('hidden-wifi-authentication').classList.remove('hidden');
+      console.log('------------ elo');
+    });
     if ('mozWifiManager' in window.navigator) {
       this.api = window.navigator.mozWifiManager;
       this.changeStatus();
