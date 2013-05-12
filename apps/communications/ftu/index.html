@@ -126,6 +126,39 @@
       </section>
     </article>
 
+    <section role="region" id="hidden-wifi-authentication">
+       <header>
+         <button type="reset" id="hidden-wifi-back-button"><span data-l10n-id="back" class="icon icon-back">Back</span></button>
+         <menu type="toolbar">
+           <button type="submit" id="hidden-wifi-submit-button"><span data-l10n-id="ok">OK</span></button>
+         </menu>
+         <h1 data-l10n-id="join-hidden-button"> Join hidden network </h1>
+      </header>
+      <div>
+        <form>
+          <label id="label_wifi_ssid" for="wifi_ssid" data-l10n-id="ssid-name">
+            SSID Network Name
+          </label>
+          <input type="text" data-ignore name="wifi_ssid" id="hidden-wifi-ssid"/>
+
+          <label id="label_wifi_security" for="wifi_security" data-l10n-id="security">
+            Security
+          </label>
+          <select id="hidden-wifi-security">
+            <option data-l10n-id="securityNone">none</option>
+            <option>WEP</option>
+            <option selected>WPA-PSK</option>
+            <option>WPA-EAP</option>
+          </select>
+
+          <label id="label_wifi_password" for="wifi_password" data-l10n-id="password">
+            Password
+          </label>
+          <input type="password" data-ignore name="password" id="hidden-wifi-password"/>
+        </form>
+      </div>
+    </section>
+    
     <nav role="navigation">
       <button id="skip-pin-button" class="button-left" data-l10n-id="skip">
         Skip
@@ -200,32 +233,6 @@
             </label>
           </form>
         </section>
-      </section>
-      
-      <section role="region" id="hidden-wifi-authentication">
-        <div>
-          <form>
-            <label id="label_wifi_ssid" for="wifi_ssid" data-l10n-id="ssid-name">
-              SSID Network Name
-            </label>
-            <input type="text" data-ignore name="wifi_ssid" />
-
-            <label id="label_wifi_security" for="wifi_security" data-l10n-id="security">
-              Security
-            </label>
-            <select>
-              <option data-l10n-id="securityNone">none</option>
-              <option>WEP</option>
-              <option selected>WPA-PSK</option>
-              <option>WPA-EAP</option>
-            </select>
-
-            <label id="label_wifi_password" for="wifi_password" data-l10n-id="password">
-              Password
-            </label>
-            <input type="password" data-ignore name="password" />
-          </form>
-        </div>
       </section>
       
       <section role="region" id="date_and_time">

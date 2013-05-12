@@ -55,6 +55,14 @@ var UIManager = {
     'networks',
     'wifi-refresh-button',
     'wifi-join-button',
+    'join-hidden-button',
+    // Hidden Wifi
+    'hidden-wifi-authentication',
+    'hidden-wifi-back-button',
+    'hidden-wifi-submit-button',    
+    'hidden-wifi-ssid',
+    'hidden-wifi-security',
+    'hidden-wifi-password',
     //Date & Time
     'date-configuration',
     'time-configuration',
@@ -114,6 +122,10 @@ var UIManager = {
     this.wifiJoinButton.addEventListener('click', this);
     this.networks.addEventListener('click', this);
 
+    this.joinHiddenButton.addEventListener('click', this);
+    this.hiddenWifiBackButton.addEventListener('click', this);
+    this.hiddenWifiSubmitButton.addEventListener('click', this);
+    
     this.timeConfiguration.addEventListener('input', this);
     this.dateConfiguration.addEventListener('input', this);
     this.initTZ();
@@ -292,6 +304,16 @@ var UIManager = {
         break;
       case 'wifi-join-button':
         WifiUI.joinNetwork();
+        break;
+      case 'join-hidden-button':
+        UIManager.hiddenWifiAuthentication.classList.add('show');
+        break;
+      // Hidden Wifi
+      case 'hidden-wifi-back-button':
+        UIManager.hiddenWifiAuthentication.classList.remove('show');
+        break;
+      case 'hidden-wifi-submit-button':
+        console.log('OK SUBMIT BUTTON CLICKED ELO!');
         break;
       // Date & Time
       case 'time-configuration':

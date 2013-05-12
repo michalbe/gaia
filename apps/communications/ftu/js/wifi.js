@@ -206,6 +206,14 @@ var WifiUI = {
     window.history.back();
   },
 
+  joinHiddenNetwork: function wui_jhn() {
+    var password = document.getElementById('wifi_password').value;
+    var user = document.getElementById('wifi_user').value;
+    var ssid = document.getElementById('wifi_ssid').value;
+    WifiUI.connect(ssid, password, user);
+    window.history.back();
+  },
+  
   connect: function wui_connect(ssid, password, user) {
 
     // First we check if there is a previous selected network
@@ -309,15 +317,6 @@ var WifiUI = {
   },
 
   renderNetworks: function wui_rn(networks) {
-    try {
-      console.log('--------AAAAA');
-      document.getElementById('join-hidden-button').addEventListener('click', function() {
-        window.location.hash = '#hidden-wifi-authentication';
-        console.log('------------ elo');
-      });
-    } catch (e) {
-      console.log('-------------- eorr', e);
-    }
     var networksDOM = document.getElementById('networks');
     networksDOM.innerHTML = '';
     var networksList;

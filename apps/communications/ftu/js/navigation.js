@@ -108,6 +108,12 @@ var Navigation = {
     var goToStepForward = function() {
       self.previousStep = self.currentStep;
       self.currentStep++;
+      // if we are on 'wifi' screen & we want to connect
+      // to the hidden network
+      console.log('curstep: ', self.currentStep);
+      if (self.currentStep === 3 && window.location.hash === '#hidden-wifi-authentication') {
+        console.log('--- elo!');
+      }
       if (self.currentStep > numSteps) {
         // Try to send Newsletter here
         UIManager.sendNewsletter(function newsletterSent(result) {
