@@ -59,10 +59,12 @@ var UIManager = {
     // Hidden Wifi
     'hidden-wifi-authentication',
     'hidden-wifi-back-button',
-    'hidden-wifi-submit-button',    
+    'hidden-wifi-submit-button',
     'hidden-wifi-ssid',
     'hidden-wifi-security',
     'hidden-wifi-password',
+    'hidden-wifi-identity',
+    'hidden-wifi-identity-box',
     //Date & Time
     'date-configuration',
     'time-configuration',
@@ -125,7 +127,8 @@ var UIManager = {
     this.joinHiddenButton.addEventListener('click', this);
     this.hiddenWifiBackButton.addEventListener('click', this);
     this.hiddenWifiSubmitButton.addEventListener('click', this);
-    
+    this.hiddenWifiSecurity.addEventListener('change', this);
+
     this.timeConfiguration.addEventListener('input', this);
     this.dateConfiguration.addEventListener('input', this);
     this.initTZ();
@@ -313,7 +316,15 @@ var UIManager = {
         UIManager.hiddenWifiAuthentication.classList.remove('show');
         break;
       case 'hidden-wifi-submit-button':
-        console.log('OK SUBMIT BUTTON CLICKED ELO!');
+        WifiUI.joinHiddenNetwork();
+        break;
+      case 'hidden-wifi-security':
+        var securityType = event.target.value;
+        if (securityType.indexOf('EAP') !== -1) {
+          this.hiddenWifiIdentityBox.classList.remove('hidden');
+        } else {
+          this.hiddenWifiIdentityBox.classList.add('hidden');
+        }
         break;
       // Date & Time
       case 'time-configuration':

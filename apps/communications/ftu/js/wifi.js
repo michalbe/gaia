@@ -207,13 +207,25 @@ var WifiUI = {
   },
 
   joinHiddenNetwork: function wui_jhn() {
-    var password = document.getElementById('wifi_password').value;
-    var user = document.getElementById('wifi_user').value;
-    var ssid = document.getElementById('wifi_ssid').value;
-    WifiUI.connect(ssid, password, user);
-    window.history.back();
+    var password = UIManager.hiddenWifiPassword.value;
+    var user = UIManager.hiddenWifiIdentity.value;
+    var ssid = UIManager.hiddenWifiSsid.value;
+    var security = UIManager.hiddenWifiSecurity.value;
+    if (ssid.length) {
+      WifiManager.networks.push({
+          ssid: ssid,
+          capabilities: [security],
+          relSignalStrength: 0
+      });
+      this.renderNetworks(WifiManager.networks);
+      WifiUI.connect(ssid, password, user);
+    }
+
+    // like in Settings: if we don't provide correct
+    // network data it just get back to the wifi screen
+    UIManager.hiddenWifiAuthentication.classList.remove('show');
   },
-  
+
   connect: function wui_connect(ssid, password, user) {
 
     // First we check if there is a previous selected network

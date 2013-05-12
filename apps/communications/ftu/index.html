@@ -139,7 +139,7 @@
           <label id="label_wifi_ssid" for="wifi_ssid" data-l10n-id="ssid-name">
             SSID Network Name
           </label>
-          <input type="text" data-ignore name="wifi_ssid" id="hidden-wifi-ssid"/>
+          <input type="text" name="wifi_ssid" id="hidden-wifi-ssid"/>
 
           <label id="label_wifi_security" for="wifi_security" data-l10n-id="security">
             Security
@@ -151,10 +151,17 @@
             <option>WPA-EAP</option>
           </select>
 
-          <label id="label_wifi_password" for="wifi_password" data-l10n-id="password">
+          <div class="hidden" id="hidden-wifi-identity-box">
+            <label id="label_wifi_identity" for="wifi_identity"  data-l10n-id="identity"> 
+              Identity
+            </label>
+            <input type="text" name="wifi_identity" id="hidden-wifi-identity"/>
+          </div>
+          
+          <label id="label_hidden_wifi_password" for="wifi_hidden_password" data-l10n-id="password">
             Password
           </label>
-          <input type="password" data-ignore name="password" id="hidden-wifi-password"/>
+          <input type="text" name="wifi_hidden_password" id="hidden-wifi-password" value=""/>
         </form>
       </div>
     </section>
@@ -214,7 +221,7 @@
       <section role="region" id="wifi">
         <article id="networks" role="main">
         </article>
-        <button id="join-hidden-button">
+        <button id="join-hidden-button" class="icon">
             Join hidden network
         </button>
       </section>
