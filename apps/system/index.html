@@ -15,6 +15,7 @@
     <script defer src="shared/js/async_storage.js"></script>
     <script defer src="shared/js/mobile_operator.js"></script>
     <script defer src="shared/js/manifest_helper.js"></script>
+    <script defer src="shared/js/mime_mapper.js"></script>
 
     <!-- Wrapper -->
     <link rel="stylesheet" type="text/css" href="style/wrapper/wrapper.css">
@@ -35,7 +36,6 @@
     <!-- Include shared resources
     <link rel="resource" type="application/json" href="shared/resources/apn.json"/>
     <link rel="resource" type="image/png" href="shared/resources/branding/initlogo.png"/>
-    <link rel="resource" type="image/png" href="shared/resources/branding/splash_screen_generic.png"/>
     -->
 
     <!-- applications.js must not be deferred
@@ -46,7 +46,6 @@
     <script src="js/init_logo_handler.js"></script>
 
     <script defer src="js/screen_manager.js"></script>
-    <script defer src="js/background_service.js"></script>
     <script defer src="js/mouse2touch.js"></script>
     <script defer src="js/activities.js"></script>
     <script defer src="js/bootstrap.js"></script>
@@ -237,6 +236,10 @@
     <!-- Shared responsive -->
     <link rel="stylesheet" href="shared/style/responsive.css">
 
+    <!-- Device storage watcher -->
+    <script defer src="js/storage_watcher.js"></script>
+    <link rel="stylesheet" type="text/css" href="style/storage_watcher/storage_watcher.css">
+
     <style>
       /* initlogos style is here to prevent flashing */
 
@@ -346,12 +349,21 @@
 
         <div id="notifications-container">
           <!-- Update Manager -->
-          <div id="update-manager-container" class='fake-notification'>
+          <div id="update-manager-container" class="fake-notification">
             <div class="icon">
             </div>
             <div class="activity">
             </div>
             <div class="message">
+            </div>
+          </div>
+          <!-- Storage watcher notification -->
+          <div id="storage-watcher-container" class="fake-notification">
+            <div class="icon">
+            </div>
+            <div class="message">
+            </div>
+            <div class="available-space">
             </div>
           </div>
           <!-- App Install Manager -->
@@ -719,19 +731,15 @@
             data-z-index-level="app-install-dialog">
         <section>
           <h1 id="app-install-message"></h1>
-          <table>
-            <tr>
-              <th data-l10n-id="size">Size</th>
-              <td id="app-install-size"></td>
-            </tr>
-            <tr>
-              <th data-l10n-id="author">Author</th>
-              <td>
-                <span id="app-install-author-name"></span>
-                <br /><span id="app-install-author-url"></span>
-              </td>
-            </tr>
-          </table>
+          <dl>
+            <dt data-l10n-id="size">Size</dt>
+              <dd id="app-install-size"></dd>
+            <dt data-l10n-id="author">Author</dt>
+              <dd>
+                <span id="app-install-author-name"></span><br />
+                <span id="app-install-author-url"></span>
+              </dd>
+          </dl>
           <menu>
             <button id="app-install-cancel-button" data-l10n-id="cancel">Cancel</button>
             <button id="app-install-install-button" class="recommend" data-l10n-id="install">Install</button>

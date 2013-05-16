@@ -4,7 +4,7 @@
 'use strict';
 
 var MessageManager = {
-  currentNum: null,
+  currentNums: [],
   currentThread: null,
   activityBody: null, // Used when getting a sms:?body=... activity.
   init: function mm_init(callback) {
@@ -64,7 +64,8 @@ var MessageManager = {
         participants: [message.sender],
         body: message.body,
         timestamp: message.timestamp,
-        unreadCount: 1
+        unreadCount: 1,
+        lastMessageType: message.type
       };
   },
 
@@ -171,11 +172,11 @@ var MessageManager = {
           MessageManager.activityBody = null;
         }
         // Cleaning global params related with the previous thread
-        MessageManager.currentNum = null;
+        MessageManager.currentNums.length = 0;
         MessageManager.currentThread = null;
         threadMessages.classList.add('new');
         MessageManager.slide(function() {
-          ThreadUI.appendEditableRecipient();
+          ThreadUI.initRecipients();
         });
         break;
       case '#thread-list':
@@ -183,7 +184,7 @@ var MessageManager = {
         var editButton = document.getElementById('icon-edit');
         editButton.parentNode.appendChild(editButton);
         // Cleaning global params related with the previous thread
-        MessageManager.currentNum = null;
+        MessageManager.currentNums.length = 0;
         MessageManager.currentThread = null;
         if (mainWrapper.classList.contains('edit')) {
           mainWrapper.classList.remove('edit');
@@ -222,7 +223,7 @@ var MessageManager = {
         if (num) {
           var filter = this.createFilter(num);
           var input = document.getElementById('messages-input');
-          MessageManager.currentNum = num;
+          MessageManager.currentNums[0] = num;
           if (mainWrapper.classList.contains('edit')) {
             mainWrapper.classList.remove('edit');
           } else if (threadMessages.classList.contains('new')) {
@@ -282,6 +283,11 @@ var MessageManager = {
       console.log(msg);
     };
   },
+
+  getMessage: function mm_getMsg(id) {
+    return this._mozMobileMessage.getMessage(id);
+  },
+
   getMessages: function mm_getMgs(options) {
     var stepCB = options.stepCB, // CB which manage every message
         filter = options.filter, // mozMessageFilter
@@ -319,7 +325,7 @@ var MessageManager = {
     } else if (Array.isArray(msgContent)) { // send MMS
       var msg = SMIL.generate(msgContent);
       req = this._mozMobileMessage.sendMMS({
-        receivers: [number],
+        receivers: number,
         subject: '',
         smil: msg.smil,
         attachments: msg.attachments

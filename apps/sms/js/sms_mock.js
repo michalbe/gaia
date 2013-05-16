@@ -207,15 +207,6 @@
         timestamp: new Date(Date.now() - 172800000)
       },
       {
-        threadId: 3,
-        sender: null,
-        receiver: '197743697',
-        body: 'Nothing :)',
-        delivery: 'sent',
-        type: 'sms',
-        timestamp: new Date(Date.now() - 652800000)
-      },
-      {
         threadId: 4,
         sender: null,
         receiver: '197746797',
@@ -304,6 +295,7 @@
       {
         id: 1,
         participants: ['1977'],
+        lastMessageType: 'sms',
         body: 'Alo, how are you today, my friend? :)',
         timestamp: new Date(Date.now()),
         unreadCount: 0
@@ -311,15 +303,9 @@
       {
         id: 2,
         participants: ['436797'],
+        lastMessageType: 'sms',
         body: 'Sending :)',
         timestamp: new Date(Date.now() - 172800000),
-        unreadCount: 0
-      },
-      {
-        id: 3,
-        participants: ['197743697'],
-        body: 'Nothing :)',
-        timestamp: new Date(Date.now() - 652800000),
         unreadCount: 0
       },
       {
@@ -327,11 +313,13 @@
         participants: ['197746797'],
         body: 'short (delivery: received)',
         timestamp: new Date(Date.now() - 100000),
+        lastMessageType: 'sms',
         unreadCount: 0
       },
       {
         id: 5,
         participants: ['14886783487'],
+        lastMessageType: 'sms',
         body: 'Hello world!',
         timestamp: new Date(Date.now() - 60000000),
         unreadCount: 2
@@ -339,7 +327,6 @@
       {
         id: 6,
         participants: ['052780'],
-        body: 'Test MMS message',
         lastMessageType: 'mms',
         timestamp: new Date(),
         unreadCount: 0
@@ -419,14 +406,20 @@
     var request = {
       error: null
     };
+    // In the case of a multi-recipient message, the mock will fake a response
+    // from the first recipient specified.
+    var senderNumber = Array.isArray(number) ? number[0] : number;
 
+    // TODO: Retrieve the message's thread by the thread ID.
+    // See Bug 868679 - [SMS][MMS] use the threadId as the "key" of a thread
+    // instead of a phone number in all places where it's relevant
     var thread = messagesDb.threads.filter(function(t) {
-      return t.participants[0] === number;
+      return t.participants[0] === senderNumber;
     })[0];
     if (!thread) {
       thread = {
         id: messagesDb.id++,
-        participants: [number],
+        participants: [].concat(number),
         body: text,
         timestamp: new Date(),
         unreadCount: 0
@@ -442,10 +435,11 @@
       type: 'sent',
       message: {
         sender: null,
-        receiver: number,
+        receiver: senderNumber,
         delivery: 'sending',
         body: text,
         id: sendId,
+        type: 'sms',
         timestamp: new Date(),
         threadId: thread.id
       }
@@ -486,11 +480,12 @@
       var receivedInfo = {
         type: 'received',
         message: {
-          sender: number,
+          sender: senderNumber,
           receiver: null,
           delivery: 'received',
           body: 'Hi back! ' + text,
           id: messagesDb.id++,
+          type: 'sms',
           timestamp: new Date(),
           threadId: thread.id
         }
@@ -545,6 +540,38 @@
     };
 
     continueCursor();
+
+    return request;
+  };
+
+  // getMessage
+  // Parameters:
+  //  - id: Number specifying the message to retrieve
+  //  Returns: request object
+  MockNavigatormozMobileMessage.getMessage = function(id) {
+    var request = {
+      error: null
+    };
+
+    setTimeout(function() {
+      if (simulation.failState()) {
+        request.error = {
+          name: 'mock getMessage error'
+        };
+        if (typeof request.onerror === 'function') {
+          request.onerror();
+        }
+        return;
+      }
+
+      request.result = messagesDb.messages.filter(function(message) {
+        return message.id === id;
+      })[0];
+
+      if (typeof request.onsuccess === 'function') {
+        request.onsuccess();
+      }
+    }, simulation.delay());
 
     return request;
   };
@@ -650,8 +677,11 @@
         return;
       }
 
+      request.result = false;
+
       for (idx = 0, len = msgs.length; idx < len; ++idx) {
         if (msgs[idx].id === id) {
+          request.result = true;
           msgs.splice(idx, 1);
           break;
         }
@@ -663,6 +693,19 @@
     }, simulation.delay());
 
     return request;
+  };
+
+  MockNavigatormozMobileMessage.getSegmentInfoForText = function(text) {
+    var length = text.length;
+    var segmentLength = 160;
+    var charsUsedInLastSegment = (length % segmentLength);
+    var segments = Math.ceil(length / segmentLength);
+    return {
+      segments: segments,
+      charsAvailableInLastSegment: charsUsedInLastSegment ?
+        segmentLength - charsUsedInLastSegment :
+        0
+    };
   };
 
 }(this));

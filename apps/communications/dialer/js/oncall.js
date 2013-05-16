@@ -53,7 +53,7 @@ var CallScreen = {
                                 OnCallHandler.toggleCalls);
 
     // If the phone is locked, show as an locked-style at very first.
-    if (window.location.hash === '#locked') {
+    if ((window.location.hash === '#locked') && !this.screen.dataset.layout) {
       CallScreen.render('incoming-locked');
     }
     if (navigator.mozSettings) {
@@ -169,7 +169,7 @@ var OnCallHandler = (function onCallHandler() {
 
   /* === Settings === */
   var activePhoneSound = null;
-  SettingsListener.observe('ring.enabled', true, function(value) {
+  SettingsListener.observe('audio.volume.notification', 7, function(value) {
     activePhoneSound = !!value;
     if (ringing && activePhoneSound) {
       ringtonePlayer.play();
@@ -494,7 +494,7 @@ var OnCallHandler = (function onCallHandler() {
       return;
     }
 
-    // Currently managing to kind of commands:
+    // Currently managing three kinds of commands:
     // BT: bluetooth
     // HS: headset
     // * : general cases, not specific to hardware control
@@ -524,7 +524,11 @@ var OnCallHandler = (function onCallHandler() {
         endAndAnswer();
         break;
       case 'CHLD+ATA':
-        holdAndAnswer();
+        if (telephony.calls.length === 1) {
+          holdOrResumeSingleCall();
+        } else {
+          holdAndAnswer();
+        }
         break;
       default:
         var partialCommand = message.substring(0, 3);
@@ -535,11 +539,26 @@ var OnCallHandler = (function onCallHandler() {
     }
   }
 
+  var lastHeadsetPress = 0;
+
   function handleHSCommand(message) {
-    // We will receive the message for button released,
-    // we will ignore it
-    if (message != 'headset-button-press') {
-      return;
+    /**
+     * See bug 853132: plugging / unplugging some headphones might send a
+     * 'headset-button-press' / 'headset-button-release' message
+     * => if these two events happen in the same second, it's a click;
+     * => if these two events are too distant, ignore them.
+     */
+    switch (message) {
+      case 'headset-button-press':
+        lastHeadsetPress = Date.now();
+        return;
+        break;
+      case 'headset-button-release':
+        if ((Date.now() - lastHeadsetPress) > 1000)
+          return;
+        break;
+      default:
+        return;
     }
 
     if (telephony.active) {
@@ -604,10 +623,23 @@ var OnCallHandler = (function onCallHandler() {
 
   function toggleCalls() {
     if (handledCalls.length < 2) {
+      holdOrResumeSingleCall();
       return;
     }
 
     telephony.active.hold();
+  }
+
+  function holdOrResumeSingleCall() {
+    if (handledCalls.length !== 1) {
+      return;
+    }
+
+    if (telephony.active) {
+      telephony.active.hold();
+    } else {
+      telephony.calls[0].resume();
+    }
   }
 
   function ignore() {
@@ -706,5 +738,4 @@ window.addEventListener('load', function callSetup(evt) {
   CallScreen.init();
   CallScreen.syncSpeakerEnabled();
   KeypadManager.init(true);
-
 });

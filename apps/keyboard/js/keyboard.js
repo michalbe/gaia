@@ -133,7 +133,16 @@ const defaultInputMethod = {
 // keyboard is specified with setKeyboardName(). That function sets the
 // following variables based on its argument.  See layout.js for a the data
 // structure that maps keyboard names to their layout data.
-var keyboardName;
+//
+// Note that keyboardName is the name of the currently displayed keyboard.
+// currentKeyboardName tracks the value of the keyboard.current setting.
+// We don't call setKeyboardName() when keyboard.current changes because
+// that causes problems with the async loading of input methods and could
+// also cause races if keyboard.current is updated before the enabled keyboards
+// settings are updated.  Instead, every time we show the keyboard we ensure
+// that keyboardName matches currentKeyboardName and call setKeyboardName to
+// update it if necessary.
+var keyboardName = null;
 var inputMethod = defaultInputMethod;
 
 // These are the possible layout page values
@@ -212,6 +221,7 @@ const keyboardAlias = {
 
 // This is the default keyboard if none is selected in settings
 // XXX: switch this to pt-BR?
+// XXX: ideally, this should be based on the current language,
 const defaultKeyboardNames = ['en'];
 
 // If we get a focuschange event from mozKeyboard for an element with
@@ -241,6 +251,7 @@ const specialCodes = [
 
 // These values are initialized with user settings
 var userLanguage;
+var currentKeyboardName;
 var suggestionsEnabled;
 var correctionsEnabled;
 var clickEnabled;
@@ -299,7 +310,7 @@ function getKeyboardSettings() {
     'keyboard.autocorrect': true,
     'keyboard.vibration': false,
     'keyboard.clicksound': false,
-    'ring.enabled': true
+    'audio.volume.notification': 7
   };
 
   // Add the keyboard group settings to our query, too.
@@ -311,11 +322,12 @@ function getKeyboardSettings() {
 
     // Copy settings values to the corresponding global variables.
     userLanguage = values['language.current'];
+    currentKeyboardName = values['keyboard.current'];
     suggestionsEnabled = values['keyboard.wordsuggestion'];
     correctionsEnabled = values['keyboard.autocorrect'];
     vibrationEnabled = values['keyboard.vibration'];
     clickEnabled = values['keyboard.clicksound'];
-    isSoundEnabled = values['ring.enabled'];
+    isSoundEnabled = !!values['audio.volume.notification'];
 
     handleKeyboardSound();
 
@@ -325,9 +337,6 @@ function getKeyboardSettings() {
       var settingName = 'keyboard.layouts.' + group;
       enabledKeyboardGroups[settingName] = values[settingName];
     }
-
-    // Activate the current keyboard and its associated input method
-    setKeyboardName(values['keyboard.current']);
 
     // And create an array of all enabled keyboard layouts from the set
     // of enabled groups
@@ -350,8 +359,7 @@ function initKeyboard() {
   navigator.mozSettings.addObserver('keyboard.current', function(e) {
     // Switch to the language associated keyboard
     // everything.me also uses this setting to improve searches
-    if (keyboardName !== e.settingValue)
-      setKeyboardName(e.settingValue);
+    currentKeyboardName = e.settingValue;
   });
 
   navigator.mozSettings.addObserver('keyboard.wordsuggestion', function(e) {
@@ -372,8 +380,8 @@ function initKeyboard() {
     vibrationEnabled = e.settingValue;
   });
 
-  navigator.mozSettings.addObserver('ring.enabled', function(e) {
-    isSoundEnabled = e.settingValue;
+  navigator.mozSettings.addObserver('audio.volume.notification', function(e) {
+    isSoundEnabled = !!e.settingValue;
     handleKeyboardSound();
   });
 
@@ -465,7 +473,6 @@ function setKeyboardName(name) {
 
   if (!inputMethod)
     inputMethod = defaultInputMethod;
-
 }
 
 // Support function for render
@@ -492,11 +499,9 @@ function handleNewKeyboards() {
     Array.prototype.push.apply(enabledKeyboardNames,
                                defaultKeyboardNames);
 
-
   // Now load each of these keyboards and their input methods
   for (var i = 0; i < enabledKeyboardNames.length; i++)
     loadKeyboard(enabledKeyboardNames[i]);
-
 }
 
 // Map the input type to another type
@@ -730,21 +735,19 @@ function renderKeyboard(keyboardName) {
   // Add meta keys and type-specific keys to the base layout
   currentLayout = modifyLayout(keyboardName);
 
-  // update settings with keyboard layout, e.me uses this to improve searches
-  updateSettings('current', keyboardName);
-
-
   function drawKeyboard() {
     // Tell the renderer what input method we're using. This will set a CSS
     // classname that can be used to style the keyboards differently
     var keyboard = Keyboards[keyboardName];
     IMERender.setInputMethodName(keyboard.imEngine || 'default');
 
+    IMERender.ime.classList.remove('full-candidate-panel');
+
     // And draw the layout
     IMERender.draw(currentLayout, {
       uppercase: isUpperCase,
       inputType: currentInputType,
-      showCandidatePanel: Keyboards[keyboardName].needsCandidatePanel
+      showCandidatePanel: needsCandidatePanel()
     });
 
     IMERender.setUpperCaseLock(isUpperCaseLocked ? 'locked' : isUpperCase);
@@ -759,10 +762,12 @@ function renderKeyboard(keyboardName) {
 
   // XXX: if we are going to hide the candidatePanel, notify keyboard manager
   // first to update the app window size
-  if (!Keyboards[keyboardName].needsCandidatePanel && candidatePanelEnabled) {
+  if (!currentLayout.needsCandidatePanel && candidatePanelEnabled) {
     var candidatePanel = document.getElementById('keyboard-candidate-panel');
+    var candidatePanelHeight = (candidatePanel) ?
+                               candidatePanel.scrollHeight : 0;
     document.location.hash = 'show=' +
-      (IMERender.ime.scrollHeight - candidatePanel.scrollHeight);
+      (IMERender.ime.scrollHeight - candidatePanelHeight);
 
     window.setTimeout(drawKeyboard, CANDIDATE_PANEL_SWITCH_TIMEOUT);
   } else {
@@ -791,20 +796,10 @@ function setUpperCase(upperCase, upperCaseLocked) {
   IMERender.draw(currentLayout, {
     uppercase: isUpperCaseLocked || isUpperCase,
     inputType: currentInputType,
-    showCandidatePanel: Keyboards[keyboardName].needsCandidatePanel
+    showCandidatePanel: needsCandidatePanel()
   });
   // And make sure the caps lock key is highlighted correctly
   IMERender.setUpperCaseLock(isUpperCaseLocked ? 'locked' : isUpperCase);
-}
-
-function updateSettings(key, value) {
-  var settings = {};
-  settings['keyboard.' + key] = value;
-
-  try {
-    var lock = navigator.mozSettings.createLock();
-    lock.set(settings);
-  } catch (ex) {}
 }
 
 function resetUpperCase() {
@@ -1300,21 +1295,27 @@ function endPress(target, coords, touchId) {
   case SWITCH_KEYBOARD:
 
     // If the user has specify a keyboard in the menu,
-    // switch to that keyboard.
+    // switch to that keyboard and update the setting.
     if (target.dataset.keyboard) {
       setKeyboardName(target.dataset.keyboard);
+      navigator.mozSettings.createLock().set({
+        'keyboard.current': target.dataset.keyboard
+      });
 
       // If the user is releasing the switch keyboard key while
       // showing the alternatives, do nothing.
     } else if (isShowingAlternativesMenu) {
       break;
 
-      // Cycle between languages (keyboard)
+      // Cycle between languages (keyboard) and update the setting
     } else {
       var keyboards = enabledKeyboardNames;
       var index = keyboards.indexOf(keyboardName);
-      index = (index + 1) % keyboards.length;
-      setKeyboardName(enabledKeyboardNames[index]);
+      var newname = keyboards[(index + 1) % keyboards.length];
+      setKeyboardName(newname);
+      navigator.mozSettings.createLock().set({
+        'keyboard.current': newname
+      });
     }
 
     resetKeyboard();
@@ -1423,19 +1424,22 @@ function sendKey(keyCode) {
 // The state argument is the data passed with that event, and includes
 // the input field type, its inputmode, its content, and the cursor position.
 function showKeyboard(state) {
-  // If no keyboard has been selected yet or the selected one has been disabled
-  // from Settings, choose the first enabled one.
-  // This will also set the inputMethod
-  if (enabledKeyboardNames.indexOf(keyboardName) == -1)
-    setKeyboardName(enabledKeyboardNames[0]);
+  // If the keyboard is not initialized or the layout has changed,
+  // set the new keyboard
+  if (keyboardName !== currentKeyboardName) {
+    // Make sure that currentKeyboardName is enabled. If not, use
+    // the first enabled keyboard as the default.
+    if (enabledKeyboardNames.indexOf(currentKeyboardName) == -1)
+      currentKeyboardName = enabledKeyboardNames[0];
+
+    // Now initialize that keyboard
+    setKeyboardName(currentKeyboardName);
+  }
 
   IMERender.showIME();
 
   currentInputMode = state.inputmode;
   currentInputType = mapInputType(state.type);
-
-  // reset the flag for candidate show/hide workaround
-  candidatePanelEnabled = false;
 
   resetKeyboard();
 
@@ -1446,16 +1450,6 @@ function showKeyboard(state) {
     });
   }
 
-  if (!inputMethod.displaysCandidates ||
-      inputMethod.displaysCandidates())
-  {
-    IMERender.ime.classList.add('candidate-panel');
-  }
-  else {
-    IMERender.ime.classList.remove('candidate-panel');
-  }
-  IMERender.ime.classList.remove('full-candidate-panel');
-
 }
 
 // Hide keyboard
@@ -1463,6 +1457,9 @@ function hideKeyboard() {
   IMERender.hideIME();
   if (inputMethod.deactivate)
     inputMethod.deactivate();
+
+  // reset the flag for candidate show/hide workaround
+  candidatePanelEnabled = false;
 }
 
 // Resize event handler
@@ -1650,5 +1647,15 @@ function getSettings(settings, callback) {
     if (numResults === numSettings) {
       callback(results);
     }
+  }
+}
+
+// To determine if the candidate panel for word suggestion is needed
+function needsCandidatePanel() {
+  if (Keyboards[keyboardName].needsCandidatePanel &&
+      (!inputMethod.displaysCandidates || inputMethod.displaysCandidates())) {
+    return true;
+  } else {
+    return false;
   }
 }

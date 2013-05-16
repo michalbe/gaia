@@ -1,5 +1,6 @@
 requireLib('provider/abstract.js');
 requireLib('template.js');
+requireLib('querystring.js');
 
 suiteGroup('Views.ModifyEvent', function() {
 
@@ -47,6 +48,20 @@ suiteGroup('Views.ModifyEvent', function() {
     return template.render({ value: html });
   }
 
+  function primaryIsEnabled() {
+    assert.ok(
+      !subject.primaryButton.hasAttribute('aria-disabled'),
+      'button is enabled'
+    );
+  }
+
+  function primaryIsDisabled() {
+    assert.ok(
+      subject.primaryButton.hasAttribute('aria-disabled'),
+      'button is disabled'
+    );
+  }
+
   var triggerEvent;
   var InputParser;
   suiteSetup(function() {
@@ -81,9 +96,13 @@ suiteGroup('Views.ModifyEvent', function() {
           '<input type="checkbox" name="allday" />',
           '<input name="title" />',
           '<input type="date" name="startDate" />',
+          '<span id="start-date-locale"></span>',
           '<input type="date" name="endDate" />',
+          '<span id="end-date-locale"></span>',
           '<input type="time" name="startTime" />',
+          '<span id="start-time-locale"></span>',
           '<input type="time" name="endTime" />',
+          '<span id="end-time-locale"></span>',
           '<input name="location" />',
           '<textarea name="description"></textarea>',
           '<input name="currentCalendar" />',
@@ -357,6 +376,55 @@ suiteGroup('Views.ModifyEvent', function() {
         });
       });
     });
+
+
+    // this allows to test _updateDateTimeLocale()
+    test('date/time are displayed according to the locale', function(done) {
+      remote.startDate = new Date(2012, 11, 30, 1, 2);
+      remote.endDate = new Date(2012, 11, 31, 13, 4);
+
+      updatesValues({}, function() {
+        done(function() {
+          var startDateLocale = document.getElementById('start-date-locale');
+          assert.equal(startDateLocale.textContent, '12/30/2012');
+
+          var endDateLocale = document.getElementById('end-date-locale');
+          assert.equal(endDateLocale.textContent, '12/31/2012');
+
+          var startTimeLocale = document.getElementById('start-time-locale');
+          assert.equal(startTimeLocale.textContent, '1:02:00 AM');
+
+          var endTimeLocale = document.getElementById('end-time-locale');
+          assert.equal(endTimeLocale.textContent, '1:04:00 PM');
+        });
+      });
+    });
+  });
+
+  suite('#_overrideEvent', function(done) {
+    var startDate;
+    var endDate;
+    var search;
+
+    setup(function() {
+      startDate = new Date(1989, 4, 17, 2, 0, 0, 0);
+      endDate = new Date(1989, 4, 17, 3, 0, 0, 0);
+      var queryString = {
+        startDate: startDate.toString(),
+        endDate: endDate.toString()
+      };
+
+      search = '?' + Calendar.QueryString.stringify(queryString);
+      subject.useModel(this.busytime, this.event, done);
+    });
+
+    test('should set startDate and endDate on the event', function() {
+      assert.notEqual(subject.event.startDate.getTime(), startDate.getTime());
+      assert.notEqual(subject.event.endDate.getTime(), endDate.getTime());
+      subject._overrideEvent(search);
+      assert.equal(subject.event.startDate.getTime(), startDate.getTime());
+      assert.equal(subject.event.endDate.getTime(), endDate.getTime());
+    });
   });
 
   test('#_markReadonly', function() {
@@ -517,6 +585,21 @@ suiteGroup('Views.ModifyEvent', function() {
       subject.deleteRecord();
     });
 
+    test('with an error', function(done) {
+      var err = new Calendar.Error.Authentication();
+      subject.showErrors = function(givenErr) {
+        done(function() {
+          assert.equal(err, givenErr);
+        });
+      };
+
+      provider.deleteEvent = function(model, callback) {
+        Calendar.nextTick(callback.bind(null, err));
+      };
+
+      subject.deleteRecord();
+    });
+
     test('with valid provider', function(done) {
       provider.deleteEvent = function(toDelete, callback) {
         assert.equal(toDelete._id, event._id, 'deletes event');
@@ -547,7 +630,25 @@ suiteGroup('Views.ModifyEvent', function() {
     });
 
     function haltsOnError(providerMethod) {
-      test('does not save when validator errors occurs', function(done) {
+      test('does not persist record when provider fails', function(done) {
+        var dispatchesError;
+        var err = new Calendar.Error.Authentication();
+        subject.showErrors = function(gotErr) {
+          done(function() {
+            assert.equal(err, gotErr, 'dispatches error');
+          });
+        };
+
+        provider[providerMethod] = function() {
+          var args = Array.slice(arguments);
+          var cb = args.pop();
+          Calendar.nextTick(cb.bind(null, err));
+        };
+
+        subject.primary();
+      });
+
+      test('does not invoke provider when validations fails', function(done) {
         provider[providerMethod] = function() {
           done(new Error('should not persist record.'));
         };
@@ -898,6 +999,19 @@ suiteGroup('Views.ModifyEvent', function() {
         assert.equal(allAlarms.length, 2);
         assert.equal(allAlarms[0].value, -300);
         assert.equal(allAlarms[1].value, 'none');
+        done();
+      });
+    });
+
+    test('populated presaved event with no existing alarms', function(done) {
+      subject.event.alarms = [];
+      subject.isSaved = function() {
+        return true;
+      };
+      subject.updateAlarms(true, function() {
+        var allAlarms = subject.alarmList.querySelectorAll('select');
+        assert.equal(allAlarms.length, 1);
+        assert.equal(allAlarms[0].value, 'none');
         done();
       });
     });
