@@ -474,7 +474,7 @@ var ThreadUI = global.ThreadUI = {
     var currentScroll = this.container.scrollTop;
     if (currentScroll < kEdge) {
       var previous = this.container.scrollHeight;
-      this.showChunkOfMessages(this.CHUNK_SIZE);
+      //this.showChunkOfMessages(this.CHUNK_SIZE);
       // We update the scroll to the previous position
       // taking into account the previous offset to top
       // and the current height due to we have added a new

@@ -92,12 +92,13 @@
         canvas.height = Math.round(img.height / ratio);
         var context = canvas.getContext('2d');
         context.drawImage(img, 0, 0, width, height);
-        var data = canvas.toDataURL(type);
-
-        callback({
-          width: width,
-          height: height,
-          data: data
+        
+        canvas.toBlob(function(data){
+          callback({
+            width: width,
+            height: height,
+            data: data
+            });
         });
       };
       img.onerror = function onBlobError() {
@@ -120,7 +121,8 @@
     },
 
     render: function(readyCallback) {
-      var el = document.createElement('iframe');
+      var el = document.createElement('span');
+      var img = document.createElement('img');
       var type = this.type; // attachment type
       var self = this;
 
@@ -132,37 +134,18 @@
           error: false
         };
 
-        el.width = thumbnail.width;
-        el.height = thumbnail.height;
-
-        var template = {
-          type: type,
-          draftClass: self.isDraft ? 'draft' : '',
-          errorClass: thumbnail.error ? 'corrupted' : '',
-          inlineStyle: (thumbnail.data && !thumbnail.error) ?
-            'background: url(' + thumbnail.data + ') no-repeat center center;' :
-            '',
-          baseURL: location.protocol + '//' + location.host,
-          size: self.sizeForHumans
-        };
+        el.width = img.width = thumbnail.width;
+        el.height = img.height = thumbnail.height;
 
         // Attach click listeners and fire the callback when rendering is
         // complete: we can't bind `readyCallback' to the `load' event
         // listener because it would break our unit tests.
-        el.addEventListener('load', self.bubbleEvents.bind(self));
-        el.src = 'data:text/html,' +
-          Utils.Template('attachment-tmpl').interpolate(template);
+        img.src = window.URL.createObjectURL(thumbnail.data);
+
         if (readyCallback) {
           readyCallback();
         }
       };
-
-      // The attachment's iFrame requires access to the parent document's
-      // context so that URIs for Blobs created in the parent may resolve as
-      // expected.
-      el.setAttribute('sandbox', 'allow-same-origin');
-      el.className = 'attachment';
-      el.dataset.attachmentType = type;
 
       // We special case audio to display an image of an audio attachment video
       // currently falls through this path too, we should revisit this with
@@ -178,6 +161,7 @@
         setTimeout(setFrameSrc);
       }
 
+      el.appendChild(img);
       // Remember: the <iframe> content is created asynchrounously.
       return el;
     },
