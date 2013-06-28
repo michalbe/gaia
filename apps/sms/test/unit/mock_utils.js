@@ -20,6 +20,8 @@ var MockUtils = {
   params: Utils.params,
   getContactDetails: Utils.getContactDetails,
   getResizedImgBlob: Utils.getResizedImgBlob,
+  getCarrierTag: Utils.getCarrierTag,
   removeNonDialables: Utils.removeNonDialables,
-  compareDialables: Utils.compareDialables
+  compareDialables: Utils.compareDialables,
+  getDisplayObject: Utils.getDisplayObject
 };

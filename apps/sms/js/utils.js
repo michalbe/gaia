@@ -3,7 +3,7 @@
 (function(exports) {
   'use strict';
   var rdashes = /-(.)/g;
-  var rmatcher = /\$\{([^{]+)\}/g;
+  var rmatcher = /\$\{([^}]+)\}/g;
   var rescape = /[.?*+^$[\]\\(){}|-]/g;
   var rentity = /[&<>"']/g;
   var rentities = {
@@ -216,32 +216,37 @@
       return details;
     },
 
-    getContactCarrier: function(input, tels) {
+    getCarrierTag: function ut_getCarrierTag(input, tels, details) {
       /**
         1. If a phone number has carrier associated with it
             the output will be:
 
-          Firstname Lastname
           type | carrier
 
         2. If there is no carrier associated with the phone number
             the output will be:
 
-          Firstname Lastname
           type | phonenumber
 
         3. If for some reason a single contact has two phone numbers with
             the same type and the same carrier the output will be:
 
-          Firstname Lastname
           type | phonenumber
 
-      */
+        4. If for some reason a single contact has no name and no carrier,
+            the output will be:
 
+          type
+
+        5. If for some reason a single contact has no name, no type
+            and no carrier, the output will be nothing.
+      */
       var length = tels.length;
+      var hasDetails = typeof details !== 'undefined';
       var hasUniqueCarriers = true;
       var hasUniqueTypes = true;
-      var found, tel, type, carrier, value;
+      var name = hasDetails ? details.name : '';
+      var found, tel, type, carrier, value, ending;
 
       for (var i = 0; i < length; i++) {
         tel = tels[i];
@@ -259,18 +264,23 @@
         }
 
         carrier = tel.carrier;
-        type = tel.type[0];
+        type = (tel.type && tel.type[0]) || '';
       }
 
       if (!found) {
         return '';
       }
 
-      type = found.type[0];
-      carrier = hasUniqueCarriers || hasUniqueTypes ? found.carrier : '';
+      type = (found.type && found.type[0]) || '';
+      carrier = (hasUniqueCarriers || hasUniqueTypes) ? found.carrier : '';
       value = carrier || found.value;
+      ending = ' | ' + (carrier || value);
 
-      return type + ' | ' + (carrier || value);
+      if (hasDetails && !name && !carrier) {
+        ending = '';
+      }
+
+      return type + ending;
     },
 
     // Based on "non-dialables" in https://github.com/andreasgal/PhoneNumber.js
@@ -364,6 +374,76 @@
         parsed[$1] = $2;
       });
       return parsed;
+    },
+    /*
+      Using a contact resolver, a function that can looks for contacts,
+      get the format for the dissambiguation.
+
+      Used mainly in activities since they need to pick a contact from just
+      the number.
+    */
+    getContactDisplayInfo: function(resolver, phoneNumber, callback) {
+      resolver(phoneNumber, function onContacts(contacts) {
+        var contact;
+        if (Array.isArray(contacts)) {
+          if (contacts.length == 0) {
+            callback(null);
+            return;
+          }
+          contact = contacts[0];
+        } else {
+          if (contacts === null) {
+            callback(null);
+            return;
+          }
+          contact = contacts;
+        }
+
+        var tel = null;
+        for (var i = 0; i < contact.tel.length && tel == null; i++) {
+          if (contact.tel[i].value === phoneNumber) {
+            tel = contact.tel[i];
+          }
+        }
+
+        // Get the title in the standar way
+        var details = Utils.getContactDetails(tel, contact);
+        var info = Utils.getDisplayObject(details.title || null, tel);
+        /*
+          XXX: We need to move this to use a single point for
+          formating:
+          ${type}${separator}${carrier}${numberHTML}
+        */
+        info.display = info.type +
+          info.separator +
+          info.carrier +
+          tel.value;
+
+        callback(info);
+      });
+    },
+    /*
+      Given a title for a contact, a the current information for
+      an specific phone, of that contact, creates an object with
+      all the information needed to display data.
+    */
+    getDisplayObject: function(theTitle, tel) {
+      var number = tel.value;
+      var title = theTitle || number;
+      var type = tel.type && tel.type.length ? tel.type[0] : '';
+      var carrier = tel.carrier ? (tel.carrier + ', ') : '';
+      var separator = type || carrier ? ' | ' : '';
+      var data = {
+        name: title,
+        number: number,
+        type: type,
+        carrier: carrier,
+        separator: separator,
+        nameHTML: '',
+        numberHTML: ''
+      };
+
+      return data;
     }
   };
 

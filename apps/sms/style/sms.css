@@ -8,6 +8,20 @@ html, body {
   overflow-y: hidden !important;
 }
 
+
+/* 
+  Override BB. Some CSS tweaks for having a better confirm readability
+*/
+form[role="dialog"][data-type="confirm"] p {
+  margin-top: 0 !important;
+  border-bottom: 0.1rem solid #686868;
+}
+
+form[role="dialog"][data-type="confirm"] p small{
+  line-height: 2rem;
+}
+
+
 /* Override Building Block [Header] styles */
 section[role="region"] > header:first-child .icon.icon-clear {
   background-image: url(images/icons/clear.png);
@@ -430,7 +444,8 @@ section[role="region"].new > header:first-child form {
   margin: 0 0.5rem 0 0;
 }
 
-.article-list[data-type="list"] .message.error .bubble > aside progress {
+.article-list[data-type="list"] .message.error .bubble > aside progress,
+.article-list[data-type="list"] .message.delivered .bubble > aside progress {
   display: none;
 }
 
@@ -438,6 +453,12 @@ section[role="region"].new > header:first-child form {
   display: block;
 
   background: url('images/icons/exclamation.png') no-repeat center center;
+  background-size: 2.2rem;
+}
+
+.article-list[data-type="list"] .message.delivered .bubble > aside {
+  display: block;
+  background: url('images/icons/deliveredtick.png') no-repeat center center;
   background-size: 2.2rem;
 }
 
@@ -748,11 +769,13 @@ section[role="region"].new #messages-to-field {
 /*
 Used by Recipients.View to display multi or single line.
 Do not remove.
-*/
+
+generateHeightRule() (in ThreadUI/thread_ui.js) will create:
 #messages-recipients-list.multiline {
   overflow-y: scroll;
-  height: 8.8rem;
+  height: {max available height}px;
 }
+*/
 #messages-recipients-list.singleline {
   overflow-y: hidden;
   height: 2.4rem;

@@ -22,6 +22,8 @@ var MessageManager = {
     this._mozMobileMessage.addEventListener('sending', this.onMessageSending);
     this._mozMobileMessage.addEventListener('sent', this.onMessageSent);
     this._mozMobileMessage.addEventListener('failed', this.onMessageFailed);
+    this._mozMobileMessage.addEventListener('deliverysuccess',
+                                            this.onDeliverySuccess);
     window.addEventListener('hashchange', this.onHashChange.bind(this));
     document.addEventListener('mozvisibilitychange',
                               this.onVisibilityChange.bind(this));
@@ -48,7 +50,7 @@ var MessageManager = {
     if (window.location.hash === '#new') {
       // If we are in 'new' we go to right to thread view
       window.location.hash = '#thread=' + threadId;
-    } else {
+    } else if (threadId === Threads.currentId) {
       ThreadUI.appendMessage(message);
       ThreadUI.scrollViewToBottom();
     }
@@ -57,6 +59,10 @@ var MessageManager = {
 
   onMessageFailed: function mm_onMessageFailed(e) {
     ThreadUI.onMessageFailed(e.message);
+  },
+
+  onDeliverySuccess: function mm_onDeliverySuccess(e) {
+    ThreadUI.onDeliverySuccess(e.message);
   },
 
   onMessageSent: function mm_onMessageSent(e) {
@@ -205,14 +211,24 @@ var MessageManager = {
         return;
       }
 
-      if (activity.number || activity.contact) {
-        var recipient = activity.contact || {
-          number: activity.number,
-          source: 'manual'
+      // Choose the appropiate contact resolver, if we
+      // have a contact object, and no number,just use a dummy source,
+      // and return the contact, if not, if we have a number, use
+      // one of the functions to get a contact based on a number
+      var contactSource = Contacts.findByPhoneNumber.bind(Contacts);
+      var phoneNumber = activity.number;
+      if (activity.contact && !phoneNumber) {
+        contactSource = function dummySource(contact, cb) {
+          cb(activity.contact);
         };
-
-        ThreadUI.recipients.add(recipient);
+        phoneNumber = activity.contact.number || activity.contact.tel[0].value;
       }
+
+      Utils.getContactDisplayInfo(contactSource, phoneNumber,
+        (function onData(data) {
+        data.source = 'contacts';
+        ThreadUI.recipients.add(data);
+      }).bind(this));
 
       // If the message has a body, use it to populate the input field.
       if (activity.body) {
@@ -385,22 +401,25 @@ var MessageManager = {
 
   // consider splitting this method for the different use cases
   sendSMS: function mm_send(recipients, content, onsuccess, onerror) {
-    var request;
+    var requests;
 
     if (!Array.isArray(recipients)) {
       recipients = [recipients];
     }
 
-    request = this._mozMobileMessage.send(recipients, content);
+    // The returned value is not a DOM request!
+    // Instead, It's an array of DOM requests.
+    requests = this._mozMobileMessage.send(recipients, content);
+    requests.forEach(function(request) {
+      request.onsuccess = function onSuccess(event) {
+        onsuccess && onsuccess(event.result);
+      };
 
-    request.onsuccess = function onSuccess(event) {
-      onsuccess && onsuccess(event.result);
-    };
-
-    request.onerror = function onError(event) {
-      console.log('Error Sending: ' + JSON.stringify(event.error));
-      onerror && onerror();
-    };
+      request.onerror = function onError(event) {
+        console.log('Error Sending: ' + JSON.stringify(event.error));
+        onerror && onerror();
+      };
+    });
   },
 
   sendMMS: function mm_sendMMS(recipients, content, onsuccess, onerror) {

@@ -94,6 +94,11 @@ navigator.mozL10n.ready(function carrierSettings() {
     var advForm = apnPanel.querySelector('.apnSettings-advanced');
     var lastItem = apnList.querySelector('.apnSettings-custom');
 
+    var kUsageMapping = {'data': 'default',
+                         'mms': 'mms',
+                         'supl': 'supl'};
+    var currentType = kUsageMapping[usage];
+
     // create a button to apply <apn> data to the current fields
     function createAPNItem(item) {
       // create an <input type="radio"> element
@@ -114,7 +119,7 @@ navigator.mozL10n.ready(function carrierSettings() {
           rilData(usage, 'mmsport').value = item.mmsport || '';
         }
         var input = document.getElementById('ril-' + usage + '-authType');
-        input.value = item.authtype ? AUTH_TYPES[input.value] : 'notDefined';
+        input.value = AUTH_TYPES[item.authtype] || 'notDefined';
         var parent = input.parentElement;
         var button = input.previousElementSibling;
         var index = input.selectedIndex;
@@ -149,6 +154,11 @@ navigator.mozL10n.ready(function carrierSettings() {
       apnList.insertBefore(createAPNItem(apnItems[i]), lastItem);
     }
 
+    var settings = Settings.mozSettings;
+    // maps for UI fields(current settings key) to new apn setting keys.
+    var kKeyMappings = {'passwd': 'password',
+                       'httpProxyHost': 'proxy',
+                       'httpProxyPort': 'port'};
     // helper
     function fillCustomAPNSettingFields() {
       var keys = ['apn', 'user', 'passwd', 'httpProxyHost', 'httpProxyPort'];
@@ -193,8 +203,78 @@ navigator.mozL10n.ready(function carrierSettings() {
       asyncStorage.setItem('ril.' + usage + '.custom.authtype', authType.value);
     }
 
-    // find the current APN, relying on the carrier name
-    var settings = Settings.mozSettings;
+    function buildNewApnSettingsValue(type, apnsForIccCards) {
+      var apnToBeMerged = {};
+
+      // Load the fields from the form into the apn to be merged.
+      var keys = ['apn', 'user', 'passwd', 'httpProxyHost', 'httpProxyPort'];
+      if (type === 'mms') {
+        keys.push('mmsc', 'mmsproxy', 'mmsport');
+      }
+      keys.forEach(function(key) {
+        apnToBeMerged[(kKeyMappings[key] || key)] = rilData(usage, key).value;
+      });
+      // fill authType field and push it to keys.
+      var authType = document.getElementById('ril-' + usage + '-authType');
+      apnToBeMerged['authType'] = authType.value;
+      keys.push('authType');
+
+      var newApnsForIccCards = [];
+      for (var iccCardIndex = 0;
+           iccCardIndex < apnsForIccCards.length;
+           iccCardIndex++) {
+
+        var newApnsForIccCard = [];
+        var apnsForIccCard = apnsForIccCards[iccCardIndex];
+        for (var apnIndex = 0; apnIndex < apnsForIccCard.length; apnIndex++) {
+
+          var apn = apnsForIccCard[apnIndex];
+          if (apn.types.indexOf(type) != -1) {
+            // Compare the existing apn to the apn to be merge.
+            var sameApn = true;
+            keys.forEach(function(key) {
+              if (apn[key] !== apnToBeMerged[key]) {
+                sameApn = false;
+              }
+            });
+            if (sameApn) {
+              newApnsForIccCard.push(apn);
+            } else {
+              // Add the apn to be merged.
+              var newType = [];
+              newType.push(type);
+              apnToBeMerged.types = newType;
+              newApnsForIccCard.push(apnToBeMerged);
+
+              // Delete the type from the existing apn and add that apn if the
+              // APN had other types.
+              apn.types.splice(apn.types.indexOf(type), 1);
+              if (apn.types.length !== 0) {
+                newApnsForIccCard.push(apn);
+              }
+            }
+          } else {
+            newApnsForIccCard.push(apn);
+          }
+        }
+        newApnsForIccCards.push(newApnsForIccCard);
+      }
+
+      settings.createLock().set({'ril.data.apnSettings': newApnsForIccCards});
+    }
+
+    // use new call setting architecture
+    function storeNewApnSettings() {
+      if (!currentType) {
+        return;
+      }
+      var reqOld = settings.createLock().get('ril.data.apnSettings');
+      reqOld.addEventListener('success', function handleAPNSettings() {
+        var oldAPNSettings = reqOld.result['ril.data.apnSettings'];
+        buildNewApnSettingsValue(currentType, oldAPNSettings);
+      });
+    }
+
     if (settings) {
       var radios = apnList.querySelectorAll('input[type="radio"]');
       var key = 'ril.' + usage + '.carrier';
@@ -244,6 +324,7 @@ navigator.mozL10n.ready(function carrierSettings() {
     });
 
     function onSubmit() {
+      storeNewApnSettings();
       setTimeout(function() {
         if (apnSettingsChanged) {
           apnSettingsChanged = false;
@@ -430,8 +511,8 @@ navigator.mozL10n.ready(function carrierSettings() {
 
     // state
     var state = document.createElement('small');
-    state.textContent =
-      network.state ? _('state-' + network.state) : _('state-unknown');
+    localize(state,
+      network.state ? ('state-' + network.state) : 'state-unknown');
 
     // create list item
     var li = document.createElement('li');
@@ -443,7 +524,7 @@ navigator.mozL10n.ready(function carrierSettings() {
 
     // bind connection callback
     li.onclick = function() {
-      callback(network, state);
+      callback(network, true);
     };
     return li;
   }
@@ -457,8 +538,13 @@ navigator.mozL10n.ready(function carrierSettings() {
     var scanItem = list.querySelector('li[data-state="ready"]');
     scanItem.onclick = scan;
 
+    var currentConnectedNetwork = null;
+    var connecting = false;
+    var operatorItemMap = {};
+
     // clear the list
     function clear() {
+      operatorItemMap = {};
       var operatorItems = list.querySelectorAll('li:not([data-state])');
       var len = operatorItems.length;
       for (var i = len - 1; i >= 0; i--) {
@@ -484,21 +570,48 @@ navigator.mozL10n.ready(function carrierSettings() {
     }
 
     // select operator
-    function selectOperator(network, messageElement) {
+    function selectOperator(network, manuallySelect) {
+      if (connecting) {
+        return;
+      }
+
+      var listItem = operatorItemMap[network.mcc + '.' + network.mnc];
+      if (!listItem) {
+        return;
+      }
+
+      var messageElement = listItem.querySelector('small');
+
+      connecting = true;
       // update current network state as 'available' (the string display
       // on the network to connect)
-      resetOperatorItemState();
+      if (manuallySelect) {
+        resetOperatorItemState();
+      }
 
       var req = mobileConnection.selectNetwork(network);
       localize(messageElement, 'operator-status-connecting');
       req.onsuccess = function onsuccess() {
+        currentConnectedNetwork = network;
         localize(messageElement, 'operator-status-connected');
         updateSelectionMode(false);
+        connecting = false;
       };
-      req.onerror = function onsuccess() {
+      req.onerror = function onerror() {
+        connecting = false;
         localize(messageElement, 'operator-status-connectingfailed');
-        updateSelectionMode(false);
+        if (currentConnectedNetwork) {
+          recoverAvailableOperator();
+        } else {
+          updateSelectionMode(false);
+        }
       };
+    }
+
+    function recoverAvailableOperator() {
+      if (currentConnectedNetwork) {
+        selectOperator(currentConnectedNetwork, false);
+      }
     }
 
     // scan available operators
@@ -509,8 +622,14 @@ navigator.mozL10n.ready(function carrierSettings() {
       req.onsuccess = function onsuccess() {
         var networks = req.result;
         for (var i = 0; i < networks.length; i++) {
-          var listItem = newListItem(networks[i], selectOperator);
+          var network = networks[i];
+          var listItem = newListItem(network, selectOperator);
           list.insertBefore(listItem, scanItem);
+
+          operatorItemMap[network.mcc + '.' + network.mnc] = listItem;
+          if (network.state === 'current') {
+            currentConnectedNetwork = network;
+          }
         }
         list.dataset.state = 'ready'; // "Search Again" button
       };

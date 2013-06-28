@@ -75,6 +75,16 @@ var icc = {
 
   handleSTKCommand: function icc_handleSTKCommand(command) {
     DUMP('STK Proactive Command:', command);
+    if (FtuLauncher.isFtuRunning()) {
+      // Delay the stk command until FTU is done
+      var self = this;
+      window.addEventListener('ftudone', function ftudone() {
+        DUMP('FTU is done!... processing STK command:', command);
+        self.handleSTKCommand(command);
+      });
+      return DUMP('FTU is running, delaying STK...');
+    }
+
     this._iccLastCommand = command;
 
     var cmdId = '0x' + command.typeOfCommand.toString(16);
@@ -82,44 +92,7 @@ var icc = {
       return icc_worker[cmdId](command, this);
     }
 
-    // Command not yet supported in system (Bug #875679)
-    // transferring to settings...
-    DUMP('STK -> Settings: ', command);
-    var application = document.location.protocol + '//' +
-      document.location.host.replace('system', 'settings');
-    DUMP('application: ', application);
-    var reqIccData = window.navigator.mozSettings.createLock().set({
-      'icc.data': JSON.stringify(command)
-    });
-    reqIccData.onsuccess = function icc_getIccData() {
-      if (WindowManager.getRunningApps()[application]) {
-        DUMP('Settings is running. Ignoring');
-        return;   // If settings is opened, we don't manage it
-      }
-
-      function launchSettings() {
-        DUMP('Locating settings . . .');
-        navigator.mozApps.mgmt.getAll().onsuccess =
-        function gotApps(evt) {
-          var apps = evt.target.result;
-          apps.forEach(function appIterator(app) {
-            if (app.origin != application)
-              return;
-            DUMP('Launching ', app.origin);
-            app.launch();
-          }, this);
-        };
-      }
-      if (FtuLauncher.isFtuRunning()) {
-        // Delay the stk command until FTU is done
-        window.addEventListener('ftudone', function ftudone() {
-          DUMP('ftu is done!');
-          launchSettings();
-        });
-      } else {
-        launchSettings();
-      }
-    };
+    DUMP('STK Command not recognized ! - ', command);
   },
 
 
