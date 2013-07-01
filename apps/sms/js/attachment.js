@@ -92,8 +92,8 @@
         canvas.height = Math.round(img.height / ratio);
         var context = canvas.getContext('2d');
         context.drawImage(img, 0, 0, width, height);
-        
-        canvas.toBlob(function(data){
+
+        canvas.toBlob(function(data) {
           callback({
             width: width,
             height: height,
@@ -120,9 +120,22 @@
         event.target.click.bind(event.target));
     },
 
-    render: function(readyCallback) {
+    insertImage: function(element) {
+      var setImgSrc = function(th) {
+        var img = document.createElement('image');
+        img.width = th.width;
+        img.height = th.height;
+        // img.onload = function(){
+        //   window.URL.createObjectURL(th.data);
+        // }
+        img.src = window.URL.createObjectURL(th.data);
+        element.appendChild(img);
+      }
+      this.getThumbnail(setImgSrc);
+    },
+    
+    render: function(readyCallback, hidden) {
       var el = document.createElement('span');
-      var img = document.createElement('img');
       var type = this.type; // attachment type
       var self = this;
 
@@ -133,15 +146,21 @@
           data: '',
           error: false
         };
-
-        el.width = img.width = thumbnail.width;
-        el.height = img.height = thumbnail.height;
+        
+        el.style.display = img.style.display = 'block';
+        el.style.width = thumbnail.width + 'px';
+        el.style.height = thumbnail.height + 'px';
+        el.width = thumbnail.width;
+        el.height = thumbnail.height;
 
         // Attach click listeners and fire the callback when rendering is
         // complete: we can't bind `readyCallback' to the `load' event
         // listener because it would break our unit tests.
-        img.src = window.URL.createObjectURL(thumbnail.data);
-
+        
+        // if (!hidden) {
+        //   img.src = window.URL.createObjectURL(thumbnail.data);
+        // }
+        
         if (readyCallback) {
           readyCallback();
         }
@@ -161,7 +180,7 @@
         setTimeout(setFrameSrc);
       }
 
-      el.appendChild(img);
+      // el.appendChild(img);
       // Remember: the <iframe> content is created asynchrounously.
       return el;
     },

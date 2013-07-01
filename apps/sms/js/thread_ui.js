@@ -72,6 +72,12 @@ var ThreadUI = global.ThreadUI = {
       this[Utils.camelCase(id)] = document.getElementById('messages-' + id);
     }, this);
 
+    monitorChildVisibility(this.container,
+                             100,    // extra space top and bottom
+                             100,  // min scroll before we do work
+                             this.msgOnscreen,   // set background image
+                             this.msgOffscreen);
+                             
     this.mainWrapper = document.getElementById('main-wrapper');
 
     // Allow for stubbing in environments that do not implement the
@@ -249,6 +255,14 @@ var ThreadUI = global.ThreadUI = {
     generateHeightRule();
   },
 
+  msgOnscreen: function(msg) {
+    console.log('ON!', msg);
+  },
+  
+  msgOffscreen: function(msg) {
+    console.log('OFF!', msg);
+  },
+  
   // Initialize Recipients list and Recipients.View (DOM)
   initRecipients: function thui_initRecipients() {
     function recipientsChanged(count) {
@@ -920,7 +934,7 @@ var ThreadUI = global.ThreadUI = {
     ThreadUI.scrollViewToBottom();
   },
 
-  createMmsContent: function thui_createMmsContent(dataArray) {
+  createMmsContent: function thui_createMmsContent(dataArray, hidden) {
     var container = document.createDocumentFragment();
     dataArray.forEach(function(messageData) {
       var mediaElement, textElement;
@@ -929,7 +943,7 @@ var ThreadUI = global.ThreadUI = {
         var attachment = new Attachment(messageData.blob, {
           name: messageData.name
         });
-        var mediaElement = attachment.render();
+        var mediaElement = attachment.render(null, hidden);
         container.appendChild(mediaElement);
         attachmentMap.set(mediaElement, attachment);
       }
@@ -1087,7 +1101,7 @@ var ThreadUI = global.ThreadUI = {
     if (message.type === 'mms' && !notDownloaded) { // MMS
       var pElement = messageDOM.querySelector('p');
       SMIL.parse(message, function(slideArray) {
-        pElement.appendChild(ThreadUI.createMmsContent(slideArray));
+        pElement.appendChild(ThreadUI.createMmsContent(slideArray, hidden));
       });
     }
 
@@ -1134,6 +1148,7 @@ var ThreadUI = global.ThreadUI = {
   },
 
   showChunkOfMessages: function thui_showChunkOfMessages(number) {
+    //console.log('NOPE', number);
     var elements = ThreadUI.container.getElementsByClassName('hidden');
     for (var i = elements.length - 1; i >= 0; i--) {
       elements[i].classList.remove('hidden');
