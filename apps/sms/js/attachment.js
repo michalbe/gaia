@@ -130,10 +130,10 @@
         // }
         img.src = window.URL.createObjectURL(th.data);
         element.appendChild(img);
-      }
+      };
       this.getThumbnail(setImgSrc);
     },
-    
+
     render: function(readyCallback, hidden) {
       var el = document.createElement('span');
       var type = this.type; // attachment type
@@ -146,7 +146,7 @@
           data: '',
           error: false
         };
-        
+
         el.style.display = img.style.display = 'block';
         el.style.width = thumbnail.width + 'px';
         el.style.height = thumbnail.height + 'px';
@@ -156,11 +156,11 @@
         // Attach click listeners and fire the callback when rendering is
         // complete: we can't bind `readyCallback' to the `load' event
         // listener because it would break our unit tests.
-        
+
         // if (!hidden) {
         //   img.src = window.URL.createObjectURL(thumbnail.data);
         // }
-        
+
         if (readyCallback) {
           readyCallback();
         }

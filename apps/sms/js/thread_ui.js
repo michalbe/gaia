@@ -77,7 +77,7 @@ var ThreadUI = global.ThreadUI = {
                              100,  // min scroll before we do work
                              this.msgOnscreen,   // set background image
                              this.msgOffscreen);
-                             
+
     this.mainWrapper = document.getElementById('main-wrapper');
 
     // Allow for stubbing in environments that do not implement the
@@ -258,11 +258,11 @@ var ThreadUI = global.ThreadUI = {
   msgOnscreen: function(msg) {
     console.log('ON!', msg);
   },
-  
+
   msgOffscreen: function(msg) {
     console.log('OFF!', msg);
   },
-  
+
   // Initialize Recipients list and Recipients.View (DOM)
   initRecipients: function thui_initRecipients() {
     function recipientsChanged(count) {
