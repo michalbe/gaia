@@ -156,6 +156,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  display: none;
 }
 
 #lockscreen-connstate > span {
@@ -194,6 +195,7 @@
 .lockscreen-clock {
   margin: -0.8rem 0 -1rem -0.4rem;
   font-weight: 300;
+  display: none;
 }
 
 #lockscreen-clock-numbers {
@@ -207,6 +209,7 @@
 #lockscreen-date {
   font-weight: 400;
   font-size: calc(7 * 0.226rem);
+  display: none;
 }
 
 .lockscreen-clock, #lockscreen-date {
@@ -215,10 +218,11 @@
 }
 
 #lockscreen-area {
+  border-top: 1px solid rgba(255,255,255,.2);
   position: absolute;
-  height: 11.2rem;
-  left: 0;
-  right: 0;
+  height: 10rem;
+  left: 1.5rem;
+  right: 1.5rem;
   bottom: 0;
 }
 
@@ -229,6 +233,7 @@
   border-style: none;
   opacity: 0.1;
   transition: opacity 0.5s ease;
+  display: none;
 }
 
 .lockscreen-icon {
@@ -520,7 +525,7 @@ button::-moz-focus-inner {
   background-position: center;
   background-size: 2rem;
   border-top: 1px solid transparent;
-  top: -2rem;
+  top: -6rem;
   height: 0.9rem;
   width: 100%;
   transition:
@@ -531,14 +536,74 @@ button::-moz-focus-inner {
 #lockscreen-icon-container {
   position: absolute;
   width: 100%;
-  bottom: -8rem;
+  bottom: -10rem;
   height: 10rem;
   pointer-events: none;
-  border-top: 1px solid #989898;
-  background-image: linear-gradient(to bottom, rgba(0,0,0,0.8), rgba(0,0,0,0.2) 20%);
   transition:
     transform 0.5s ease,
     opacity 0.5s ease;
+}
+
+#lockscreen-gallery {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  overflow: hidden;
+}
+
+#lockscreen-gallery .container {
+  width: calc(100% * 6);
+  height: 100%;
+}
+
+#lockscreen-gallery .container div {
+  position: relative;
+  float: left;
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  width: calc(100% / 6);
+  height: 100%;
+}
+
+#lockscreen-area-camera {
+  background: url('./images/icon-camera-cercle.png') no-repeat center center;
+  width: 9.3rem;
+  height: 9.3rem;
+  position: absolute;
+  left: calc(50% - 9.3rem / 2);
+  top: calc(23% - 9.3rem / 2);
+  z-index: 1;
+}
+
+#lockscreen-area-unlock {
+  background: url('./images/icon-lock-cercle.png') no-repeat center center;
+  width: 19.6rem;
+  height: 19.6rem;
+  position: absolute;
+  left: calc(50% - 19.6rem / 2);
+  top: calc(58% - 19.6rem / 2);
+  z-index: 1;
+
+}
+
+.locked #lockscreen-area-unlock,
+.locked #lockscreen-area-camera {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.touched #lockscreen-area-unlock,
+.touched #lockscreen-area-camera {
+  visibility: visible;
+}
+
+.triggered #lockscreen-area-unlock,
+.triggered #lockscreen-area-camera {
+  visibility: visible;
+  opacity: 1;
 }
 
 .touched #lockscreen-icon-container {
@@ -554,7 +619,7 @@ button::-moz-focus-inner {
 }
 
 .triggered #lockscreen-icon-container {
-  transform: translateY(-8rem);
+  transform: translateY(-15rem);
   opacity: 1;
   pointer-events: auto;
 }

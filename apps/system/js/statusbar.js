@@ -280,7 +280,7 @@ var StatusBar = {
 
       case 'lock':
         // Hide the clock in the statusbar when screen is locked
-        this.icons.time.hidden = true;
+        this.icons.time.hidden = false;
         this.clock.stop();
         break;
 
@@ -413,9 +413,18 @@ var StatusBar = {
       window.addEventListener('moznetworkupload', this);
       window.addEventListener('moznetworkdownload', this);
 
-      if (!LockScreen.locked) {
-        // Start refreshing the clock only if it's visible
+      var self = this;
+      if (typeof(LockScreen) !== 'undefined' && !LockScreen.locked) {
         this.clock.start(this.update.time.bind(this));
+      } else {
+        if (!self.localized) {
+          window.addEventListener('localized', function setTime() {
+            self.localized = true;
+            self.clock.start(self.update.time.bind(self));
+          });
+        } else {
+          this.clock.start(this.update.time.bind(this));
+        }
       }
     } else {
       var battery = window.navigator.battery;
@@ -437,6 +446,7 @@ var StatusBar = {
 
       // Always prevent the clock from refreshing itself when the screen is off
       this.clock.stop();
+      this.clock.start(this.update.time.bind(this));
     }
   },
 

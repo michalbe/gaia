@@ -16,10 +16,7 @@ body {
   overflow: hidden;
   width: 100%;
   height: 100%;
-  background-color: #000;
-  background-size: cover; /* Possible memory over-consumption with huge images, it should be removed for improving stability*/
-  background-repeat: no-repeat;
-  background-position: 50% 2rem;
+  background-color: black;
 }
 
 #screen.screenoff {
@@ -215,6 +212,7 @@ body {
 
 
 #windows > iframe {
+  display: block;
   position: fixed;
   border: 0;
   margin: 0;
@@ -227,16 +225,132 @@ body {
   background-color: white;
   background-repeat: no-repeat;
   background-position: center center;
-  transform: translateX(-100%);
-  transition: transform 0.5s ease;
+  background-clip: padding-box;
+
+  transform: translateX(-20%) scale(0.9);
+  opacity: 0.3;
+  animation-duration: .5s;
+  animation-iteration-count: 1;
+
+  z-index: 500;
 }
+
+#windows > iframe.animate {
+  animation-name: front-to-back;
+}
+
+#windows > iframe.shadow {
+  border-left: 8px rgba(0, 0, 0, 0.4) solid;
+}
+
 
 #windows > iframe[data-current="true"] {
   transform: translateX(0);
+  opacity: 1;
+}
+
+#windows > iframe[data-current="true"].animate {
+  animation-name: back-to-front;
+}
+
+#windows > iframe[data-current="true"].forward.animate {
+  animation-name: right-to-left;
+}
+
+#windows > iframe[data-current="true"].shadow {
+  transform: translateX(-8px);
+}
+
+#windows > iframe[data-current="true"].transitioned {
+  z-index: 1000;
 }
 
 #windows > iframe[data-current="true"] ~ iframe {
   transform: translateX(100%);
+  opacity: 1;
+}
+
+#windows > iframe[data-current="true"] ~ iframe.shadow {
+  transform: translateX(calc(100% - 8px));
+}
+
+#windows > iframe[data-current="true"] ~ iframe.animate {
+  animation-name: left-to-right;
+}
+
+@keyframes front-to-back {
+  from {
+    transform: scale(1) translateX(0%);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1) translateX(0%);
+    opacity: 1;
+  }
+
+  to {
+    transform: scale(0.9) translateX(-20%);
+    opacity: 0.3;
+  }
+}
+
+@keyframes back-to-front {
+  from {
+    transform: scale(0.9) translateX(-20%);
+    opacity: 0.3;
+  }
+
+  50% {
+    transform: scale(1) translateX(0%);
+    opacity: 1;
+  }
+
+  to {
+    transform: scale(1) translateX(0%);
+    opacity: 1;
+  }
+}
+
+@keyframes right-to-left {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(-8px);
+  }
+}
+
+@keyframes left-to-right {
+  from {
+    transform: translateX(-8px);
+  }
+
+  to {
+    transform: translateX(100%);
+  }
+}
+
+#screenshot {
+  position: fixed;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-repeat: no-repeat;
+  background-position: center center;
+  z-index: 4096;
+  pointer-events: none;
+
+  /*
+  outline: 10px solid red;
+  outline-offset: -10px;
+  */
 }
 
 #windows > .appWindow {
@@ -734,7 +848,7 @@ body {
 .touch-panel {
   position:absolute;
   z-index: 4093;
-  background-color: rgba(255,0,0,0.2);
+  background-color: transparent; /*rgba(255,0,0,0.2)*/
 }
 
 #top-panel {

@@ -326,9 +326,9 @@
       </div>
 
       <div id="utility-tray" data-z-index-level="utility-tray">
-        <! -- Rocketbar -->
+        <!-- Rocketbar -->
         <form id="rocketbar" data-z-index-level="rocketbar">
-          <input id="rocketbar-input" type="text" placeholder="Search for anything...">
+          <input id="rocketbar-input" type="text" x-inputmode="verbatim" placeholder="Search for anything...">
           </input>
         </form>
 
@@ -337,7 +337,6 @@
         <div id="utility-tray-grippy">
         </div>
       </div>
-
 
       <div id="statusbar" data-z-index-level="statusbar">
         <!-- Carrier & date label -->
@@ -375,6 +374,9 @@
         <!-- Activity -->
         <canvas id="statusbar-system-downloads" hidden></canvas>
         <canvas id="statusbar-network-activity" hidden></canvas>
+      </div>
+      
+      <div id="progress" data-z-index-level="progress">
       </div>
 
       <div id="windows" data-z-index-level="app">
@@ -801,19 +803,21 @@
             </div>
             <div id="notifications-lockscreen-container">
             </div>
+            <div id="lockscreen-gallery">
+              <div id="lockscreen-area-camera"></div>
+              <div id="lockscreen-area-unlock"></div>
+              <div class="container">
+                <div class="gallery-item"></div>
+                <div class="gallery-item" style="background-image: url('resources/images/gallery/sf.jpg');"></div>
+                <div class="gallery-item" style="background-image: url('resources/images/gallery/cats.jpg');"></div>
+                <div class="gallery-item" style="background-image: url('resources/images/gallery/doors.jpg');"></div>
+                <div class="gallery-item" style="background-image: url('resources/images/gallery/iran.jpg');"></div>
+                <div class="gallery-item" style="background-image: url('resources/images/gallery/montreal.jpg');"></div>
+              </div>
+            </div>
             <div id="lockscreen-area"></div>
             <div id="lockscreen-icon-container">
               <div id="lockscreen-area-handle"></div>
-              <div id="lockscreen-area-camera" class="lockscreen-icon-area lockscreen-icon-left">
-                <div class="lockscreen-icon">
-                  <div id="lockscreen-accessibility-camera" role="button" class="lockscreen-icon-a11y-button" data-l10n-id="camera-a11y-button" aria-label="Camera"></div>
-                </div>
-              </div>
-              <div id="lockscreen-area-unlock" class="lockscreen-icon-area lockscreen-icon-right">
-                <div class="lockscreen-icon">
-                    <div id="lockscreen-accessibility-unlock" role="button" class="lockscreen-icon-a11y-button" data-l10n-id="unlock-a11y-button" aria-label="Unlock"></div>
-                </div>
-              </div>
             </div>
           </div>
 

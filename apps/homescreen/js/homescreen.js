@@ -173,6 +173,7 @@ const Homescreen = (function() {
     tile.innerHTML += name;
     tile.addEventListener('tap', (function(application, entry) {
       return function(){ 
+<<<<<<< HEAD
         page.addEventListener('transitionend', function runAppTrans() {
           application.launch(entry ? entry : null);
           page.removeEventListener('transitionend', runAppTrans);
@@ -180,6 +181,13 @@ const Homescreen = (function() {
             page.classList.remove('show');
           }, 500);
         });
+=======
+        application.launch(entry ? entry : null);
+        page.removeEventListener('transitionend', runAppTrans);
+        setTimeout(function() {
+          page.classList.remove('show');
+        }, 500);
+>>>>>>> ce50339533791019a36ac7fe564a887ba66d4942
         page.classList.add('show');
       }
     })(app, entryPoint));

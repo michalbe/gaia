@@ -167,6 +167,66 @@ var LockScreen = {
       this.connstate.hidden = false;
     }
 
+    (function Gallery(self) {
+      var isTouchStart = false;
+      var startTouchX = 0;
+      var dx = 0;
+      var dv;
+      var current = 1;
+      var startTime;
+      var container = self.gallery.querySelector('.container');
+      var count = container.querySelectorAll('.gallery-item').length;
+      var percent = 100 / count;
+      var MAX_DX = (document.body.clientWidth - 30) / 2;
+      var MAX_DV = 0.4;
+
+      self.gallery.addEventListener('mousedown', function gallery_mouseDown(e) {
+        e.preventDefault();
+        startTime = (new Date()).getTime();
+        startTouchX = e.clientX;
+        isTouchStart = true;
+        dx = 0;
+      }, true);
+
+      self.gallery.addEventListener('mousemove', function gallery_mouseMove(e) {
+
+        e.preventDefault();
+        if (!isTouchStart)
+          return;
+
+        dx = e.clientX - startTouchX;
+        dv = dx / ((new Date()).getTime() - startTime);
+        startTime = (new Date()).getTime();
+
+        container.style.transition = 'transform';
+        container.style.transform = 'translateX(calc(-' +
+          ((current - 1) * percent) + '% + ' + dx + 'px))';
+
+      }, true);
+
+      self.gallery.addEventListener('mouseup', function gallery_mouseUp(e) {
+
+        e.preventDefault();
+        if (!isTouchStart)
+          return;
+
+        // Move enough to change page
+        if (Math.abs(dx) >= MAX_DX || Math.abs(dv) >= MAX_DV) {
+          // Swipe to left
+          if (dx < 0) {
+            current = current >= count ? count : current + 1;
+          // Swipe to right
+          } else if (dx > 0) {
+            current = current <= 1 ? 1 : current - 1;
+          }
+        }
+        container.style.transition = 'transform 250ms ease';
+        container.style.transform = 'translateX(-' +
+          ((current - 1) * percent) + '%)';
+        isTouchStart = false;
+      }, true);
+    })(this);
+
     var self = this;
 
     SettingsListener.observe('lockscreen.enabled', true, function(value) {
@@ -416,6 +476,8 @@ var LockScreen = {
       overlay.classList.add('touched');
     }
 
+    this.HANDLE_MAX = this.handleMax();
+
     var dy = pageY - touch.initY;
     var ty = Math.max(- this.HANDLE_MAX, dy);
     var base = - ty / this.HANDLE_MAX;
@@ -425,25 +487,51 @@ var LockScreen = {
 
     this.iconContainer.style.transform = 'translateY(' + ty + 'px)';
     this.areaCamera.style.opacity =
-      this.areaUnlock.style.opacity = opacity;
+      this.areaUnlock.style.opacity = base;
+  },
+
+  handleMax: function(relative) {
+    relative = relative || 0;
+    return this.gallery.clientHeight - 60 -
+      this.areaCamera.offsetTop - this.areaCamera.clientHeight / 2 - relative;
+  },
+
+  finishGesture: function(touch, target) {
+    this.areaHandle.style.transform =
+      this.areaHandle.style.opacity =
+      this.iconContainer.style.transform =
+      this.iconContainer.style.opacity =
+      this.areaCamera.style.transform =
+      this.areaCamera.style.opacity =
+      this.areaUnlock.style.transform =
+      this.areaUnlock.style.opacity = '';
+    this.overlay.classList.add('triggered');
+    var self = this;
+    this.overlay.addEventListener('transitionend',
+      function ls_transitionend(evt) {
+        self.overlay.removeEventListener('transitionend', ls_transitionend);
+        self.unloadPanel();
+        self.handleEvent({
+          preventDefault: function() {},
+          type: 'mousedown',
+          target: target,
+          pageX: touch.initX,
+          pageY: touch.initY
+        });
+      }
+    );
   },
 
   handleGesture: function ls_handleGesture() {
     var touch = this._touch;
-    if (touch.ty < -50) {
-      this.areaHandle.style.transform =
-        this.areaHandle.style.opacity =
-        this.iconContainer.style.transform =
-        this.iconContainer.style.opacity =
-        this.areaCamera.style.transform =
-        this.areaCamera.style.opacity =
-        this.areaUnlock.style.transform =
-        this.areaUnlock.style.opacity = '';
-      this.overlay.classList.add('triggered');
+    var ty = touch.ty - 60 + this.gallery.clientHeight;
 
-      this.triggeredTimeoutId =
-        setTimeout(this.unloadPanel.bind(this), this.TRIGGERED_TIMEOUT);
-    } else if (touch.ty > -10) {
+    if (ty <= this.areaCamera.offsetTop + this.areaCamera.clientHeight) {
+      this.finishGesture(touch, this.areaCamera);
+    } else if (ty >= this.areaUnlock.offsetTop &&
+        ty < this.areaUnlock.offsetTop + this.areaUnlock.clientHeight) {
+      this.finishGesture(touch, this.areaUnlock);
+    } else if (ty > this.areaUnlock.offsetTop + this.areaUnlock.clientHeight) {
       touch.touched = false;
       this.unloadPanel();
       this.playElastic();
@@ -456,6 +544,10 @@ var LockScreen = {
         self.setElasticEnabled(true);
       });
     } else {
+      var self = this;
+      this.iconContainer.addEventListener('animationend', function prompt() {
+        self.iconContainer.removeEventListener('animationend', prompt);
+      });
       this.unloadPanel();
       this.setElasticEnabled(true);
     }
@@ -718,11 +810,12 @@ var LockScreen = {
             self.areaHandle.style.opacity =
             self.areaUnlock.style.opacity =
             self.areaCamera.style.opacity = '';
-          self.overlay.classList.remove('triggered');
-          self.areaHandle.classList.remove('triggered');
-          self.areaCamera.classList.remove('triggered');
-          self.areaUnlock.classList.remove('triggered');
-
+          setTimeout(function() {
+            self.overlay.classList.remove('triggered');
+            self.areaHandle.classList.remove('triggered');
+            self.areaCamera.classList.remove('triggered');
+            self.areaUnlock.classList.remove('triggered');
+          }, 200);
           clearTimeout(self.triggeredTimeoutId);
           self.setElasticEnabled(false);
         };
@@ -971,10 +1064,10 @@ var LockScreen = {
 
   getAllElements: function ls_getAllElements() {
     // ID of elements to create references
-    var elements = ['connstate', 'mute', 'clock-numbers', 'clock-meridiem',
-        'date', 'area', 'area-unlock', 'area-camera', 'icon-container',
-        'area-handle', 'passcode-code', 'alt-camera', 'alt-camera-button',
-        'passcode-pad', 'camera', 'accessibility-camera',
+    var elements = ['gallery', 'connstate', 'mute', 'clock-numbers',
+        'clock-meridiem', 'date', 'area', 'area-unlock', 'area-camera',
+        'icon-container', 'area-handle', 'passcode-code', 'alt-camera',
+        'alt-camera-button', 'passcode-pad', 'camera', 'accessibility-camera',
         'accessibility-unlock', 'panel-emergency-call'];
 
     var toCamelCase = function toCamelCase(str) {

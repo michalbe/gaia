@@ -10,6 +10,10 @@
   visibility: hidden;
 }
 
+#notifications-tray * {
+  pointer-events: none;
+}
+
 #screen.notifications-tray > #notifications-tray {
   visibility: visible;
 }

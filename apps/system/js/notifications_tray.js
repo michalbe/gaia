@@ -26,6 +26,7 @@ var NotificationsTray = {
     }, this);
 
     window.addEventListener('screenchange', this);
+    window.addEventListener('emergencyalert', this);
     window.addEventListener('home', this);
     window.addEventListener('attentionscreenshow', this);
 
@@ -98,8 +99,8 @@ var NotificationsTray = {
     this.lastY = y;
     var dy = -(this.startY - y);
     if (this.shown)
-      dy += screenHeight;
-    dy = Math.min(screenHeight, dy);
+      dy -= screenHeight;
+    dy = Math.max(0, Math.min(screenHeight, dy));
 
     var style = this.overlay.style;
     style.MozTransition = '';

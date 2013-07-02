@@ -86,6 +86,14 @@ body, html {
   bottom: 0.2rem;
 }
 
+.locked #statusbar-time {
+  position: absolute;
+  bottom: auto;
+  left: calc(50% - 5.3rem / 2);
+  width: 5.3rem;
+  text-align: center;
+}
+
 #statusbar-time span {
   margin: 0 0.3rem;
   font-size: 1rem;
