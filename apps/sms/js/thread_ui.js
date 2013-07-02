@@ -256,11 +256,15 @@ var ThreadUI = global.ThreadUI = {
   },
 
   msgOnscreen: function(msg) {
-    console.log('ON!', msg);
+    //action when msg is visible
+    // add images to divs here
+    console.log('visible', msg);
   },
 
   msgOffscreen: function(msg) {
-    console.log('OFF!', msg);
+    //action when msg is not visible
+    // remove images from divs here
+    console.log('hidden', msg);
   },
 
   // Initialize Recipients list and Recipients.View (DOM)
