@@ -65,6 +65,14 @@ navigator.mozSetMessageHandler('activity', function viewVideo(activity) {
     });
   }
 
+  // Terminate video playback when visibility is changed.
+  window.addEventListener('visibilitychange',
+    function onVisibilityChanged() {
+      if (document.hidden) {
+        done();
+      }
+    });
+
   function handleYoutubeError(message) {
     // Start with a localized error message prefix
     var error = navigator.mozL10n.get('youtube-error-prefix');
@@ -142,6 +150,10 @@ navigator.mozSetMessageHandler('activity', function viewVideo(activity) {
   function setControlsVisibility(visible) {
     dom.videoControls.classList[visible ? 'remove' : 'add']('hidden');
     controlShowing = visible;
+    if (visible) {
+      // update elapsed time while showing.
+      dom.elapsedText.textContent = formatDuration(dom.player.currentTime);
+    }
   }
 
   function playerMousedown(event) {

@@ -271,7 +271,6 @@ contacts.List = (function() {
   // for rendering the contacts list
   // Images, Facebook data and searcheable info will be lazy loaded
   var renderContact = function renderContact(contact, fbContacts) {
-    contact = refillContactData(contact);
     var contactContainer = document.createElement('li');
     contactContainer.dataset.uuid = contact.id;
     var fbUid = getFbUid(contact);
@@ -283,7 +282,8 @@ contacts.List = (function() {
     contactContainer.dataset.updated = timestampDate.getTime();
     // contactInner is a link with 3 p elements:
     // name, socaial marks and org
-    var nameElement = getHighlightedName(contact);
+    var displayName = getDisplayName(contact);
+    var nameElement = getHighlightedName(displayName);
     addOrderOptions(nameElement, contact);
     contactContainer.appendChild(nameElement);
     contactsCache[contact.id] = {
@@ -300,17 +300,27 @@ contacts.List = (function() {
     return contactContainer;
   };
 
-  var getSearchString = function getSearchString(contact) {
+  var getStringValue = function getStringValue(contact, field) {
+    if (contact[field] && contact[field][0])
+      return String(contact[field][0]).trim();
+
+    return null;
+  };
+
+  var getSearchString = function getSearchString(contact, display) {
+    var display = display || contact;
     var searchInfo = [];
-    var searchable = ['givenName', 'familyName', 'org'];
+    var searchable = ['givenName', 'familyName'];
     searchable.forEach(function(field) {
-      if (contact[field] && contact[field][0]) {
-        var value = String(contact[field][0]).trim();
-        if (value.length > 0) {
-          searchInfo.push(value);
-        }
+      var value = getStringValue(display, field);
+      if (value) {
+        searchInfo.push(value);
       }
     });
+    var value = getStringValue(contact, 'org');
+    if (value) {
+      searchInfo.push(value);
+    }
     if (contact.tel && contact.tel.length) {
       for (var i = contact.tel.length - 1; i >= 0; i--) {
         var current = contact.tel[i];
@@ -468,12 +478,14 @@ contacts.List = (function() {
   };
 
   var addOrderOptions = function addOrderOptions(name, contact) {
-    var orderedString = getStringToBeOrdered(contact);
+    var display = getDisplayName(contact);
+    var orderedString = getStringToBeOrdered(contact, display);
     name.dataset['order'] = orderedString;
   };
 
   var addSearchOptions = function addSearchOptions(name, contact) {
-    name.dataset['search'] = getSearchString(contact);
+    var display = getDisplayName(contact);
+    name.dataset['search'] = getSearchString(contact, display);
   };
 
   var isFavorite = function isFavorite(contact) {
@@ -633,6 +645,7 @@ contacts.List = (function() {
     if (contacts) {
       if (!contacts.length) {
         toggleNoContactsScreen(true);
+        dispatchCustomEvent('listRendered');
         return;
       }
       toggleNoContactsScreen(false);
@@ -762,26 +775,28 @@ contacts.List = (function() {
   };
 
   // Fills the contact data to display if no givenName and familyName
-  var refillContactData = function refillContactData(contact) {
-    if (!hasName(contact)) {
-      contact.givenName = [];
-      if (contact.org && contact.org.length > 0) {
-        contact.givenName.push(contact.org[0]);
-      } else if (contact.tel && contact.tel.length > 0) {
-        contact.givenName.push(contact.tel[0].value);
-      } else if (contact.email && contact.email.length > 0) {
-        contact.givenName.push(contact.email[0].value);
-      } else {
-        contact.givenName.push(_('noName'));
-      }
+  var getDisplayName = function getDisplayName(contact) {
+    if (hasName(contact))
+      return { givenName: contact.givenName, familyName: contact.familyName };
+
+    var givenName = [];
+    if (contact.org && contact.org.length > 0) {
+      givenName.push(contact.org[0]);
+    } else if (contact.tel && contact.tel.length > 0) {
+      givenName.push(contact.tel[0].value);
+    } else if (contact.email && contact.email.length > 0) {
+      givenName.push(contact.email[0].value);
+    } else {
+      givenName.push(_('noName'));
     }
 
-    return contact;
+    return { givenName: givenName };
   };
 
   var addToGroup = function addToGroup(contact, list) {
     var newLi;
-    var cName = getStringToBeOrdered(contact);
+    var display = getDisplayName(contact);
+    var cName = getStringToBeOrdered(contact, display);
 
     var liElems = list.getElementsByTagName('li');
     var len = liElems.length;
@@ -839,17 +854,17 @@ contacts.List = (function() {
     toggleNoContactsScreen(showNoContacts);
   };
 
-  var getStringToBeOrdered = function getStringToBeOrdered(contact) {
+  var getStringToBeOrdered = function getStringToBeOrdered(contact, display) {
     var ret = [];
 
+    // If no display name is specified, then use the contact directly.  This
+    // is necessary so we can use the raw contact info when generating the
+    // group name.
+    display = display || contact;
     var familyName, givenName;
 
-    familyName = Array.isArray(contact.familyName) &&
-                                    typeof contact.familyName[0] === 'string' ?
-      contact.familyName[0].trim() : '';
-    givenName = Array.isArray(contact.givenName) &&
-                                    typeof contact.givenName[0] === 'string' ?
-      contact.givenName[0].trim() : '';
+    familyName = getStringValue(display, 'familyName') || '';
+    givenName = getStringValue(display, 'givenName') || '';
 
     var first = givenName, second = familyName;
     if (orderByLastName) {
@@ -883,30 +898,33 @@ contacts.List = (function() {
     return ret;
   };
 
-  // Perform contact refresh by id
-  var refresh = function refresh(id, callback, op) {
-    remove(id);
-    if (typeof(id) == 'string') {
-      getContactById(id, function(contact, fbData) {
-        var enrichedContact = null;
-        if (fb.isFbContact(contact)) {
-          var fbContact = new fb.Contact(contact);
-          enrichedContact = fbContact.merge(fbData);
-        }
-        addToList(contact, enrichedContact);
-        if (callback) {
-          callback(id);
-        }
-      });
-    } else {
-      var contact = id;
-      remove(contact.id);
-      // Add without looking for extras, just what we have as contact
-      addToList(contact);
-      if (callback) {
-        callback(contact.id);
-      }
+  // Perform contact refresh.  First arg may be either an ID or a contact
+  // object.  If an ID is passed then the contact is retrieved from the
+  // database.  Otherwise refresh the list based on the given contact
+  // object without looking up any information.
+  var refresh = function refresh(idOrContact, callback) {
+    // Passed a contact, not an ID
+    if (typeof(idOrContact) !== 'string') {
+      refreshContact(idOrContact, null, callback);
+      return;
     }
+
+    // Passed an ID, so look up contact
+    getContactById(idOrContact, function(contact, fbData) {
+      var enrichedContact = null;
+      if (fb.isFbContact(contact)) {
+        var fbContact = new fb.Contact(contact);
+        enrichedContact = fbContact.merge(fbData);
+      }
+      refreshContact(contact, enrichedContact, callback);
+    });
+  };
+
+  var refreshContact = function refreshContact(contact, enriched, callback) {
+    remove(contact.id);
+    addToList(contact, enriched);
+    if (callback)
+      callback(contact.id);
   };
 
   var callbacks = [];

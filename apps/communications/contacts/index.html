@@ -4,9 +4,6 @@
     <meta charset="utf-8">
     <title> Contacts </title>
 
-    <!-- multi-resolution support -->
-    <link rel="stylesheet" href="/shared/style/responsive.css" type="text/css">
-
     <!-- Building Blocks -->
     <link href="/shared/style/headers.css" rel="stylesheet">
     <link href="/shared/style/input_areas.css" rel="stylesheet">
@@ -122,7 +119,7 @@
           </ol>
         </section>
 
-        <section>
+        <section id="search-process">
           <p id="no-result" class="hide" data-l10n-id="noResults">No contacts found</p>
           <p id="search-progress" class="hidden" role="status">
             <progress  class="small"></progress>
@@ -485,11 +482,11 @@
                 <p id="no-sim" data-l10n-id="noSimMsg"></p>
               </li>
               <li id="settingsStorage" data-source="sd">
-                <button class="icon icon-sd" data-l10n-id="importSd">
+                <button class="icon icon-sd" data-l10n-id="importMemoryCard">
                   Memory card
                   <p><span></span><time></time></p>
                 </button>
-                <p id="no-sd" data-l10n-id="noSdMsg"></p>
+                <p id="no-memorycard" data-l10n-id="noMemoryCardMsg"></p>
               </li>
               <li class="importService" data-source="gmail">
                 <button class="icon icon-gmail" data-l10n-id="importGmail">
