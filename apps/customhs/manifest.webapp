@@ -4,8 +4,8 @@
   "launch_path": "/index.html#root",
   "type": "certified",
   "developer": {
-    "name": "The Gaia Team",
-    "url": "https://github.com/andreasgal/gaia"
+    "name": "Michal Budzynski from The Gaia Team",
+    "url": "https://github.com/michalbe/gaia"
   },
   "permissions": {
     "webapps-manage":{},

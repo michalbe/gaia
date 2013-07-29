@@ -1104,7 +1104,8 @@ var GridManager = (function() {
     HomeState.init(function eachPage(pageState) {
       // First 'page' is the dock.
       // if (pageState.index == 0) {
-      //        var dockContainer = document.querySelector(options.dockSelector);
+      //        var dockContainer =
+      // document.querySelector(options.dockSelector);
       //        var dock = new Dock(dockContainer,
       //          convertDescriptorsToIcons(pageState));
       //        DockManager.init(dockContainer, dock, tapThreshold);

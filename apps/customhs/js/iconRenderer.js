@@ -824,7 +824,7 @@ var IconRenderer = (function() {
     //       var page = new Page(pageElement, null);
     //       pages.push(page);
     //     }
-    // 
+    //
     //     panningResolver = createPanningResolver();
   }
 
@@ -870,7 +870,8 @@ var IconRenderer = (function() {
 
   function render(app) {
       /*
-       * <li role="button" aria-label="label" class="icon" data-manifestURL="zzz">
+       * <li role="button" aria-label="label"
+       * class="icon" data-manifestURL="zzz">
        *   <div>
        *     <img role="presentation" src="the icon image path"></img>
        *     <span class="label">label</span>
@@ -883,7 +884,7 @@ var IconRenderer = (function() {
       var container = document.createElement('li');
       container.className = 'icon';
 
-      
+
 
       // Icon container
       var icon = document.createElement('div');
@@ -894,7 +895,7 @@ var IconRenderer = (function() {
       img.width = 32;
       img.height = 32;
       img.style.visibility = 'hidden';
-      
+
       icon.appendChild(img);
 
       // Label
@@ -1147,12 +1148,13 @@ var IconRenderer = (function() {
     overlayTransition = 'opacity ' + kPageTransitionDuration + 'ms ease';
 
     callback();
-    
+
     // Initialize the grid from the state saved in IndexedDB.
     // HomeState.init(function eachPage(pageState) {
     //   // First 'page' is the dock.
     //   // if (pageState.index == 0) {
-    //   //        var dockContainer = document.querySelector(options.dockSelector);
+    //   //        var dockContainer =
+    //  document.querySelector(options.dockSelector);
     //   //        var dock = new Dock(dockContainer,
     //   //          convertDescriptorsToIcons(pageState));
     //   //        DockManager.init(dockContainer, dock, tapThreshold);
@@ -1163,7 +1165,8 @@ var IconRenderer = (function() {
     //   //      initApps();
     //   //      callback();
     //   //    }, function onError(error) {
-    //   //      var dockContainer = document.querySelector(options.dockSelector);
+    //   //      var dockContainer =
+    // document.querySelector(options.dockSelector);
     //   //      var dock = new Dock(dockContainer, []);
     //   //      DockManager.init(dockContainer, dock, tapThreshold);
     //   //      initApps();
