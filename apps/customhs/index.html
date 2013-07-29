@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="style/homescreen.css">
+    <link rel="stylesheet" type="text/css" href="style/grid.css">
+    <link rel="stylesheet" type="text/css" href="style/landing.css">
+
+    <!-- Shared code -->
+    <script type="text/javascript" src="shared/js/l10n.js"></script>
+    <script type="text/javascript" src="shared/js/l10n_date.js"></script>
+    <script type="text/javascript" src="shared/js/settings_listener.js"></script>
+
+    <link rel="stylesheet" type="text/css" href="shared/style_unstable/progress_activity.css">
+    <link rel="stylesheet" type="text/css" href="shared/style/buttons.css">
+    <link rel="stylesheet" type="text/css" href="shared/style/headers.css">
+    <link rel="stylesheet" type="text/css" href="shared/style/confirm.css">
+    <link rel="stylesheet" type="text/css" href="shared/style/status.css">
+    <link rel="stylesheet" type="text/css" href="style/request.css">
+
+    <!-- Specific code -->
+    <script type="text/javascript" defer src="js/hiddenapps.js"></script>
+    <script type="text/javascript" defer src="js/homescreen.js"></script>
+
+    <link rel="resource" type="application/l10n" href="locales/locales.ini">
+    <link rel="resource" type="application/l10n" href="shared/locales/date.ini">
+
+  </head>
+
+  <body data-mode="normal">
+    <div id="search-overlay"></div>
+    <div id="landing-overlay"></div>
+    <!-- This markup is just to detect text overflow with app names
+         because of pages are hidden after rendering -->
+    <div id="fake-icon">
+      <span id="fake-icon-name-wrapper" class="labelWrapper">
+        <span id="fake-icon-name"></span>
+      </span>
+    </div>
+
+    <section id="confirm-dialog">
+      <form role="dialog" data-type="confirm">
+        <section>
+          <h1 id="confirm-dialog-title"></h1>
+          <p id="confirm-dialog-message"></p>
+        </section>
+        <menu>
+          <button id="confirm-dialog-cancel-button"></button>
+          <button id="confirm-dialog-confirm-button" class="danger"></button>
+        </menu>
+      </form>
+    </section>
+
+    <div id="icongrid" class="apps" role="main">
+      <div id="landing-page" data-current-page="true">
+
+      </div>
+    </div>
+
+    <div id="repaint-helper"></div>
+  </body>
+</html>
