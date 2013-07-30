@@ -82,6 +82,7 @@ li:active:not(.disabled) .menu-item::before,
   background-position: -3rem -6rem;
 }
 
+#menuItem-homescreen::before,
 #menuItem-persona::before {
   background-position: -6rem -6rem;
 }
