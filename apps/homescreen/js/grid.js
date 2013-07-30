@@ -986,8 +986,9 @@ var GridManager = (function() {
     appsByOrigin[app.origin] = app;
 
     var manifest = app.manifest ? app.manifest : app.updateManifest;
-    if (!manifest || HIDDEN_ROLES.indexOf(manifest.role) !== -1)
+    if (!manifest || HIDDEN_ROLES.indexOf(manifest.role) !== -1) {
       return;
+    }
 
     var entryPoints = manifest.entry_points;
     if (!entryPoints || manifest.type !== 'certified') {

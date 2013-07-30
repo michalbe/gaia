@@ -3,6 +3,7 @@
   "description": "Gaia Custom Homescreen",
   "launch_path": "/index.html#root",
   "type": "certified",
+  "role": "homescreen",
   "developer": {
     "name": "Michal Budzynski from The Gaia Team",
     "url": "https://github.com/michalbe/gaia"
