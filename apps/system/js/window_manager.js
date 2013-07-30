@@ -1990,11 +1990,11 @@ var WindowManager = (function() {
 
   navigator.mozSettings.addObserver('homescreen.manifestURL', function(event) {
     kill(homescreen);
-    retrieveHomescreen(function(){
+    retrieveHomescreen(function() {
       setDisplayedApp(homescreen);
     });
   });
-      
+
   // Return the object that holds the public API
   return {
     launch: launch,
