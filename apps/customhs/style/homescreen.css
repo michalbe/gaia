@@ -25,7 +25,7 @@ html, body {
 .app-tile {
   width: 142px;
   height: 142px;
-  background-color: menu;
+  background-color: orange;
   margin: 5px;
   float: left;
   overflow:hidden;
@@ -41,7 +41,7 @@ html, body {
 }
 
 .app-tile label{
-  color: menutext;
+  color: white;
   font-size: 20px;
   font-family: "Tahoma";
   line-height: 250px;
