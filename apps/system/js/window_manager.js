@@ -1988,6 +1988,13 @@ var WindowManager = (function() {
     window.removeEventListener('devicemotion', dumbListener2);
   }, 2000);
 
+  navigator.mozSettings.addObserver('homescreen.manifestURL', function(event) {
+    kill(homescreen);
+    retrieveHomescreen(function(){
+      setDisplayedApp(homescreen);
+    });
+  });
+      
   // Return the object that holds the public API
   return {
     launch: launch,
