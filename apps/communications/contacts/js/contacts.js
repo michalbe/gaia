@@ -21,6 +21,7 @@ var Contacts = (function() {
       settingsButton,
       cancelButton,
       addButton,
+      exportContacts,
       appTitleElement,
       asyncScriptsLoaded = false;
 
@@ -154,6 +155,7 @@ var Contacts = (function() {
   };
 
   var initContainers = function initContainers() {
+    exportContacts = document.getElementById('view-export');
     settings = document.getElementById('view-settings');
     settingsButton = document.getElementById('settings-button');
     cancelButton = document.getElementById('cancel_activity');
@@ -650,6 +652,7 @@ var Contacts = (function() {
       '#save-button': saveContact,
       '#add-contact-button': showAddContact,
       '#settings-button': showSettings, // Settings related
+      '#exportContacts' : function() { navigation.go('view-export', 'right-left'); },
       '#cancel-search': exitSearchMode, // Search related
       '#search-start': [
         {
