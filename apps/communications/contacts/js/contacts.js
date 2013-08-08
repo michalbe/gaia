@@ -652,7 +652,9 @@ var Contacts = (function() {
       '#save-button': saveContact,
       '#add-contact-button': showAddContact,
       '#settings-button': showSettings, // Settings related
-      '#exportContacts' : function() { navigation.go('view-export', 'right-left'); },
+      '#exportContacts' : function() {
+        navigation.go('view-export', 'right-left');
+      },
       '#cancel-search': exitSearchMode, // Search related
       '#search-start': [
         {
