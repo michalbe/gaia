@@ -438,26 +438,32 @@ section[role="region"] > header .icon.icon-settings
 }
 
 /* Extending BB buttons Icons at left side*/
+#view-export [data-type="list"] li button.icon,
 #view-settings [data-type="list"] li button.icon {
   padding: 0 1rem 0 4rem;
 }
 
+#view-export [data-type="list"] li button.icon:before,
 #view-settings [data-type="list"] li button.icon:before {
   right: auto;
   left: 0.5rem;
 }
 
+#view-export [data-type="list"] li button.icon[disabled="disabled"]:before,
 #view-settings [data-type="list"] li button.icon[disabled="disabled"]:before {
   opacity: 0.2;
 }
 
 /* Extending icon types*/
+#view-export [data-type="list"] li button.icon:before,
 #view-settings [data-type="list"] li button.icon:before {
   background-size: 3rem;
 }
+#view-export [data-type="list"] li button.icon-sim:before,
 #view-settings [data-type="list"] li button.icon-sim:before {
   background-image: url(/contacts/style/images/import_SIM.png);
 }
+#view-export [data-type="list"] li button.icon-sd:before,
 #view-settings [data-type="list"] li button.icon-sd:before {
   background-image: url(/contacts/style/images/import_sd.png);
 }
@@ -470,15 +476,18 @@ section[role="region"] > header .icon.icon-settings
   background-image: url(/contacts/style/images/outlook_icon.png);
 }
 
+#view-export [data-type="list"] li button.icon-bluetooth:before,
 #view-settings [data-type="list"] li button.icon-bluetooth:before {
   background-image: url(/contacts/style/images/bluetooth.png);
 }
 
+#exportSources li button,
 #importSources li button {
   height: 5.5rem;
   line-height: 1.9rem;
 }
 
+#exportSources button p,
 #importSources button p {
   display: block;
   font-size: 1.3rem;
@@ -487,10 +496,12 @@ section[role="region"] > header .icon.icon-settings
   padding: 0;
 }
 
+#exportSources button p span,
 #importSources button p span {
   font-size: 1.3rem;
 }
 
+#exportSources button p time,
 #importSources button p time {
   font-size: 1.3rem;
   display: inline-block;
