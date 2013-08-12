@@ -627,3 +627,42 @@ section[role="region"] > header .icon.icon-settings
   height: 100%;
   overflow: scroll;
 }
+
+/* Override Building Block [Edit mode] styles */
+form[role="dialog"][data-type="edit"] header,
+form[role="dialog"][data-type="edit"] > menu {
+  transition: all 0.4s ease;
+}
+
+form[role="dialog"][data-type="edit"] header {
+  transform: translateY(-110%);
+}
+
+form[role="dialog"][data-type="edit"] > menu {
+  transform: translateY(110%);
+}
+
+/* BB issue */
+form[role="dialog"][data-type="edit"] header menu[type="toolbar"] button {
+  border: none;
+  color: #fff;
+}
+
+.edit form[role="dialog"][data-type="edit"] > menu {
+  transform: translateY(0);
+}
+
+/* Completely hide the Compose form from view when in Edit mode */
+.edit .messages-compose-form {
+  transform: translateY(100%);
+}
+
+.edit form[role="dialog"][data-type="edit"] header {
+  transform: translateY(0);
+}
+
+.edit #threads-container .checkbox-container {
+  pointer-events:auto;
+  opacity: 1;
+  transform: translateX(0);
+}

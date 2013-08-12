@@ -10,7 +10,8 @@
     <link href="/shared/style_unstable/lists.css" rel="stylesheet">
     <link href="/shared/style_unstable/scrolling.css" rel="stylesheet">
     <link href="/shared/style/buttons.css" rel="stylesheet">
-
+    <link href="/shared/style/edit_mode.css" rel="stylesheet" type="text/css">
+        
     <link href="/contacts/style/app.css" rel="stylesheet">
     <link href="/contacts/style/contacts.css" rel="stylesheet">
     <link href="/contacts/style/overlay.css" rel="stylesheet">
@@ -66,6 +67,28 @@
           <h1 data-l10n-id="contacts">Contacts</h1>
         </header>
 
+        <form id="threads-edit-form" role="dialog" data-type="edit">
+          <section>
+            <header>
+              <button id="threads-cancel-button">
+                <span data-l10n-id="cancel" class="icon icon-close">close</span>
+              </button>
+              <menu type="toolbar">
+                <button id="threads-delete-button" data-l10n-id="export">export</button>
+              </menu>
+              <h1 id="threads-edit-mode" data-l10n-id="editMode">Edit mode</h1>
+            </header>
+          </section>
+          <menu>
+            <button id="threads-uncheck-all-button" disabled class="edit-button" data-l10n-id="deselect-all">
+              None
+            </button>
+            <button id="threads-check-all-button" class="edit-button" data-l10n-id="select-all">
+              All
+            </button>
+          </menu>
+        </form>
+        
         <article class="view-body">
           <div id="no-contacts" class="hide">
             <div class="info">
@@ -79,6 +102,7 @@
               </div>
             </div>
           </div>
+          
           <nav data-type="scrollbar">
             <p></p>
             <ol>
