@@ -644,6 +644,11 @@ var Contacts = (function() {
     contacts.Search.exitSearchMode(evt);
   };
 
+  var showExportForm = function() {
+    navigation.home();
+    document.getElementById('view-contacts-list').classList.add('edit');
+  }
+  
   var initEventListeners = function initEventListener() {
     // Definition of elements and handlers
     utils.listeners.add({
@@ -655,6 +660,9 @@ var Contacts = (function() {
       '#exportContacts' : function() {
         navigation.go('view-export', 'right-left');
       },
+      '#settingsExportSIM' : showExportForm,
+      '#settingsExportBluetooth' : showExportForm,
+      '#settingsExportSD' : showExportForm,
       '#cancel-search': exitSearchMode, // Search related
       '#search-start': [
         {
