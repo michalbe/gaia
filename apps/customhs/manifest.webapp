@@ -20,21 +20,9 @@
     "power":{}
   },
   "locales": {
-    "ar": {
-      "name": "الشاشة الرئيسية",
-      "description": "Gaia الشاشة الرئيسية"
-    },
     "en-US": {
       "name": "Balmer Homescreen",
       "description": "Custom Gaia Homescreen"
-    },
-    "fr": {
-      "name": "Écran d’accueil",
-      "description": "Écran d’accueil Gaia"
-    },
-    "zh-TW": {
-      "name": "主畫面",
-      "description": "Gaia 主畫面"
     }
   },
   "default_locale": "en-US",
@@ -42,17 +30,7 @@
     "30": "/style/icons/HomeScreen.png"
   },
   "orientation": "portrait-primary",
-  "activities": {
-    "save-bookmark": {
-      "filters": {
-        "type": "url",
-        "url": { "required":true, "pattern":"https?:.{1,16384}" }
-      },
-      "disposition": "inline",
-      "href": "/save-bookmark.html",
-      "returnValue": true
-    }
-  },
+  "activities": {},
   "messages": [
     { "alarm": "/index.html" }
   ]
