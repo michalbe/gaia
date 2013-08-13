@@ -8,10 +8,10 @@ const Wallpaper = (function() {
     var ctx = canvas.getContext('2d');
     canvas.width = 320;
     canvas.height = 420;
-    
-    ctx.fillColor = "#000000";
+
+    ctx.fillColor = '#000000';
     ctx.fillRect(0, 0, 320, 420);
-        // 
+        //
         // var a = new MozActivity({
         //   name: 'pick',
         //   data: {
@@ -23,12 +23,12 @@ const Wallpaper = (function() {
         // a.onsuccess = function onWallpaperSuccess() {
         //   if (!a.result.blob)
         //     return;
-        // 
+        //
         //   var reader = new FileReader();
         //   reader.readAsDataURL(a.result.blob);
         //   reader.onload = function() {
         navigator.mozSettings.createLock().set({
-          'wallpaper.image': canvas.toDataURL("image/png")
+          'wallpaper.image': canvas.toDataURL('image/png')
         });
       //};
     //};
