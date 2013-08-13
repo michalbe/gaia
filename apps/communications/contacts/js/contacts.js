@@ -647,8 +647,8 @@ var Contacts = (function() {
   var showExportForm = function() {
     navigation.home();
     document.getElementById('view-contacts-list').classList.add('edit');
-  }
-  
+  };
+
   var initEventListeners = function initEventListener() {
     // Definition of elements and handlers
     utils.listeners.add({
