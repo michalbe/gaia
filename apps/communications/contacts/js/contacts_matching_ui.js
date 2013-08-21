@@ -27,7 +27,7 @@ if (!contacts.MatchingUI) {
       duplicateMessage = document.querySelector('#duplicate-msg > p');
       contactsList = document.querySelector('#contacts-list-container > ol');
       title = document.getElementById('title');
-
+      
       document.getElementById('merge-close').addEventListener('click', onClose);
       document.getElementById('merge-ignore').
                                              addEventListener('click', onClose);
@@ -118,8 +118,8 @@ if (!contacts.MatchingUI) {
     }
 
     function onClose(e) {
-      e.stopPropagation();
-      e.preventDefault();
+     // e.stopPropagation();
+      //e.preventDefault();
 
       parent.postMessage({
         type: 'window_close',
