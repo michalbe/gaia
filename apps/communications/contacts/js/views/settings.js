@@ -221,10 +221,18 @@ contacts.Settings = (function() {
         );
         break;
       case 'sd':
-        // TODO Add export to SD functionality
+        LazyLoader.load(
+          [
+            '/contacts/js/export/sd.js',
+            '/shared/js/contact2vcard.js'
+          ],
+          function() {
+            doExport(new ContactsSDExport());
+          }
+        );
         break;
       case 'bluetooth':
-        // TODO Add export to Bluetooth functionality
+        // TODO Add export to bluetooth functionality
         break;
     }
   };
