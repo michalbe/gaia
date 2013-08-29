@@ -1,7 +1,7 @@
 'use strict';
 
 var VCARD_VERSION = '4.0';
-var HEADER = 'BEGIN:VCARD\nVERSION:'+VCARD_VERSION + '\n';
+var HEADER = 'BEGIN:VCARD\nVERSION:' + VCARD_VERSION + '\n';
 var FOOTER = 'END:VCARD\n';
 var ContactToVcard;
 var ContactToVcardBlob;
