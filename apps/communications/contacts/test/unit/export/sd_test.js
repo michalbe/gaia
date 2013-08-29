@@ -119,7 +119,6 @@ suite('Sd export', function() {
     subject.setContactsToExport(contacts);
 
     subject.doExport(function onFinish(error, total, exported, msg) {
-      assert.ok(subject.hasDeterminativeProgress());
       assert.equal(1, updateSpy.callCount);
       assert.isNull(error);
       assert.equal(contacts.length, exported);
