@@ -97,7 +97,7 @@ var Rocketbar = {
 
     WindowManager.runningApps.forEach(function(element){
       if (element.indexOf('app://') === -1) {
-        this.showSiteResult(element);
+        this.showSiteResult({uri: element, title:element});
       } else {
         this.showAppResult(element);
       }
@@ -313,6 +313,7 @@ var Rocketbar = {
     resultItem.setAttribute('data-site-url', result.uri);
     resultItem.appendChild(resultTitle);
     resultItem.appendChild(resultURL);
+    resultItem.style.backgroundImage = 'url(app://system.gaiamobile.org/style/icons/web.png)';
     this.results.appendChild(resultItem);
   },
   
