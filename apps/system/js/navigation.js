@@ -184,6 +184,9 @@ var WindowManager = (function() {
   obj.runningApps = [];
   
   function addToRunningApps(manOrig) { //manifest or origin
+    if (HIDDEN_APPS.indexOf(manOrig) !== -1) 
+      return;
+      
     if (obj.runningApps.indexOf(manOrig) === -1) {
       obj.runningApps.push(manOrig);
     }
@@ -769,3 +772,19 @@ History.prototype = {
   onfirstpaint: null
 };
 
+var HIDDEN_APPS = ['app://keyboard.gaiamobile.org/manifest.webapp',
+  'app://wallpaper.gaiamobile.org/manifest.webapp',
+  'app://bluetooth.gaiamobile.org/manifest.webapp',
+  'app://pdfjs.gaiamobile.org/manifest.webapp',
+  'app://homescreen.gaiamobile.org/manifest.webapp',
+  'app://system.gaiamobile.org/manifest.webapp',
+  'app://image-uploader.gaiamobile.org/manifest.webapp',
+  'app://browser.gaiamobile.org/manifest.webapp',
+  'http://keyboard.gaiamobile.org:8080/manifest.webapp',
+  'http://wallpaper.gaiamobile.org:8080/manifest.webapp',
+  'http://bluetooth.gaiamobile.org:8080/manifest.webapp',
+  'http://pdfjs.gaiamobile.org:8080/manifest.webapp',
+  'http://homescreen.gaiamobile.org:8080/manifest.webapp',
+  'http://system.gaiamobile.org:8080/manifest.webapp',
+  'http://image-uploader.gaiamobile.org/manifest.webapp',
+  'http://browser.gaiamobile.org:8080/manifest.webapp'];
