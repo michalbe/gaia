@@ -36,7 +36,10 @@ var Rocketbar = {
     }, this);
 
     Places.init(function(firstRun) {});
-
+    
+    var gd = new GestureDetector(this.results);
+    gd.startDetecting();
+    
     navigator.mozSettings.addObserver('rocketbar.show', function(event) {
       this.open(true);
     }.bind(this));
@@ -282,16 +285,51 @@ var Rocketbar = {
     }, this);
   },
 
+  pan: function(e) {
+    console.log('-------PANPAN PIZZA!');
+    var movement = Math.min(document.documentElement.clientWidth,
+                            Math.abs(e.detail.absolute.dx));
+    if (movement > 0) {
+      e.target.style.opacity = 1 - (movement / document.documentElement.clientWidth);
+    }
+    e.target.style.transform = 'translateX(' + e.detail.absolute.dx + 'px)';
+  },
+  
+  swipe: function tabSwipe_swipe(e) {
+    var TRANSITION_SPEED = 1.8;
+    var TRANSITION_FRACTION = 0.3;
+    var distance = e.detail.start.screenX - e.detail.end.screenX;
+    var fastenough = Math.abs(e.detail.vx) > TRANSITION_SPEED;
+    var farenough = Math.abs(distance) >
+      document.documentElement.clientWidth * TRANSITION_FRACTION;
+
+    if (!(farenough || fastenough)) {
+      // Werent far or fast enough to delete, restore
+      var time = Math.abs(distance) / TRANSITION_SPEED;
+      var transition = 'transform ' + time + 'ms linear';
+      e.target.style.MozTransition = transition;
+      e.target.style.transform = 'translateX(0)';
+      e.target.style.opacity = 1;
+      return;
+    }
+
+    this.results.removeChild(e.target);
+    WindowManager.runningApps.splice(this.indexOf(e.target.getAttribute('origin')), 1);
+  },
+  
   showAppResult: function(manifestURL) {
     var app = Applications.installedApps[manifestURL];
     var li = document.createElement('li');
     li.textContent = app.manifest.name || manifestURL;
     li.setAttribute('data-manifest-url', manifestURL);
+    li.setAttribute('origin', manifestURL);
     try {
       //quick fix entry_point apps
       li.style.backgroundImage = 'url(' + app.origin +
         app.manifest.icons['60'] + ')';
     } catch(e){};
+    li.addEventListener('pan', this.pan.bind(this));
+    li.addEventListener('swipe', this.swipe.bind(this));
     this.results.appendChild(li);
   },
   
@@ -311,9 +349,12 @@ var Rocketbar = {
     resultTitle.textContent = result.title;
     resultURL.textContent = result.uri;
     resultItem.setAttribute('data-site-url', result.uri);
+    resultItem.setAttribute('origin', result.uri);
     resultItem.appendChild(resultTitle);
     resultItem.appendChild(resultURL);
     resultItem.style.backgroundImage = 'url(app://system.gaiamobile.org/style/icons/web.png)';
+    resultItem.addEventListener('pan', this.pan.bind(this));
+    resultItem.addEventListener('swipe', this.swipe.bind(this));
     this.results.appendChild(resultItem);
   },
   
