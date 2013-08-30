@@ -92,15 +92,17 @@ var Rocketbar = {
    * @param {boolean} focus Set focus on rocketbar after opening.
    */
   open: function rocketbar_open(focus) {
-    console.log('---------- launched APPS:', WindowManager.runningApps.length);
-    
-    WindowManager.runningApps.forEach(function(app) {
-      console.log('-----', app);
-    });
-    
     this.results.innerHTML = '';
     this.bar.classList.add('open');
 
+    WindowManager.runningApps.forEach(function(element){
+      if (element.indexOf('app://') === -1) {
+        this.showSiteResult(element);
+      } else {
+        this.showAppResult(element);
+      }
+    }, this);
+    
     if (focus) {
       this.input.focus();
       this.results.classList.add('open');
@@ -274,35 +276,46 @@ var Rocketbar = {
     this.results.innerHTML = '';
     if (results.length == 0)
       return;
+      
     results.forEach(function(manifestURL) {
-      var app = Applications.installedApps[manifestURL];
-      var li = document.createElement('li');
-      li.textContent = app.manifest.name;
-      li.setAttribute('data-manifest-url', manifestURL);
-      li.style.backgroundImage = 'url(' + app.origin +
-        app.manifest.icons['60'] + ')';
-      this.results.appendChild(li);
+      this.showAppResult(manifestURL);
     }, this);
   },
 
+  showAppResult: function(manifestURL) {
+    var app = Applications.installedApps[manifestURL];
+    var li = document.createElement('li');
+    li.textContent = app.manifest.name || manifestURL;
+    li.setAttribute('data-manifest-url', manifestURL);
+    try {
+      //quick fix entry_point apps
+      li.style.backgroundImage = 'url(' + app.origin +
+        app.manifest.icons['60'] + ')';
+    } catch(e){};
+    this.results.appendChild(li);
+  },
+  
   /**
    *  Show rocketbar results for a list of places.
    */
   showSiteResults: function rocketbar_showSiteResults(results) {
-    console.log(JSON.stringify(results));
     results.forEach(function(result) {
-      var resultItem = document.createElement('li');
-      var resultTitle = document.createElement('h3');
-      var resultURL = document.createElement('small');
-      resultTitle.textContent = result.title;
-      resultURL.textContent = result.uri;
-      resultItem.setAttribute('data-site-url', result.uri);
-      resultItem.appendChild(resultTitle);
-      resultItem.appendChild(resultURL);
-      this.results.appendChild(resultItem);
+      this.showSiteResult(result);
     }, this);
   },
 
+  showSiteResult: function(result){
+    var resultItem = document.createElement('li');
+    var resultTitle = document.createElement('h3');
+    var resultURL = document.createElement('small');
+    resultTitle.textContent = result.title;
+    resultURL.textContent = result.uri;
+    resultItem.setAttribute('data-site-url', result.uri);
+    resultItem.appendChild(resultTitle);
+    resultItem.appendChild(resultURL);
+    this.results.appendChild(resultItem);
+  },
+  
   /**
    * Handle window history change event.
    *
