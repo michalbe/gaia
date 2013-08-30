@@ -181,7 +181,8 @@ var WindowManager = (function() {
   /* XXX */
   var navigate = [];
   var current = 0;
-
+  obj.runningApps = [];
+  
   function pruneForwardNavigation() {
     for (var i = navigate.length - 1; i > current; i--) {
       var next = navigate.pop();
@@ -196,6 +197,10 @@ var WindowManager = (function() {
     var app = Applications.getByManifestURL(manifestURL);
     if (!app)
       return;
+
+    if (obj.runningApps.indexOf(manifestURL) === -1) {
+      obj.runningApps.push(manifestURL);
+    }
 
     var manifest = app.manifest;
     var entryPoints = manifest.entry_points;

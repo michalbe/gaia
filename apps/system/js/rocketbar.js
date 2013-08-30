@@ -92,6 +92,12 @@ var Rocketbar = {
    * @param {boolean} focus Set focus on rocketbar after opening.
    */
   open: function rocketbar_open(focus) {
+    console.log('---------- launched APPS:', WindowManager.runningApps.length);
+    
+    for (var app in WindowManager.runningApps) {
+      console.log('-----', app);
+    }
+    
     this.results.innerHTML = '';
     this.bar.classList.add('open');
 
