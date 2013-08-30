@@ -194,6 +194,9 @@ var WindowManager = (function() {
       var next = navigate.pop();
       if (next.isHomescreen)
         continue;
+
+      console.log('++++', next.wrapper.childNodes[0].getAttribute('mozapp'));
+
       next.wrapper.parentNode.removeChild(next.wrapper);
       next.close();
     }
@@ -275,7 +278,7 @@ var WindowManager = (function() {
     if (iframe) {
       appendIframe(iframe, navigate[current]);
     } else {
-      createWindow(navigate[current]);
+      createWindow(navigate[current], null, origin);
     }
 
     // needed in Rocketbar Taskswitcher
@@ -284,7 +287,7 @@ var WindowManager = (function() {
     declareSheetAsCurrent(navigate[current], true);
   }
 
-  function createWindow(history, manifestURL) {
+  function createWindow(history, manifestURL, origin) {
     var iframe = document.createElement('iframe');
 
     iframe.setAttribute('mozbrowser', 'true');
@@ -293,7 +296,9 @@ var WindowManager = (function() {
 
     if (manifestURL) {
       iframe.setAttribute('mozapp', manifestURL);
+      iframe.setAttribute('origin', manifestURL);
     } else {
+      iframe.setAttribute('origin', origin);
       iframe.setAttribute('mozasyncpanzoom', 'true');
     }
 
