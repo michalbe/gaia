@@ -183,6 +183,12 @@ var WindowManager = (function() {
   var current = 0;
   obj.runningApps = [];
   
+  function addToRunningApps(manOrig) { //manifest or origin
+    if (obj.runningApps.indexOf(manOrig) === -1) {
+      obj.runningApps.push(manOrig);
+    }
+  }
+  
   function pruneForwardNavigation() {
     for (var i = navigate.length - 1; i > current; i--) {
       var next = navigate.pop();
@@ -198,9 +204,8 @@ var WindowManager = (function() {
     if (!app)
       return;
 
-    if (obj.runningApps.indexOf(manifestURL) === -1) {
-      obj.runningApps.push(manifestURL);
-    }
+    // needed in Rocketbar Taskswitcher
+    addToRunningApps(manifestURL);
 
     var manifest = app.manifest;
     var entryPoints = manifest.entry_points;
@@ -273,6 +278,9 @@ var WindowManager = (function() {
       createWindow(navigate[current]);
     }
 
+    // needed in Rocketbar Taskswitcher
+    addToRunningApps(origin);
+    
     declareSheetAsCurrent(navigate[current], true);
   }
 

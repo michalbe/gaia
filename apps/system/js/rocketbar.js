@@ -94,9 +94,9 @@ var Rocketbar = {
   open: function rocketbar_open(focus) {
     console.log('---------- launched APPS:', WindowManager.runningApps.length);
     
-    for (var app in WindowManager.runningApps) {
+    WindowManager.runningApps.forEach(function(app) {
       console.log('-----', app);
-    }
+    });
     
     this.results.innerHTML = '';
     this.bar.classList.add('open');
