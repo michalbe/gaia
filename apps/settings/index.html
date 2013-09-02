@@ -551,7 +551,9 @@
     <section role="region" id="fdn-enable">
       <!--
       <header>
-        <button type="reset"><span data-l10n-id="back" class="icon icon-back">Back</span></button>
+        <a href="#call-fdn">
+         <span data-l10n-id="back" class="icon icon-back">Back</span>
+       </a>
         <menu type="toolbar">
           <button type="submit"><span data-l10n-id="ok">OK</span></button>
         </menu>
@@ -573,7 +575,9 @@
     <section role="region" id="fdn-resetPIN2">
       <!--
       <header>
-        <button type="reset"><span data-l10n-id="back" class="icon icon-back">Back</span></button>
+       <a href="#call-fdn">
+          <span data-l10n-id="back" class="icon icon-back">Back</span>
+        </a>
         <menu type="toolbar">
           <button type="submit"><span data-l10n-id="ok">OK</span></button>
         </menu>
@@ -596,7 +600,9 @@
     <section role="region" id="fdn-addNumber">
       <!--
       <header>
-        <button type="reset"><span data-l10n-id="back" class="icon icon-back">Back</span></button>
+        <a href="#fdn-authorizedNumbers">
+          <span data-l10n-id="back" class="icon icon-back">Back</span>
+        </a>
         <menu type="toolbar">
           <button type="submit"><span data-l10n-id="ok">Done</span></button>
         </menu>
@@ -609,7 +615,7 @@
             </li>
             <li>
               <p data-l10n-id="number">Number</p>
-              <input type="tel" id="fdn-addNumber-number"/>
+              <input type="number" id="fdn-addNumber-number"/>
             </li>
           </ul>
       </header>
@@ -621,9 +627,9 @@
     <section role="region" id="fdn-authorizedNumbers">
       <!--
       <header>
-        <button type="reset"><span data-l10n-id="back" class="icon icon-back">Back</span></button>
+        <a href="#call-fdn"><span data-l10n-id="back" class="icon icon-back">Back</span></a>
         <menu type="toolbar">
-          <button type="submit" data-href="#fdn-addNumber"><span data-l10n-id="add" class="icon icon-add">Add</span></button>
+          <a data-href="#fdn-addNumber"><span data-l10n-id="add" class="icon icon-add">Add</span></a>
         </menu>
         <h1 data-l10n-id=fdn-authorizedNumbers"> Authorized numbers</h1>
       </header>
