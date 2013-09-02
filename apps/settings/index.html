@@ -547,6 +547,51 @@
       -->
     </section>
 
+    <!-- Connectivity :: Call :: FDN :: Enable FDN -->
+    <section role="region" id="fdn-enable">
+      <!--
+      <header>
+        <button type="reset"><span data-l10n-id="back" class="icon icon-back">Back</span></button>
+        <menu type="toolbar">
+          <button type="submit"><span data-l10n-id="ok">OK</span></button>
+        </menu>
+        <h1 data-l10n-id="fdn-enable"> EnaBLe FDN </h1>
+      </header>
+
+      <div>
+        <ul>
+          <li>
+            <p data-l10n-id="fdn-enterPIN2">Enter YOur PIN2 code</p>
+            <input type="password" id="fdn-pin2-input"/>
+          </li>
+        </ul>
+      </div>
+      -->
+    </section>
+    
+    <!-- Connectivity :: Call :: FDN :: Reset PIN2 -->
+    <section role="region" id="fdn-resetPIN2">
+      <!--
+      <header>
+        <button type="reset"><span data-l10n-id="back" class="icon icon-back">Back</span></button>
+        <menu type="toolbar">
+          <button type="submit"><span data-l10n-id="ok">OK</span></button>
+        </menu>
+        <h1 data-l10n-id="fdn-resetPIN2"> Reset PIN2 </h1>
+      </header>
+
+      <div>
+        <ul>
+          <li>
+            <p data-l10n-id="fdn-enterPIN2">Enter new PIN2 code</p>
+            <p data-l10n-id="fdn-enterPIN2-desc">that is between 4 and 8 characters</p>
+            <input type="password" id="fdn-reset-pin2-input"/>
+          </li>
+        </ul>
+      </div>
+      -->
+    </section>
+    
     <!-- Connectivity :: Call :: FDN -->
     <section role="region" id="call-fdn">
       <!--
@@ -559,11 +604,13 @@
         <ul>
           <li class="explanation" data-l10n-id="fdn-description">Restrict which number can be dialed from this phone. (Emergency numbers will always we dialable)</li>
           <li id="menuItem-fdnEnable">
-            <label class="pack-switch checkbox-label">
-              <input type="checkbox" data-ignore disabled />
-              <span></span>
-            </label>
-            <a data-l10n-id="fdn">Fixed Dialing Numbers</a>
+            <a data-href="#fdn-enable" data-l10n-id="fdn">Fixed Dialing Numbers</a>
+          </li>
+          <li>
+            <small data-l10n-id="fdn-authorizedNumbersDesc">list of NUmbers that can be called</small>
+            <a data-href="#fdn-authorizedNumbers" data-l10n-id="fdn-authorizedNumbers">
+              Authorized numbers
+            </a>
           </li>
           <li>
             <a data-href="#fdn-resetPIN2" data-l10n-id="fdn-resetPIN2">
