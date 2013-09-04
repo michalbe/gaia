@@ -77,6 +77,12 @@ var ThreadUI = global.ThreadUI = {
       this[Utils.camelCase(id)] = document.getElementById('messages-' + id);
     }, this);
 
+    monitorChildVisibility(this.container,
+      100,    // extra space top and bottom
+      100,  // min scroll before we do work
+      this.msgOnscreen,   // set background image
+      this.msgOffscreen);
+      console.log('ELO!');
     this.mainWrapper = document.getElementById('main-wrapper');
 
     // Allow for stubbing in environments that do not implement the
@@ -248,6 +254,18 @@ var ThreadUI = global.ThreadUI = {
     });
 
     ThreadUI.setInputMaxHeight();
+  },
+
+  msgOnscreen: function(msg) {
+    //action when msg is visible
+    // add images to divs here
+    console.log('visible', msg);
+  },
+
+  msgOffscreen: function(msg) {
+    //action when msg is not visible
+    // remove images from divs here
+    console.log('hidden', msg);
   },
 
   // Initialize Recipients list and Recipients.View (DOM)
