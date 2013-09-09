@@ -10,7 +10,11 @@
       <ul>
         <li class="explanation" data-l10n-id="fdn-description">Restrict which number can be dialed from this phone. (Emergency numbers will always we dialable)</li>
         <li id="menuItem-fdnEnable">
-          <a data-href="#fdn-enable" data-l10n-id="fdn">Fixed Dialing Numbers</a>
+          <label class="pack-switch">
+            <input type="checkbox" class="uninit"/>
+            <span></span>
+          </label>
+          <a href="#call-fdn-pin2-reset" data-l10n-id="fdn">Fixed Dialing Numbers</a>
         </li>
         <li>
           <small data-l10n-id="fdn-authorizedNumbersDesc">list of Numbers that can be called</small>
@@ -19,7 +23,7 @@
           </a>
         </li>
         <li>
-          <a data-href="#fdn-resetPIN2" data-l10n-id="fdn-resetPIN2">
+          <a data-href="#call-fdn-pin2-reset" data-l10n-id="fdn-resetPIN2">
             Reset PIN2 code
           </a>
         </li>
