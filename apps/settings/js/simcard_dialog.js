@@ -212,6 +212,13 @@ function SimPinDialog(dialog) {
 
   function verify() { // apply PIN|PUK
     switch (_action) {
+      // get PIN code
+      case 'get_pin':
+      case 'get_pin2':
+        _onsuccess(pinInput.value);
+        close();
+        break;
+
       // unlock SIM
       case 'unlock_pin':
         unlockPin();
@@ -243,11 +250,6 @@ function SimPinDialog(dialog) {
         break;
       case 'change_pin2':
         changePin('pin2');
-        break;
-      case 'add_fdn_number':
-      case 'remove_fdn_number':
-        _onsuccess(pinInput.value);
-        close();
         break;
     }
 
@@ -286,7 +288,15 @@ function SimPinDialog(dialog) {
 
     var lockType = 'pin'; // used to query the number of retries left
     switch (action) {
-      // unlock
+      // get PIN code
+      case 'get_pin2':
+        lockType = 'pin2';
+      case 'get_pin':
+        setInputMode('pin');
+        _localize(dialogTitle, lockType + 'Title');
+        break;
+
+      // unlock SIM
       case 'unlock_pin':
         setInputMode('pin');
         _localize(dialogTitle, 'pinTitle');
@@ -328,12 +338,6 @@ function SimPinDialog(dialog) {
       case 'change_pin2':
         lockType = 'pin2';
         setInputMode('new');
-        _localize(dialogTitle, 'fdnReset');
-        break;
-      case 'add_fdn_number':
-      case 'remove_fdn_number':
-        lockType = 'pin2';
-        setInputMode('pin');
         _localize(dialogTitle, 'fdnReset');
         break;
 
@@ -382,3 +386,4 @@ function SimPinDialog(dialog) {
     show: show
   };
 }
+

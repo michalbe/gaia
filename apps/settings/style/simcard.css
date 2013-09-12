@@ -20,14 +20,20 @@
   font-size: 1.4rem;
 }
 
-/*
-  Add contact action menu
+
+/**
+ * FDN contact action menu
  */
 
-#add-contact-action-menu {
+#call-fdnList-action {
   display: none;
 }
 
-#add-contact-action-menu.visible {
+#call-fdnList-action.visible {
   display: inline;
 }
+
+#call-fdnList-action header {
+  height: 6rem;
+}
+

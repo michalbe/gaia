@@ -5,26 +5,31 @@
 
 var SimFdnLock = {
   dialog: document.getElementById('call-pin2-dialog'),
+  pinDialog: null,
+
+  // enable|disable|unlock FDN
   simFdnDesc: document.querySelector('#fdn-enabled small'),
   simFdnCheckBox: document.querySelector('#fdn-enabled input'),
   resetPin2Item: document.getElementById('fdn-resetPIN2'),
   resetPin2Button: document.querySelector('#fdn-resetPIN2 button'),
+
+  // FDN contact list (display, add)
   contactsContainer: document.getElementById('fdn-contactsContainer'),
+  fdnContactTitle: document.getElementById('fdnContact-title'),
+  fdnContactName: document.getElementById('fdnContact-name'),
+  fdnContactNumber: document.getElementById('fdnContact-number'),
+  fdnContactSubmit: document.getElementById('fdnContact-submit'),
+  fdnContactButton: document.getElementById('fdnContact'),
 
-  // nodes needed to add number to authorized list
-  addNumberSubmit: document.getElementById('fdn-addNumber-submit'),
-  addNumberName: document.getElementById('fdn-addNumber-name'),
-  addNumberNumber: document.getElementById('fdn-addNumber-number'),
-  addNumberActionMenu: document.getElementById('add-contact-action-menu'),
-  addNumberActionMenuCancel:
-    document.getElementById('add-contact-action-menu-cancel'),
-  addNumberActionMenuEdit:
-    document.getElementById('add-contact-action-menu-edit'),
-  addNumberActionMenuDelete:
-    document.getElementById('add-contact-action-menu-delete'),
-
-  editedNumber: null,
-  pinDialog: null,
+  // FDN contact action menu (call, edit, delete)
+  fdnActionMenu: document.getElementById('call-fdnList-action'),
+  fdnActionMenuName: document.getElementById('fdnAction-name'),
+  fdnActionMenuNumber: document.getElementById('fdnAction-number'),
+  fdnActionMenuCall: document.getElementById('fdnAction-call'),
+  fdnActionMenuEdit: document.getElementById('fdnAction-edit'),
+  fdnActionMenuRemove: document.getElementById('fdnAction-delete'),
+  fdnActionMenuCancel: document.getElementById('fdnAction-cancel'),
+  currentContact: null,
 
   updateFdnStatus: function spl_updateSimStatus() {
     var self = this;
@@ -47,132 +52,157 @@ var SimFdnLock = {
     IccHelper.addEventListener('cardstatechange', callback);
 
     this.pinDialog = new SimPinDialog(this.dialog);
+    var self = this;
+
+    // enable|disable|unlock FDN
 
     this.simFdnCheckBox.disabled = true;
-    this.simFdnCheckBox.onchange = (function spl_togglePin2() {
+    this.simFdnCheckBox.onchange = function spl_togglePin2() {
       var action = this.checked ? 'enable_fdn' : 'disable_fdn';
       if (IccHelper.cardState === 'puk2Required') {
         action = 'unlock_puk2';
       }
-      this.pinDialog.show(action, callback, callback);
-    }.bind(this));
+      self.pinDialog.show(action, callback, callback);
+    };
 
-    this.resetPin2Button.onclick = (function spl_resetPin2() {
-      this.pinDialog.show('change_pin2');
-    }.bind(this));
+    this.resetPin2Button.onclick = function spl_resetPin2() {
+      self.pinDialog.show('change_pin2');
+    };
 
     this.updateFdnStatus();
 
-    window.addEventListener('panelready', function(e) {
-      if (e.detail.current === '#call-fdn-authorized-numbers') {
+    // add|edit|remove|call FDN contact
+
+    window.addEventListener('panelready', (function(e) {
+      if (e.detail.current === '#call-fdnList') {
         this.renderAuthorizedNumbers();
       }
-    }.bind(this));
+    }).bind(this));
 
-    this.addNumberSubmit.addEventListener(
-      'click',
-      this.addNumberPinDialog.bind(this)
-    );
+    this.fdnContactButton.onclick = function() { // add FDN contact
+      localize(self.fdnContactTitle, 'fdnAction-add');
+      self.fdnContactName.value = '';
+      self.fdnContactNumber.value = '';
+      self.fdnContactSubmit.onclick = self.addContact.bind(self);
+      Settings.currentPanel = '#call-fdnList-add';
+    };
 
-    this.addNumberActionMenuCancel.addEventListener(
-      'click',
-      this.hideContactsMenu.bind(this)
-    );
-    this.addNumberActionMenuDelete.addEventListener(
-      'click',
-      this.removeNumber.bind(this)
-    );
+    this.fdnActionMenuEdit.onclick = function() { // edit FDN contact
+      localize(self.fdnContactTitle, 'fdnAction-edit');
+      self.fdnContactName.value = self.currentContact.name;
+      self.fdnContactNumber.value = self.currentContact.number;
+      self.fdnContactSubmit.onclick = self.editContact.bind(self);
+      self.hideActionMenu();
+      Settings.currentPanel = '#call-fdnList-add';
+    };
+
+    this.fdnActionMenuRemove.onclick = function() { // remove FDN contact
+      self.hideActionMenu();
+      self.removeContact();
+    };
+
+    this.fdnActionMenuCancel.onclick = this.hideActionMenu.bind(this);
+  },
+
+
+  /**
+   * Display FDN contact list and action menu
+   */
+
+  renderFdnContact: function(contact) {
+    var li = document.createElement('li');
+    var nameContainer = document.createElement('span');
+    var numberContainer = document.createElement('small');
+
+    nameContainer.textContent = contact.name;
+    numberContainer.textContent = contact.number;
+    li.appendChild(numberContainer);
+    li.appendChild(nameContainer);
+
+    li.onclick = (function() {
+      this.showActionMenu(contact);
+    }).bind(this);
+    return li;
   },
 
   renderAuthorizedNumbers: function() {
-     this.contactsContainer.innerHTML = '';
+    this.contactsContainer.innerHTML = '';
+    FdnAuthorizedNumbers.getContacts(null, (function(contacts) {
+      for (var i = 0, l = contacts.length; i < l; i++) {
+        var li = this.renderFdnContact(contacts[i]);
+        this.contactsContainer.appendChild(li);
+      }
+    }).bind(this));
+  },
 
-     FDN_AuthorizedNumbers.getContacts(null, function(contacts) {
-       var contact;
-       for (var i = 0, l = contacts.length; i < l; i++) {
-         contact = this.renderFDNContact(
-           contacts[i].id,
-           contacts[i].name,
-           contacts[i].number
-         );
-         this.contactsContainer.appendChild(contact);
-       }
-     }.bind(this));
-   },
+  showActionMenu: function(contact) {
+    this.currentContact = contact;
+    this.fdnActionMenuName.textContent = contact.name;
+    this.fdnActionMenuNumber.textContent = contact.number;
+    this.fdnActionMenu.classList.add('visible');
+  },
 
-   addNumberPinDialog: function() {
-     this.pinDialog.show(
-       'add_fdn_number',
-       this.addNumberToAuthorizedList.bind(this),
-       function() {
-         console.log('----- NIEGITARA');
-       }
-     );
-   },
-
-   renderFDNContact: function(id, name, number) {
-     var li = document.createElement('li');
-     var nameContainer = document.createElement('span');
-     var numberContainer = document.createElement('small');
-
-     nameContainer.textContent = name;
-     numberContainer.textContent = number;
-     li.appendChild(numberContainer);
-     li.appendChild(nameContainer);
-     li.dataset.id = id;
-
-     li.addEventListener('click', this.showContactsMenu.bind(this));
-     return li;
-   },
-
-   addNumberToAuthorizedList: function(pinCode) {
-     FDN_AuthorizedNumbers.addNumber(
-       this.addNumberError,
-       this.addNumberSuccess.bind(this),
-       this.addNumberName.value,
-       this.addNumberNumber.value,
-       pinCode
-     );
-   },
+  hideActionMenu: function() {
+    this.fdnActionMenu.classList.remove('visible');
+  },
 
 
-   addNumberError: function(e) {
-     throw new Error(
-       'Something goes wrong with adding number to the authorized list',
-       e
-      );
-   },
+  /**
+   * Add|Edit|Remove FDN contact
+   */
 
-   addNumberSuccess: function() {
-     this.addNumberName.value = '';
-     this.addNumberNumber.value = '';
-   },
+  addContact: function() {
+    var name = this.fdnContactName.value;
+    var number = this.fdnContactNumber.value;
 
-   showContactsMenu: function(e) {
-     var id = e.target.dataset.id;
-     if (!id) {
-       id = e.target.parentNode.dataset.id;
-     }
+    var cb = this.clear.bind(this);
+    var er = function(e) {
+      throw new Error('Could not add FDN contact to SIM card', e);
+    };
 
-     this.editedNumber = id;
-     this.addNumberActionMenu.classList.add('visible');
-   },
+    this.pinDialog.show('get_pin2', function(pinCode) {
+      FdnAuthorizedNumbers.addNumber(er, cb, name, number, pinCode);
+    }, this.wrongPinError);
+  },
 
-   hideContactsMenu: function() {
-     this.addNumberActionMenu.classList.remove('visible');
-   },
+  editContact: function() {
+    var id = this.currentContact.id;
+    var name = this.fdnContactName.value;
+    var number = this.fdnContactNumber.value;
 
-   removeNumber: function() {
-     var cb = (function() {
-        this.hideContactsMenu();
-        this.renderAuthorizedNumbers();
-      }.bind(this));
+    var cb = this.clear.bind(this);
+    var er = function(e) {
+      throw new Error('Could not edit FDN contact on SIM card', e);
+    };
 
-     FDN_AuthorizedNumbers.removeNumber(
-       cb, cb,
-       this.editedNumber
-     );
-   }
+    this.pinDialog.show('get_pin2', function(pinCode) {
+      FdnAuthorizedNumbers.updateNumber(er, cb, id, name, number, pinCode);
+    }, this.wrongPinError);
+  },
+
+  removeContact: function() {
+    var id = this.currentContact.id;
+
+    var cb = this.clear.bind(this);
+    var er = function(e) {
+      throw new Error('Could not edit FDN contact on SIM card', e);
+    };
+
+    this.pinDialog.show('get_pin2', function(pinCode) {
+      FdnAuthorizedNumbers.removeNumber(er, cb, id, pinCode);
+    }, this.wrongPinError);
+  },
+
+  clear: function() {
+    Settings.currentPanel = '#call-fdnList';
+    this.fdnContactName.value = '';
+    this.fdnContactNumber.value = '';
+  },
+
+  wrongPinError: function(e) {
+    throw new Error('Incorrect PIN2 code.', e);
+  }
+
 };
 
 navigator.mozL10n.ready(SimFdnLock.init.bind(SimFdnLock));
