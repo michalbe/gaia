@@ -101,6 +101,16 @@ var SimFdnLock = {
       self.removeContact();
     };
 
+    this.fdnActionMenuCall.onclick = function() {
+      new MozActivity({
+        name: 'dial',
+        data: {
+          type: 'webtelephony/number',
+          number: self.currentContact.number
+        }
+      });
+    };
+
     this.fdnActionMenuCancel.onclick = this.hideActionMenu.bind(this);
   },
 
