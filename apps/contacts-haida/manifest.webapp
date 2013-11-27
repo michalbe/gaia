@@ -1,0 +1,117 @@
+{
+  "name": "contacts-haida",
+  "description": "Gaia Contacts Haida",
+  "type": "certified",
+  "developer": {
+    "name": "The Gaia Team",
+    "url": "https://github.com/mozilla-b2g/gaia"
+  },
+  "launch_path": "/index.html",
+  "icons": {
+    "60": "/style/icons/Contacts_60.png",
+    "90": "/style/icons/Contacts_90.png",
+    "120": "/style/icons/Contacts_120.png"
+  },
+  "locales": {
+    "ar": {
+      "name": "اتصالات",
+      "description": "Gaia اتصالات"
+    },
+    "en-US": {
+      "name": "Contacts",
+      "description": "Gaia Contacts"
+    },
+    "fr": {
+      "name": "Contacts",
+      "description": "Contacts Gaia"
+    },
+    "zh-TW": {
+      "name": "聯絡人",
+      "description": "Gaia 聯絡人"
+    }
+  },
+  "permissions": {
+    "telephony":{},
+    "bluetooth":{},
+    "voicemail":{},
+    "contacts":{ "access": "readwrite" },
+    "mobileconnection":{},
+    "attention":{},
+    "settings":{ "access": "readwrite" },
+    "desktop-notification":{},
+    "alarms": {},
+    "systemXHR": {},
+    "wifi-manage":{},
+    "time": {},
+    "idle":{},
+    "storage": {},
+    "device-storage:sdcard": { "access": "readcreate" },
+    "phonenumberservice": {}
+  },
+  "orientation": "default",
+  "activities": {
+    "pick": {
+      "filters": {
+        "type": {
+          "required": true,
+          "value": ["webcontacts/contact","webcontacts/email","webcontacts/tel"]
+        }
+       },
+      "disposition": "inline",
+      "href": "/index.html?pick",
+      "returnValue": true
+    },
+    "import": {
+      "filters": {
+        "type": "text/vcard"
+      },
+      "disposition": "inline",
+      "href": "/index.html?open",
+      "returnValue": true
+    },
+    "open": {
+      "filters": {
+        "type": "webcontacts/contact"
+      },
+      "disposition": "inline",
+      "href": "/index.html?open",
+      "returnValue": true
+    },
+    "new": {
+      "filters": {
+        "type": "webcontacts/contact"
+      },
+      "disposition": "inline",
+      "href": "/index.html?new",
+      "returnValue": true
+    },
+    "update": {
+      "filters": {
+        "type": "webcontacts/contact"
+      },
+      "disposition": "inline",
+      "href": "/index.html?update",
+      "returnValue": true
+    }
+  },
+  "messages": [
+     { "alarm": "/facebook/fb_sync.html" }
+  ],
+  "redirects": [
+    {"from": "facebook",
+    "to": "/redirects/redirect.html"},
+    {"from": "facebook_dialogs",
+    "to": "/redirects/dialogs_end.html"},
+    {"from": "facebook_logout",
+    "to": "/redirects/logout.json"},
+    {"from": "live",
+    "to": "/redirects/redirect.html"},
+    {"from": "gmail",
+    "to": "/redirects/redirect.html"}
+  ],
+  "datastores-owned": {
+    "Gaia_Facebook_Friends": {
+      "description": "Imported Facebook Friends"
+    }
+  }
+}
