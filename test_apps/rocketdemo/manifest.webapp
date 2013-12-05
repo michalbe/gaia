@@ -1,0 +1,19 @@
+{
+  "name": "Rocketbar Demo",
+  "description": "Rocketbar Demo",
+  "launch_path": "/index.html",
+  "developer": {
+    "name": "Michal Budzynski",
+    "url": "http://twitter.com/michalbe"
+  },
+  "locales": {
+    "en-US": {
+      "name": "Rocketbar Demo",
+      "description": "Rocketbar Demo"
+    }
+  },
+  "default_locale": "en-US",
+  "icons": {
+    "128": "/style/icons/Icon.png"
+  }
+}
