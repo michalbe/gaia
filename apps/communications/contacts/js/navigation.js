@@ -71,66 +71,9 @@ function navigationStack(currentView) {
   };
 
   this.go = function go(nextView, transition) {
-    if (_currentView === nextView)
-      return;
-    var parent = window.parent;
-    if (nextView == 'view-contact-form') {
-      parent.postMessage({type: 'hide-navbar'}, COMMS_APP_ORIGIN);
+    if (nextView === 'view-contact-form') {
+      window.open('form.html');
     }
-
-    // Remove items that match nextView from the stack to prevent duplicates.
-    this.stack = this.stack.filter(function(item) {
-      return item.view != nextView;
-    });
-
-    var current;
-    var currentClassList;
-    // Performance is very bad when there are too many contacts so we use
-    // -moz-element and animate this 'screenshot" element.
-    if (transition.indexOf('go-deeper') === 0) {
-      current = document.getElementById(screenshotViewId);
-
-      // Load the screenshot dom content
-      LazyLoader.load([current]);
-
-      current.style.zIndex = this.stack[this.stack.length - 1].zIndex;
-      currentClassList = current.classList;
-      if (transition.indexOf('search') !== -1) {
-        currentClassList.add('search');
-      } else {
-        currentClassList.add('contact-list');
-      }
-      currentClassList.remove('hide');
-    } else {
-      current = document.getElementById(_currentView);
-      currentClassList = current.classList;
-    }
-
-    var forwardsClasses = this.transitions[transition].forwards;
-    var backwardsClasses = this.transitions[transition].backwards;
-
-    // Add forwards class to current view.
-    currentClassList.add('block-item');
-    if (forwardsClasses.current) {
-      currentClassList.add(forwardsClasses.current);
-    }
-
-    var next = document.getElementById(nextView);
-    // Add forwards class to next view.
-    if (forwardsClasses.next) {
-      next.classList.add('block-item');
-      next.classList.add(forwardsClasses.next);
-      next.addEventListener('animationend', function ng_onNextBackwards(ev) {
-        next.removeEventListener('animationend', ng_onNextBackwards);
-        next.classList.remove('block-item');
-      });
-    }
-
-    var zIndex = ++navigationStack._zIndex;
-    this.stack.push({ view: nextView, transition: transition,
-                      zIndex: zIndex});
-    next.style.zIndex = zIndex;
-    _currentView = nextView;
   };
 
   this.back = function back(callback) {
