@@ -552,9 +552,10 @@ var Contacts = (function() {
   };
 
   var showForm = function c_showForm(edit) {
-    initForm(function onInit() {
-      doShowForm(edit);
-    });
+    navigation.go('view-contact-form', 'popup');
+    // initForm(function onInit() {
+    //   doShowForm(edit);
+    // });
   };
 
   var doShowForm = function c_doShowForm(edit) {
