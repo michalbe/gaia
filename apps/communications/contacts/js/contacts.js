@@ -796,8 +796,6 @@ var Contacts = (function() {
     });
   };
 
-  window.addEventListener('localized', initContacts); // addEventListener
-
   function loadConfirmDialog() {
     var args = Array.slice(arguments);
     Contacts.utility('Confirm', function viewLoaded() {
@@ -908,6 +906,7 @@ var Contacts = (function() {
     'close': close,
     'view': loadView,
     'utility': loadUtility,
+    'initContacts': initContacts,
     get asyncScriptsLoaded() {
       return asyncScriptsLoaded;
     }
