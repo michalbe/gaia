@@ -136,9 +136,33 @@ contacts.Form = (function() {
   };
 
   var init = function cf_init(tags, currentDom) {
-    dom = currentDom || document;
-    TAG_OPTIONS = tags;
     _ = navigator.mozL10n.get;
+    
+    // temporary
+    TAG_OPTIONS = {
+      'phone-type' : [
+        {type: 'mobile', value: _('mobile')},
+        {type: 'home', value: _('home')},
+        {type: 'work', value: _('work')},
+        {type: 'personal', value: _('personal')},
+        {type: 'faxHome', value: _('faxHome')},
+        {type: 'faxOffice', value: _('faxOffice')},
+        {type: 'faxOther', value: _('faxOther')},
+        {type: 'another', value: _('another')}
+      ],
+      'email-type' : [
+        {type: 'personal', value: _('personal')},
+        {type: 'home', value: _('home')},
+        {type: 'work', value: _('work')}
+      ],
+      'address-type' : [
+        {type: 'home', value: _('home')},
+        {type: 'work', value: _('work')}
+      ]
+    };
+    dom = currentDom || document;
+
+    //TAG_OPTIONS = tags;
     initContainers();
 
     dom.addEventListener('input', function input(event) {
@@ -1094,3 +1118,8 @@ contacts.Form = (function() {
     'pickImage': pickImage
   };
 })();
+
+window.addEventListener('localized', function(){
+  contacts.Form.init();
+  contacts.Form.render(null, function(){});
+});

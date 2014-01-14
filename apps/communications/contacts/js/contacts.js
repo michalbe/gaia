@@ -147,27 +147,27 @@ var Contacts = (function() {
     addButton = document.getElementById('add-contact-button');
     appTitleElement = cancelButton.parentNode.querySelector('h1');
 
-    TAG_OPTIONS = {
-      'phone-type' : [
-        {type: 'mobile', value: _('mobile')},
-        {type: 'home', value: _('home')},
-        {type: 'work', value: _('work')},
-        {type: 'personal', value: _('personal')},
-        {type: 'faxHome', value: _('faxHome')},
-        {type: 'faxOffice', value: _('faxOffice')},
-        {type: 'faxOther', value: _('faxOther')},
-        {type: 'another', value: _('another')}
-      ],
-      'email-type' : [
-        {type: 'personal', value: _('personal')},
-        {type: 'home', value: _('home')},
-        {type: 'work', value: _('work')}
-      ],
-      'address-type' : [
-        {type: 'home', value: _('home')},
-        {type: 'work', value: _('work')}
-      ]
-    };
+    // TAG_OPTIONS = {
+    //       'phone-type' : [
+    //         {type: 'mobile', value: _('mobile')},
+    //         {type: 'home', value: _('home')},
+    //         {type: 'work', value: _('work')},
+    //         {type: 'personal', value: _('personal')},
+    //         {type: 'faxHome', value: _('faxHome')},
+    //         {type: 'faxOffice', value: _('faxOffice')},
+    //         {type: 'faxOther', value: _('faxOther')},
+    //         {type: 'another', value: _('another')}
+    //       ],
+    //       'email-type' : [
+    //         {type: 'personal', value: _('personal')},
+    //         {type: 'home', value: _('home')},
+    //         {type: 'work', value: _('work')}
+    //       ],
+    //       'address-type' : [
+    //         {type: 'home', value: _('home')},
+    //         {type: 'work', value: _('work')}
+    //       ]
+    //     };
   };
 
   var onLocalized = function onLocalized() {
@@ -508,20 +508,22 @@ var Contacts = (function() {
     }
   };
 
-  var initForm = function c_initForm(callback) {
-    if (formReady) {
-      callback();
-    } else {
-      initDetails(function onDetails() {
-        Contacts.view('Form', function viewLoaded() {
-          formReady = true;
-          contactsForm = contacts.Form;
-          contactsForm.init(TAG_OPTIONS);
-          callback();
-        });
-      });
-    }
-  };
+  // var initForm = function c_initForm(callback) {
+  //   console.log('============ YELO!');
+  //   if (formReady) {
+  //     callback();
+  //   } else {
+  //     initDetails(function onDetails() {
+  //       Contacts.view('Form', function viewLoaded() {
+  //         formReady = true;
+  //         contactsForm = contacts.Form;
+  //         console.log('------ELO');
+  //         contactsForm.init(TAG_OPTIONS);
+  //         callback();
+  //       });
+  //     });
+  //   }
+  // };
 
   var initSettings = function c_initSettings(callback) {
     if (settingsReady) {
