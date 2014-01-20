@@ -137,7 +137,7 @@ contacts.Form = (function() {
 
   var init = function cf_init(tags, currentDom) {
     _ = navigator.mozL10n.get;
-    
+
     // temporary
     TAG_OPTIONS = {
       'phone-type' : [
@@ -210,6 +210,7 @@ contacts.Form = (function() {
   };
 
   var saveContact = function saveContact() {
+    console.log('elo!!!');
     return contacts.Form.saveContact();
   };
 
@@ -1119,7 +1120,7 @@ contacts.Form = (function() {
   };
 })();
 
-window.addEventListener('localized', function(){
+window.addEventListener('localized', function() {
   contacts.Form.init();
-  contacts.Form.render(null, function(){});
+  contacts.Form.render(null, function() {});
 });
