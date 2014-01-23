@@ -468,7 +468,7 @@ contacts.Details = (function() {
     for (var i = 0; i < contact.adr.length; i++) {
       var currentAddress = contact.adr[i];
       // Sanity check
-      if (Contacts.isEmpty(currentAddress, ['streetAddress', 'postalCode',
+      if (utils.isEmpty(currentAddress, ['streetAddress', 'postalCode',
         'locality', 'countryName'])) {
         continue;
       }

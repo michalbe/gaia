@@ -560,7 +560,7 @@ contacts.Form = (function() {
     // and inspect address by it self.
     var fields = ['givenName', 'familyName', 'org', 'tel',
       'email', 'note', 'adr'];
-    if (Contacts.isEmpty(myContact, fields)) {
+    if (utils.isEmpty(myContact, fields)) {
       return;
     }
 
