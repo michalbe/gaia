@@ -77,94 +77,95 @@ function navigationStack(currentView) {
   };
 
   this.back = function back(callback) {
-    var self = this;
-
-    if (this.stack.length < 2) {
-      if (typeof callback === 'function') {
-        setTimeout(callback, 0);
-      }
-      return;
-    }
-
-    var currentView = this.stack.pop();
-    var current = document.getElementById(currentView.view);
-    var currentClassList = current.classList;
-
-    var nextView = this.stack[this.stack.length - 1];
-    var transition = currentView.transition;
-
-    var next = document.getElementById(nextView.view);
-    var nextClassList;
-    // Performance is very bad when there are too many contacts so we use
-    // -moz-element and animate this 'screenshot" element.
-    if (transition.indexOf('go-deeper') === 0) {
-      next = document.getElementById(screenshotViewId);
-    } else {
-      next = document.getElementById(nextView.view);
-    }
-    nextClassList = next.classList;
-
-    var forwardsClasses = this.transitions[transition].forwards;
-    var backwardsClasses = this.transitions[transition].backwards;
-
-    if (currentView.view == 'view-contact-form') {
-      parent.postMessage({type: 'show-navbar'}, COMMS_APP_ORIGIN);
-    }
-
-    // Add backwards class to current view.
-    if (backwardsClasses.current) {
-      currentClassList.add('block-item');
-      currentClassList.add(backwardsClasses.current);
-      current.addEventListener('animationend',
-        function ng_onCurrentBackwards() {
-          current.removeEventListener('animationend', ng_onCurrentBackwards);
-          // Once the backwards animation completes, delete the added classes
-          // to restore the elements to their initial state.
-          currentClassList.remove(forwardsClasses.next);
-          currentClassList.remove(backwardsClasses.current);
-          current.style.zIndex = null;
-          currentClassList.remove('block-item');
-          if (!backwardsClasses.next) {
-            nextClassList.remove('block-item');
-          }
-        }
-      );
-    } else {
-      current.style.zIndex = null;
-      currentClassList.remove('block-item');
-      if (!backwardsClasses.next) {
-        nextClassList.remove('block-item');
-      }
-    }
-
-    next.style.zIndex = nextView.zIndex;
-
-    // Add backwards class to next view.
-    if (backwardsClasses.next) {
-      nextClassList.add(backwardsClasses.next);
-      next.addEventListener('animationend', function ng_onNextBackwards() {
-        next.removeEventListener('animationend', ng_onNextBackwards);
-        // Once the backwards animation completes, delete the added classes
-          // to restore the elements to their initial state.
-        nextClassList.remove(forwardsClasses.current);
-        nextClassList.remove(backwardsClasses.next);
-        if (transition.indexOf('go-deeper') === 0) {
-          // Hide the -moz-element element once the animation completes.
-          nextClassList.add('hide');
-          nextClassList.remove('search');
-          nextClassList.remove('contact-list');
-        }
-        nextClassList.remove('block-item');
-      });
-    }
-
-    if (!backwardsClasses.current && !backwardsClasses.next && callback) {
-      setTimeout(callback, 0);
-    } else {
-      waitForAnimation(current, callback);
-    }
-    _currentView = nextView.view;
-    navigationStack._zIndex = nextView.zIndex;
+    window.close();
+    // var self = this;
+    //
+    // if (this.stack.length < 2) {
+    //   if (typeof callback === 'function') {
+    //     setTimeout(callback, 0);
+    //   }
+    //   return;
+    // }
+    //
+    // var currentView = this.stack.pop();
+    // var current = document.getElementById(currentView.view);
+    // var currentClassList = current.classList;
+    //
+    // var nextView = this.stack[this.stack.length - 1];
+    // var transition = currentView.transition;
+    //
+    // var next = document.getElementById(nextView.view);
+    // var nextClassList;
+    // // Performance is very bad when there are too many contacts so we use
+    // // -moz-element and animate this 'screenshot" element.
+    // if (transition.indexOf('go-deeper') === 0) {
+    //   next = document.getElementById(screenshotViewId);
+    // } else {
+    //   next = document.getElementById(nextView.view);
+    // }
+    // nextClassList = next.classList;
+    //
+    // var forwardsClasses = this.transitions[transition].forwards;
+    // var backwardsClasses = this.transitions[transition].backwards;
+    //
+    // if (currentView.view == 'view-contact-form') {
+    //   parent.postMessage({type: 'show-navbar'}, COMMS_APP_ORIGIN);
+    // }
+    //
+    // // Add backwards class to current view.
+    // if (backwardsClasses.current) {
+    //   currentClassList.add('block-item');
+    //   currentClassList.add(backwardsClasses.current);
+    //   current.addEventListener('animationend',
+    //     function ng_onCurrentBackwards() {
+    //       current.removeEventListener('animationend', ng_onCurrentBackwards);
+    //       // Once the backwards animation completes, delete the added classes
+    //       // to restore the elements to their initial state.
+    //       currentClassList.remove(forwardsClasses.next);
+    //       currentClassList.remove(backwardsClasses.current);
+    //       current.style.zIndex = null;
+    //       currentClassList.remove('block-item');
+    //       if (!backwardsClasses.next) {
+    //         nextClassList.remove('block-item');
+    //       }
+    //     }
+    //   );
+    // } else {
+    //   current.style.zIndex = null;
+    //   currentClassList.remove('block-item');
+    //   if (!backwardsClasses.next) {
+    //     nextClassList.remove('block-item');
+    //   }
+    // }
+    //
+    // next.style.zIndex = nextView.zIndex;
+    //
+    // // Add backwards class to next view.
+    // if (backwardsClasses.next) {
+    //   nextClassList.add(backwardsClasses.next);
+    //   next.addEventListener('animationend', function ng_onNextBackwards() {
+    //     next.removeEventListener('animationend', ng_onNextBackwards);
+    //     // Once the backwards animation completes, delete the added classes
+    //       // to restore the elements to their initial state.
+    //     nextClassList.remove(forwardsClasses.current);
+    //     nextClassList.remove(backwardsClasses.next);
+    //     if (transition.indexOf('go-deeper') === 0) {
+    //       // Hide the -moz-element element once the animation completes.
+    //       nextClassList.add('hide');
+    //       nextClassList.remove('search');
+    //       nextClassList.remove('contact-list');
+    //     }
+    //     nextClassList.remove('block-item');
+    //   });
+    // }
+    //
+    // if (!backwardsClasses.current && !backwardsClasses.next && callback) {
+    //   setTimeout(callback, 0);
+    // } else {
+    //   waitForAnimation(current, callback);
+    // }
+    // _currentView = nextView.view;
+    // navigationStack._zIndex = nextView.zIndex;
   };
 
   this.home = function home(callback) {
