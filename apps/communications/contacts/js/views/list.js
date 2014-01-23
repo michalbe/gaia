@@ -158,7 +158,8 @@ contacts.List = (function() {
     scrollable = document.querySelector('#groups-container');
     settingsView = document.querySelector('#view-settings .view-body-inner');
     noContacts = document.querySelector('#no-contacts');
-
+    
+    console.log('-----------', window.location);
     groupsList = document.getElementById('groups-list');
     groupsList.addEventListener('click', onClickHandler);
 

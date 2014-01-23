@@ -203,14 +203,13 @@ contacts.Form = (function() {
 
     // Add listeners
     utils.listeners.add({
-      '#cancel-edit': Contacts.cancel, // Cancel edition
+      //'#cancel-edit': Contacts.cancel, // Cancel edition
       '#save-button': saveContact,
       '#contact-form button[data-field-type]': newField
     });
   };
 
   var saveContact = function saveContact() {
-    console.log('elo!!!');
     return contacts.Form.saveContact();
   };
 
