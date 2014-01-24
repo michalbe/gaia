@@ -69,6 +69,11 @@ contacts.Details = (function() {
       '#details-back': handleDetailsBack,
       '#edit-contact-button': showEditContact
     });
+
+    utils.getContactById(contactId,
+      function renderContactCb(contact, fbContact) {
+        render(contact, TAG_OPTIONS, fbContact);
+      });
   };
 
   var handleDetailsBack = function handleDetailsBack() {
