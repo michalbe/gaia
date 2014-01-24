@@ -146,28 +146,6 @@ var Contacts = (function() {
     cancelButton = document.getElementById('cancel_activity');
     addButton = document.getElementById('add-contact-button');
     appTitleElement = cancelButton.parentNode.querySelector('h1');
-
-    // TAG_OPTIONS = {
-    //       'phone-type' : [
-    //         {type: 'mobile', value: _('mobile')},
-    //         {type: 'home', value: _('home')},
-    //         {type: 'work', value: _('work')},
-    //         {type: 'personal', value: _('personal')},
-    //         {type: 'faxHome', value: _('faxHome')},
-    //         {type: 'faxOffice', value: _('faxOffice')},
-    //         {type: 'faxOther', value: _('faxOther')},
-    //         {type: 'another', value: _('another')}
-    //       ],
-    //       'email-type' : [
-    //         {type: 'personal', value: _('personal')},
-    //         {type: 'home', value: _('home')},
-    //         {type: 'work', value: _('work')}
-    //       ],
-    //       'address-type' : [
-    //         {type: 'home', value: _('home')},
-    //         {type: 'work', value: _('work')}
-    //       ]
-    //     };
   };
 
   var onLocalized = function onLocalized() {
@@ -641,6 +619,7 @@ var Contacts = (function() {
 
   var addAsyncScripts = function addAsyncScripts() {
     var lazyLoadFiles = [
+      '/contacts/js/tag_options.js',
       '/contacts/js/utilities/templates.js',
       '/contacts/js/contacts_shortcuts.js',
       '/contacts/js/contacts_tag.js',
