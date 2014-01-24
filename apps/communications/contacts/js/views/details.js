@@ -58,9 +58,8 @@ contacts.Details = (function() {
     detailsInner = dom.querySelector('#contact-detail-inner');
     favoriteMessage = dom.querySelector('#toggle-favorite');
     notesTemplate = dom.querySelector('#note-details-template-\\#i\\#');
-
     wrapper = dom.querySelector('#contact-detail-wrapper');
-    initPullEffect(cover);
+    //initPullEffect(cover);
 
     utils.listeners.add({
       '#toggle-favorite': toggleFavorite,
@@ -100,6 +99,7 @@ contacts.Details = (function() {
   };
 
   var initPullEffect = function cd_initPullEffect(cover) {
+    console.log('woefboirwforwfo', window.location);
     wrapper.addEventListener('touchstart', function(event) {
 
       // Avoiding repaint (at least when no scroll is needed)
@@ -628,3 +628,8 @@ contacts.Details = (function() {
     'reMark': reMark
   };
 })();
+
+window.addEventListener('localized', function() {
+  contacts.Details.init();
+  contacts.Details.render();
+});
