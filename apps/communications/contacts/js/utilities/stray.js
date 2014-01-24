@@ -25,4 +25,33 @@ if (!utils.isEmpty) {
     }
     return true;
   };
+
+  utils.getContactById = function(contactID, successCb, errorCb) {
+     var options = {
+       filterBy: ['id'],
+       filterOp: 'equals',
+       filterValue: contactID
+     };
+     var request = navigator.mozContacts.find(options);
+
+     request.onsuccess = function findCallback(e) {
+       var result = e.target.result[0];
+
+       if (!fb.isFbContact(result)) {
+         successCb(result);
+         return;
+       }
+
+       var fbContact = new fb.Contact(result);
+       var fbReq = fbContact.getData();
+       fbReq.onsuccess = function() {
+         successCb(result, fbReq.result);
+       };
+       fbReq.onerror = successCb.bind(null, result);
+     }; // request.onsuccess
+
+     if (typeof errorCb === 'function') {
+       request.onerror = errorCb;
+     }
+   };
 }
