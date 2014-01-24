@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1">
+    <meta charset="utf-8">
+    <title> Contacts </title>
+
+    <!-- Building Blocks -->
+    <link href="/shared/style/headers.css" rel="stylesheet">
+    <link href="/shared/style/input_areas.css" rel="stylesheet">
+    <link href="/shared/style_unstable/lists.css" rel="stylesheet">
+    <link href="/shared/style_unstable/scrolling.css" rel="stylesheet">
+    <link href="/shared/style/buttons.css" rel="stylesheet">
+    <link href="/shared/style_unstable/progress_activity.css" rel="stylesheet">
+    <link href="/shared/style/status.css" rel="stylesheet">
+    <link href="/shared/style/switches.css" rel="stylesheet">
+    <link href="/shared/style/confirm.css" rel="stylesheet">
+
+    <link href="/contacts/style/app.css" rel="stylesheet">
+    <link href="/contacts/style/contacts.css" rel="stylesheet">
+    <link href="/contacts/style/overlay.css" rel="stylesheet">
+    <link href="/contacts/style/search.css" rel="stylesheet">
+    <link href="/contacts/style/fixed_header.css" rel="stylesheet">
+    <link href="/contacts/style/animations.css" rel="stylesheet">
+    <link href="/facebook/style/curtain_frame.css" rel="stylesheet">
+    <link href="/contacts/style/status.css" rel="stylesheet">
+    <link href="/contacts/style/fb_extensions.css" rel="stylesheet">
+
+    <link rel="resource" type="application/l10n" href="/contacts/locales/locales.ini"/>
+    <link rel="resource" type="application/l10n" href="/shared/locales/date.ini"/>
+    <script defer src="/shared/js/l10n.js"></script>
+    <script defer src="/shared/js/l10n_date.js"></script>
+    <script defer src="/contacts/js/fb_loader.js"></script>
+    
+    <script defer src="/contacts/js/activities.js"></script>
+    <script defer src="/shared/js/lazy_loader.js"></script>
+
+    <script defer src="/shared/js/async_storage.js"></script>
+    <script defer src="/contacts/js/utilities/config.js"></script>
+    <script defer src="/contacts/js/utilities/stray.js"></script>
+    <script defer src="/contacts/js/utilities/cookie.js"></script>
+    <script defer src="/contacts/js/utilities/extract_params.js"></script>
+    <script defer src="/contacts/js/utilities/dom.js"></script>
+    <script defer src="/shared/js/text_normalizer.js"></script>
+    <script defer src="/contacts/js/utilities/templates.js"></script>
+    
+    <!-- For initializing FB integration -->
+    <script defer src="/contacts/js/fb/fb_init.js"></script>
+    <script defer src="/contacts/js/utilities/event_listeners.js"></script>
+    <script defer src="/contacts/js/navigation.js"></script>
+    <script defer src="/contacts/js/contacts.js"></script>
+    <script defer src="/contacts/js/utilities/image_loader.js"></script>
+    
+    <!-- for perf-measurement related utilities -->
+    <script defer src='/shared/js/performance_testing_helper.js'></script>
+
+    <!-- Loading FB indexedDB related stuff -->
+    <script defer src="/contacts/js/fixed_header.js"></script>
+
+    <script defer src="/contacts/js/tag_options.js"></script>
+    <!-- Form view related files -->
+    <script defer src="/contacts/js/views/details.js"></script>
+    
+    <!-- For the build system to include in zip:
+    <link href="/shared/js/tag_visibility_monitor.js">
+    <link href="/shared/js/contact2vcard.js">
+    <link href="/shared/js/device_storage/get_storage_if_available.js">
+    <link href="/shared/js/device_storage/get_unused_filename.js">
+    <link href="/shared/js/fb/fb_request.js">
+    <link href="/shared/js/fb/fb_data_reader.js">
+    <link href="/shared/js/setImmediate.js">
+    -->
+  </head>
+
+  <body role="application" class="app-contacts">
+    <section id='view-contact-details' role="region" class="view view-right view-contact-profile">
+      <template>
+        <header id='details-view-header'>
+          <button id="details-back" class="negative"><span class="icon icon-back" data-l10n-id="back">back</span></button>
+          <menu type="toolbar">
+            <button role="menuitem" id="edit-contact-button"><span class="icon icon-edit-contact" data-l10n-id="edit">edit</span></button>
+          </menu>
+          <h1 id='contact-name-title'></h1>
+        </header>
+
+        <article id="contact-detail-wrapper" class="view-body">
+          <div id="cover-img"></div>
+            <section id="contact-detail" class="view-body-inner">
+              <li data-phone id='phone-details-template-#i#' data-template>
+                <h2 data-l10n-id="#type_l10n_id#">#type#</h2>
+                <div class="item">
+                  <div class="item-media pull-right">
+                    <button id="send-sms-button-#i#" class="activity send-sms icon icon-message"></button>
+                  </div>
+                  <div class="item-body-exp">
+                    <button class="activity icon icon-call" id="call-or-pick-#i#">
+                      <b>
+                        #value#
+                        <em>#carrier#</em>
+                      </b>
+                    </button>
+                  </div>
+                </div>
+              </li>
+
+              <li id="birthday-template-#i#" data-template>
+                <h2 data-l10n-id="birthday">Birthday</h2>
+                <p><strong>#bday#</strong></p>
+              </li>
+
+              <li data-mail id='email-details-template-#i#' data-template>
+                <h2 data-l10n-id="#type_l10n_id#">#type#</h2>
+                <div class="item">
+                  <div class="item-body-exp">
+                    <button id="email-or-pick-#i#" class="activity icon icon-email">
+                      <b>#value#</b>
+                    </button>
+                  </div>
+                </div>
+              </li>
+
+              <li data-social class="social-actions" id="social-template-#i#" data-template>
+                <h2 data-l10n-id="social-network" id="social-label">Social Network</h2>
+                  <div class="fillflow-twocols">
+                    <button id="msg_button" data-l10n-id="msg-send" class="activity icon icon-message">
+                      Message
+                    </button>
+                    <button id="wall_button" data-l10n-id="wall-post" class="activity icon icon-email">
+                      Wall Post
+                    </button>
+                  </div>
+
+                  <button id="profile_button" data-l10n-id="show-fb-profile" class="fillflow-row activity icon icon-fb-profile">
+                    View Facebook profile
+                  </button>
+
+                  <button id="link_button" class="activity icon icon-link">
+                    #action#
+                  </button>
+              </li>
+
+              <li class="duplicate-actions" id="duplicate-contacts-template" data-template>
+                <h2 data-l10n-id="organise-contacts">Organize Contacts</h2>
+                <button id="find-merge-button" data-l10n-id="find-merge-contacts" class="activity icon icon-find-and-merge">
+                  Find duplicate contacts
+                </button>
+              </li>
+
+              <li data-address id='address-details-template-#i#' data-template>
+                <h2 data-l10n-id="#type_l10n_id#">#type#</h2>
+                <div class="item">
+                  <div class="item-body-exp">
+                    <a href="#" class="action action-block">
+                      <span role="button" class="icon-address" data-l10n-id="legendAddress">Address</span>
+                      <b>
+                      <span>#streetAddress#</span>
+                        #postalCode#
+                        #locality#
+                        #countryName#
+                      </b>
+                    </a>
+                  </div>
+                </div>
+              </li>
+
+              <p data-comment id='note-details-template-#i#' data-template class="comment-notes">#note#</p>
+              <div id='contact-detail-inner'>
+                <h1 id='org-title'></h1>
+                <ul id='details-list'>
+                </ul>
+                <ul>
+                  <li>
+                    <button id='toggle-favorite' class="fillflow-row icon icon-fav">
+                      Add as favorite
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            </section>
+        </article>
+      </template>
+    </section>
+  </body>
+</html>

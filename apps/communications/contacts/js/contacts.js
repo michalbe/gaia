@@ -227,24 +227,26 @@ var Contacts = (function() {
 
 
   var contactListClickHandler = function originalHandler(id) {
-    initDetails(function onDetailsReady() {
-      contactsList.getContactById(id, function findCb(contact, fbContact) {
-        currentContact = contact;
-        currentFbContact = fbContact;
-        if (ActivityHandler.currentlyHandling) {
-          if (ActivityHandler.activityName == 'pick') {
-            ActivityHandler.dataPickHandler(currentFbContact || currentContact);
-          }
-          return;
-        }
-        contactsDetails.render(currentContact, TAG_OPTIONS, currentFbContact);
-        if (contacts.Search && contacts.Search.isInSearchMode()) {
-          navigation.go('view-contact-details', 'go-deeper-search');
-        } else {
-          navigation.go('view-contact-details', 'go-deeper');
-        }
-      });
-    });
+    navigation.go('view-contact-details#' + id, 'go-deeper');
+    // initDetails(function onDetailsReady() {
+    //  contactsList.getContactById(id, function findCb(contact, fbContact) {
+    //    currentContact = contact;
+    //    currentFbContact = fbContact;
+    //    if (ActivityHandler.currentlyHandling) {
+    //      if (ActivityHandler.activityName == 'pick') {
+    //        ActivityHandler.dataPickHandler(
+    //          currentFbContact || currentContact);
+    //      }
+    //      return;
+    //    }
+    //    contactsDetails.render(currentContact, TAG_OPTIONS, currentFbContact);
+    //    if (contacts.Search && contacts.Search.isInSearchMode()) {
+    //      navigation.go('view-contact-details', 'go-deeper-search');
+    //    } else {
+    //      navigation.go('view-contact-details', 'go-deeper');
+    //    }
+    //  });
+    // });
   };
 
   var updateContactDetail = function updateContactDetail(id) {
@@ -495,18 +497,18 @@ var Contacts = (function() {
     }
   };
 
-  var initDetails = function c_initDetails(callback) {
-    if (detailsReady) {
-      callback();
-    } else {
-      Contacts.view('Details', function viewLoaded() {
-        detailsReady = true;
-        contactsDetails = contacts.Details;
-        contactsDetails.init();
-        callback();
-      });
-    }
-  };
+  // var initDetails = function c_initDetails(callback) {
+  //   if (detailsReady) {
+  //     callback();
+  //   } else {
+  //     Contacts.view('Details', function viewLoaded() {
+  //       detailsReady = true;
+  //       contactsDetails = contacts.Details;
+  //       contactsDetails.init();
+  //       callback();
+  //     });
+  //   }
+  // };
 
   var showForm = function c_showForm(edit) {
     navigation.go('view-contact-form', 'popup');
