@@ -852,7 +852,6 @@ var Contacts = (function() {
     'getLength': getLength,
     'showForm': showForm,
     'setCurrent': setCurrent,
-    'getTags': TAG_OPTIONS,
     'onLocalized': onLocalized,
     'init': init,
     'showOverlay': showOverlay,
