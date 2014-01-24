@@ -1279,7 +1279,7 @@ contacts.List = (function() {
     }
 
     // Passed an ID, so look up contact
-    getContactById(idOrContact, function(contact, fbData) {
+    utils.getContactById(idOrContact, function(contact, fbData) {
       var enrichedContact = null;
       if (fb.isFbContact(contact)) {
         var fbContact = new fb.Contact(contact);
