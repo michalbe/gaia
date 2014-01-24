@@ -667,7 +667,7 @@ var Contacts = (function() {
     }
   };
 
-  navigator.mozContacts.oncontactchange = function oncontactchange(event) {
+  var onContactChange = function oncontactchange(event) {
     if (typeof pendingChanges[event.contactID] !== 'undefined') {
       pendingChanges[event.contactID].push({
         contactID: event.contactID,
@@ -753,6 +753,8 @@ var Contacts = (function() {
         });
       }
     });
+
+    navigator.mozContacts.oncontactchange = Contacts.onContactChange;
   };
 
   function loadConfirmDialog() {
@@ -865,6 +867,7 @@ var Contacts = (function() {
     'view': loadView,
     'utility': loadUtility,
     'initContacts': initContacts,
+    'onContactChange' : onContactChange,
     get asyncScriptsLoaded() {
       return asyncScriptsLoaded;
     }
