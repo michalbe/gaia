@@ -55,7 +55,7 @@ var Contacts = (function() {
             return;
           }
           var id = params['id'];
-          cList.getContactById(id, function onSuccess(savedContact) {
+          utils.getContactById(id, function onSuccess(savedContact) {
             currentContact = savedContact;
             contactsDetails.render(currentContact, TAG_OPTIONS);
             if (params['tel'])
@@ -76,7 +76,7 @@ var Contacts = (function() {
             // Editing existing contact
             if ('id' in params) {
               var id = params['id'];
-              cList.getContactById(id, function onSuccess(savedContact) {
+              utils.getContactById(id, function onSuccess(savedContact) {
                 currentContact = savedContact;
                 // Check if we have extra parameters to render
                 if ('extras' in params) {
@@ -229,7 +229,7 @@ var Contacts = (function() {
   var contactListClickHandler = function originalHandler(id) {
     navigation.go('view-contact-details#' + id, 'go-deeper');
     // initDetails(function onDetailsReady() {
-    //  contactsList.getContactById(id, function findCb(contact, fbContact) {
+    //  utils.getContactById(id, function findCb(contact, fbContact) {
     //    currentContact = contact;
     //    currentFbContact = fbContact;
     //    if (ActivityHandler.currentlyHandling) {
@@ -250,7 +250,7 @@ var Contacts = (function() {
   };
 
   var updateContactDetail = function updateContactDetail(id) {
-    contactsList.getContactById(id, function findCallback(contact) {
+    utils.getContactById(id, function findCallback(contact) {
       currentContact = contact;
       contactsDetails.render(currentContact, TAG_OPTIONS);
     });
@@ -698,7 +698,7 @@ var Contacts = (function() {
       case 'update':
         if (currView == 'view-contact-details' && currentContact != null &&
           currentContact.id == event.contactID) {
-          contactsList.getContactById(event.contactID,
+          utils.getContactById(event.contactID,
             function success(contact, enrichedContact) {
               currentContact = contact;
               var mergedContact = enrichedContact || contact;

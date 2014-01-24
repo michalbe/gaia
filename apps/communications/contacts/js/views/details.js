@@ -5,7 +5,8 @@ var contacts = window.contacts || {};
 contacts.Details = (function() {
   var photoPos = 7;
   var initMargin = 8;
-  var contactData,
+  var contactId,
+      contactData,
       contactDetails,
       listContainer,
       star,
@@ -41,6 +42,8 @@ contacts.Details = (function() {
   }
 
   var init = function cd_init(currentDom) {
+    contactId = window.location.hash.slice(1);
+
     _ = navigator.mozL10n.get;
     dom = currentDom || document;
     contactDetails = dom.querySelector('#contact-detail');
@@ -99,7 +102,6 @@ contacts.Details = (function() {
   };
 
   var initPullEffect = function cd_initPullEffect(cover) {
-    console.log('woefboirwforwfo', window.location);
     wrapper.addEventListener('touchstart', function(event) {
 
       // Avoiding repaint (at least when no scroll is needed)
@@ -256,7 +258,7 @@ contacts.Details = (function() {
          and if the Contact is edited we need to prevent saving
          FB data on the mozContacts DB.
       */
-       cList.getContactById(contact.id,
+       utils.getContactById(contact.id,
                            function onSuccess(savedContact, enrichedContact) {
         renderFavorite(savedContact);
         setContact(savedContact);
