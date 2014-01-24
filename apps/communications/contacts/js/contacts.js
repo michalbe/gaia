@@ -754,7 +754,7 @@ var Contacts = (function() {
       }
     });
 
-    navigator.mozContacts.oncontactchange = Contacts.onContactChange;
+    navigator.mozContacts.oncontactchange = onContactChange;
   };
 
   function loadConfirmDialog() {
@@ -867,7 +867,6 @@ var Contacts = (function() {
     'view': loadView,
     'utility': loadUtility,
     'initContacts': initContacts,
-    'onContactChange' : onContactChange,
     get asyncScriptsLoaded() {
       return asyncScriptsLoaded;
     }
