@@ -26,7 +26,6 @@ contacts.Details = (function() {
       wrapper,
       favoriteMessage,
       detailsInner,
-      TAG_OPTIONS,
       dom,
       currentSocial,
       _;
