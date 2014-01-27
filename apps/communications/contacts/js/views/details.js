@@ -637,6 +637,5 @@ contacts.Details = (function() {
 })();
 
 window.addEventListener('localized', function() {
-  contacts.Details.init();
-  contacts.Details.render();
+  Contacts.loadFacebook(contacts.Details.init);
 });
