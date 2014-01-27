@@ -43,7 +43,6 @@ contacts.Details = (function() {
 
   var init = function cd_init(currentDom) {
     contactId = window.location.hash.slice(1);
-
     _ = navigator.mozL10n.get;
     dom = currentDom || document;
     contactDetails = dom.querySelector('#contact-detail');
@@ -194,7 +193,6 @@ contacts.Details = (function() {
   // Method that generates HTML markup for the contact
   //
   var doReloadContactDetails = function doReloadContactDetails(contact) {
-
     detailsName.textContent = contact.name;
     contactDetails.classList.remove('no-photo');
     contactDetails.classList.remove('fb-contact');
