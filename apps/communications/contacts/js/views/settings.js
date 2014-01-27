@@ -58,7 +58,7 @@ contacts.Settings = (function() {
     utils.sdcard.subscribeToChanges('check_sdcard', function(value) {
       enableStorageOptions(utils.sdcard.checkStorageCard());
     });
-    
+
     refresh();
   };
 
