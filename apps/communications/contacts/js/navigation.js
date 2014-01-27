@@ -77,7 +77,7 @@ function navigationStack(currentView) {
     if (nextView.indexOf('view-contact-details') !== -1) {
       window.open('details.html#' + nextView.split('#')[1]);
     }
-    if(nextView === 'view-settings') {
+    if (nextView === 'view-settings') {
       window.open('settings.html');
     }
   };
