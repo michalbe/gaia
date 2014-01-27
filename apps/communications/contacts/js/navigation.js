@@ -71,6 +71,7 @@ function navigationStack(currentView) {
   };
 
   this.go = function go(nextView, transition) {
+    console.log(nextView, '-------------------');
     if (nextView === 'view-contact-form') {
       window.open('form.html');
     }
