@@ -71,12 +71,14 @@ function navigationStack(currentView) {
   };
 
   this.go = function go(nextView, transition) {
-    console.log(nextView, '-------------------');
     if (nextView === 'view-contact-form') {
       window.open('form.html');
     }
     if (nextView.indexOf('view-contact-details') !== -1) {
       window.open('details.html#' + nextView.split('#')[1]);
+    }
+    if(nextView === 'view-settings') {
+      window.open('settings.html');
     }
   };
 

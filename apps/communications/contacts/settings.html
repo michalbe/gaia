@@ -57,9 +57,9 @@
     <!-- Loading FB indexedDB related stuff -->
     <script defer src="/contacts/js/fixed_header.js"></script>
 
-    <script defer src="/contacts/js/tag_options.js"></script>
-    <!-- Form view related files -->
-    <script defer src="/contacts/js/views/form.js"></script>
+    <!-- Settings view related files -->
+    <script defer src="/contacts/js/utilities/sim_dom_generator.js"></script>
+    <script defer src="/contacts/js/views/settings.js"></script>
     
     <!-- For the build system to include in zip:
     <link href="/shared/js/tag_visibility_monitor.js">
@@ -74,7 +74,7 @@
 
   <body role="application" class="app-contacts">
     <article is="settings" id="settings-wrapper">
-      <section data-theme="organic" id="view-settings" role="region" class="skin-organic view view-bottom">
+      <section data-theme="organic" id="view-settings" role="region" class="skin-organic view">
         <header>
           <menu type="toolbar" id="settings-form-actions">
             <button id="settings-close" role="menuitem" data-l10n-id="done">Done</button>

@@ -482,20 +482,20 @@ var Contacts = (function() {
   //   }
   // };
 
-  var initSettings = function c_initSettings(callback) {
-    if (settingsReady) {
-      callback();
-    } else {
-      Contacts.view('Settings', function viewLoaded() {
-        LazyLoader.load(['/contacts/js/utilities/sim_dom_generator.js',
-          '/contacts/js/utilities/icc_handler.js'], function() {
-          settingsReady = true;
-          contacts.Settings.init();
-          callback();
-        });
-      });
-    }
-  };
+  // var initSettings = function c_initSettings(callback) {
+  //   if (settingsReady) {
+  //     callback();
+  //   } else {
+  //     Contacts.view('Settings', function viewLoaded() {
+  //       LazyLoader.load(['/contacts/js/utilities/sim_dom_generator.js',
+  //         '/contacts/js/utilities/icc_handler.js'], function() {
+  //         settingsReady = true;
+  //         contacts.Settings.init();
+  //         callback();
+  //       });
+  //     });
+  //   }
+  // };
 
   // var initDetails = function c_initDetails(callback) {
   //   if (detailsReady) {
@@ -566,11 +566,11 @@ var Contacts = (function() {
   };
 
   var showSettings = function showSettings() {
-    initSettings(function onSettingsReady() {
-      // The number of FB Friends has to be recalculated
-      contacts.Settings.refresh();
+    // initSettings(function onSettingsReady() {
+    //   // The number of FB Friends has to be recalculated
+    //   contacts.Settings.refresh();
       navigation.go('view-settings', 'popup');
-    });
+    //});
   };
 
   var stopPropagation = function stopPropagation(evt) {
