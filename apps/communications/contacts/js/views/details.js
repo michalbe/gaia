@@ -62,7 +62,7 @@ contacts.Details = (function() {
     favoriteMessage = dom.querySelector('#toggle-favorite');
     notesTemplate = dom.querySelector('#note-details-template-\\#i\\#');
     wrapper = dom.querySelector('#contact-detail-wrapper');
-    //initPullEffect(cover);
+    initPullEffect(cover);
 
     utils.listeners.add({
       '#toggle-favorite': toggleFavorite,
@@ -73,7 +73,8 @@ contacts.Details = (function() {
     utils.getContactById(contactId,
       function renderContactCb(contact, fbContact) {
         render(contact, TAG_OPTIONS, fbContact);
-      });
+      }
+    );
   };
 
   var handleDetailsBack = function handleDetailsBack() {
