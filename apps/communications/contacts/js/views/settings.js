@@ -1,4 +1,5 @@
 'use strict';
+console.log('-------------', window.location);
 
 var contacts = window.contacts || {};
 
@@ -57,6 +58,8 @@ contacts.Settings = (function() {
     utils.sdcard.subscribeToChanges('check_sdcard', function(value) {
       enableStorageOptions(utils.sdcard.checkStorageCard());
     });
+    
+    refresh();
   };
 
   var hideSettings = function hideSettings() {
@@ -942,3 +945,7 @@ contacts.Settings = (function() {
     'importFromSDCard': onSdImport
   };
 })();
+
+window.addEventListener('localized', function() {
+  contacts.Settings.init();
+});
