@@ -40,7 +40,7 @@ contacts.Settings = (function() {
   // Initialise the settings screen (components, listeners ...)
   var init = function initialize() {
     _ = navigator.mozL10n.get;
-    
+
     // Create the DOM for our SIM cards and listen to any changes
     IccHandler.init(new SimDomGenerator(), contacts.Settings.cardStateChanged);
 
