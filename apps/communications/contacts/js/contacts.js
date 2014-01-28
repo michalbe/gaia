@@ -630,7 +630,7 @@ var Contacts = (function() {
       '/shared/js/text_normalizer.js',
       '/dialer/js/telephony_helper.js',
       '/contacts/js/sms_integration.js',
-      '/contacts/js/utilities/sdcard.js',
+      //'/contacts/js/utilities/sdcard.js',
       '/contacts/js/utilities/vcard_parser.js',
       '/contacts/js/utilities/status.js',
       '/contacts/js/utilities/dom.js',
