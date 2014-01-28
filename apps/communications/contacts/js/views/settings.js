@@ -105,7 +105,7 @@ contacts.Settings = (function() {
     importSettingsTitle = document.getElementById('import-settings-title');
     importLiveOption = document.getElementById('import-gmail-option');
     importGmailOption = document.getElementById('import-live-option');
-
+        console.log('-----------------', orderCheckBox);
     /*
      * Adding listeners
      */
