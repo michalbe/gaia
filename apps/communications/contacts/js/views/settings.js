@@ -1,5 +1,4 @@
 'use strict';
-console.log('-------------', window.location);
 
 var contacts = window.contacts || {};
 
@@ -9,7 +8,8 @@ var contacts = window.contacts || {};
  **/
 contacts.Settings = (function() {
 
-  var navigationHandler,
+  var _,
+    navigationHandler,
     importSettingsBack,
     orderCheckBox,
     orderByLastName,
@@ -39,11 +39,14 @@ contacts.Settings = (function() {
 
   // Initialise the settings screen (components, listeners ...)
   var init = function initialize() {
+    _ = navigator.mozL10n.get;
+    
     // Create the DOM for our SIM cards and listen to any changes
     IccHandler.init(new SimDomGenerator(), contacts.Settings.cardStateChanged);
 
     fb.init(function onFbInit() {
       initContainers();
+      refresh();
     });
     utils.listeners.add({
       '#settings-close': hideSettings
@@ -58,8 +61,6 @@ contacts.Settings = (function() {
     utils.sdcard.subscribeToChanges('check_sdcard', function(value) {
       enableStorageOptions(utils.sdcard.checkStorageCard());
     });
-
-    refresh();
   };
 
   var hideSettings = function hideSettings() {
@@ -68,6 +69,7 @@ contacts.Settings = (function() {
 
   // Get the different values that we will show in the app
   var getData = function getData() {
+    console.log('here1-------');
     var config = utils.cookie.load();
     var order = config ? config.order : false;
     orderByLastName = order;
@@ -92,6 +94,7 @@ contacts.Settings = (function() {
 
   // Initialises variables and listener for the UI
   var initContainers = function initContainers() {
+    console.log('---- here before?');
     var orderItem = document.getElementById('settingsOrder');
     orderCheckBox = orderItem.querySelector('[name="order.lastname"]');
     orderItem.addEventListener('click', onOrderingChange.bind(this));
@@ -105,7 +108,7 @@ contacts.Settings = (function() {
     importSettingsTitle = document.getElementById('import-settings-title');
     importLiveOption = document.getElementById('import-gmail-option');
     importGmailOption = document.getElementById('import-live-option');
-        console.log('-----------------', orderCheckBox);
+
     /*
      * Adding listeners
      */
@@ -947,5 +950,5 @@ contacts.Settings = (function() {
 })();
 
 window.addEventListener('localized', function() {
-  contacts.Settings.init();
+  Contacts.loadFacebook(contacts.Settings.init);
 });
