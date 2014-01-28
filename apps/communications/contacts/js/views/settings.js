@@ -69,7 +69,6 @@ contacts.Settings = (function() {
 
   // Get the different values that we will show in the app
   var getData = function getData() {
-    console.log('here1-------');
     var config = utils.cookie.load();
     var order = config ? config.order : false;
     orderByLastName = order;
@@ -94,7 +93,6 @@ contacts.Settings = (function() {
 
   // Initialises variables and listener for the UI
   var initContainers = function initContainers() {
-    console.log('---- here before?');
     var orderItem = document.getElementById('settingsOrder');
     orderCheckBox = orderItem.querySelector('[name="order.lastname"]');
     orderItem.addEventListener('click', onOrderingChange.bind(this));
