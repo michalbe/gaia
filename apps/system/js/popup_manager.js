@@ -95,6 +95,8 @@ var PopupManager = {
 
     this.popupContainer.classList.add('disappearing');
 
+    AppWindowManager.getActiveApp().setVisible(true);
+
     // We just removed the focused window leaving the system
     // without any focused window, let's fix this.
     window.focus();
@@ -187,6 +189,7 @@ var PopupManager = {
         this.container.classList.remove('error');
         this.open(frame, openerOrigin);
 
+        evt.target.setVisible(false);
         break;
 
       case 'mozbrowserclose':
