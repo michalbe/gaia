@@ -1339,7 +1339,7 @@ contacts.List = (function() {
   };
 
   var setOrderByLastName = function setOrderByLastName(value) {
-    console.log('obln set to ',value, window.location.toString().slice(10));
+    console.log('obln set to ', value, window.location.toString().slice(10));
     orderByLastName = value;
   };
 

@@ -163,7 +163,7 @@ var Contacts = (function() {
         contactsList.setOrderByLastName(value);
         contactsList.load(null, true);
       });
-      
+
       asyncScriptsLoaded = true;
     });
   };
