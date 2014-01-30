@@ -805,10 +805,11 @@ contacts.Settings = (function() {
   // Dismiss settings window and execute operations if values got modified
   var close = function close() {
     if (newOrderByLastName != null &&
-      newOrderByLastName != orderByLastName && contacts.List) {
-      contacts.List.setOrderByLastName(newOrderByLastName);
+      newOrderByLastName != orderByLastName) {
+      utils.localStorage.update(newOrderByLastName);
+      //contacts.List.setOrderByLastName(newOrderByLastName);
       // Force the reset of the dom, we know that we changed the order
-      contacts.List.load(null, true);
+      //contacts.List.load(null, true);
       orderByLastName = newOrderByLastName;
     }
 
