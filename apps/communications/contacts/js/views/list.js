@@ -292,7 +292,6 @@ contacts.List = (function() {
       });
     };
 
-    console.log('--- tu1?', orderByLastName);
     if (loaded || forceReset) {
       resetDom(complete);
       return;
@@ -1005,7 +1004,6 @@ contacts.List = (function() {
     loading = true;
     initOrder(function onInitOrder() {
       var sortBy = (orderByLastName === true ? 'familyName' : 'givenName');
-      console.log('--------sortbaj', sortBy, orderByLastName);
       var options = {
         sortBy: sortBy,
         sortOrder: 'ascending'
@@ -1339,7 +1337,6 @@ contacts.List = (function() {
   };
 
   var setOrderByLastName = function setOrderByLastName(value) {
-    console.log('obln set to ', value, window.location.toString().slice(10));
     orderByLastName = value;
   };
 
