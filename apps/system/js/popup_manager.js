@@ -169,9 +169,9 @@ var PopupManager = {
         var openerType = evt.target.dataset.frameType;
         var openerOrigin = evt.target.dataset.frameOrigin;
 
-        // Only app frame is allowed to launch popup
-        if (openerType !== 'window')
-          return;
+        // // Only app frame is allowed to launch popup
+        // if (openerType !== 'window')
+        //   return;
 
         // <a href="" target="_blank"> links should opened outside the app
         // itself and fire an activity to be opened into a new browser window.
