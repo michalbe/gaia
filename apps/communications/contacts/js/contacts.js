@@ -513,7 +513,7 @@ var Contacts = (function() {
   // };
 
   var showForm = function c_showForm(edit) {
-    if (edit === null) {
+    if (!edit) {
       navigation.go('view-contact-form', 'popup');
     } else {
       navigation.go(
