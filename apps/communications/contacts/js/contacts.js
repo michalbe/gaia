@@ -470,7 +470,6 @@ var Contacts = (function() {
   };
 
   // var initForm = function c_initForm(callback) {
-  //   console.log('============ YELO!');
   //   if (formReady) {
   //     callback();
   //   } else {
@@ -478,7 +477,6 @@ var Contacts = (function() {
   //       Contacts.view('Form', function viewLoaded() {
   //         formReady = true;
   //         contactsForm = contacts.Form;
-  //         console.log('------ELO');
   //         contactsForm.init(TAG_OPTIONS);
   //         callback();
   //       });
@@ -515,7 +513,6 @@ var Contacts = (function() {
   // };
 
   var showForm = function c_showForm(edit) {
-    console.log('edit---', edit);
     if (edit === null) {
       navigation.go('view-contact-form', 'popup');
     } else {

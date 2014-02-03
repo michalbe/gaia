@@ -137,8 +137,6 @@ contacts.Form = (function() {
 
   var init = function cf_init(tags, currentDom) {
     contactId = window.location.hash.slice(1);
-    console.log('---cid', contactId);
-    console.log('---loc', window.location.hash);
     _ = navigator.mozL10n.get;
     dom = currentDom || document;
 
@@ -191,30 +189,24 @@ contacts.Form = (function() {
 
     // Edit mode
     if (contactId) {
-      console.log('------- 1');
       utils.getContactById(contactId, function(contact, fbContact) {
         if (contact && fbContact) {
-          console.log('------- 2');
           var req = fbContact.getDataAndValues();
 
           req.onsuccess = function() {
-            console.log('------- 3');
             render(contact, function() {}, req.result);
           };
 
           req.onerror = function() {
-            console.log('------- 4');
             render(contact, function() {});
           };
         }
         else {
-          console.log('------- 5');
           render(contact, function() {});
         }
       });
     } else {
       //new contact
-      console.log('------- 6');
       render(null, function() {});
     }
 
