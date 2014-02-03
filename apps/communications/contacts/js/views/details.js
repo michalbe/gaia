@@ -630,7 +630,10 @@ contacts.Details = (function() {
     'toggleFavorite': toggleFavorite,
     'render': render,
     'onLineChanged': checkOnline,
-    'reMark': reMark
+    'reMark': reMark,
+    getCurrentContactId: function(){
+      return contactId;
+    }
   };
 })();
 

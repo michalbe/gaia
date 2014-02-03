@@ -515,7 +515,12 @@ var Contacts = (function() {
   // };
 
   var showForm = function c_showForm(edit) {
-    navigation.go('view-contact-form', 'popup');
+    if (edit) {
+      console.log('----------------- CONTACT ID', contacts.Details.getCurrentContactId() );
+      navigation.go('view-contact-form', 'popup');
+    } else {
+      navigation.go('view-contact-form', 'popup');
+    }
     // initForm(function onInit() {
     //   doShowForm(edit);
     // });
@@ -632,8 +637,6 @@ var Contacts = (function() {
       '/contacts/js/import_utils.js',
       '/contacts/js/utilities/normalizer.js',
       '/shared/js/text_normalizer.js',
-      //'/dialer/js/telephony_helper.js',
-      //'/contacts/js/sms_integration.js',
       '/contacts/js/utilities/local_storage.js',
       '/contacts/js/utilities/vcard_parser.js',
       '/contacts/js/utilities/status.js',
