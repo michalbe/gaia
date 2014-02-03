@@ -631,7 +631,7 @@ contacts.Details = (function() {
     'render': render,
     'onLineChanged': checkOnline,
     'reMark': reMark,
-    getCurrentContactId: function(){
+    getCurrentContactId: function() {
       return contactId;
     }
   };
