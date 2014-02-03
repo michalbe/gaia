@@ -515,10 +515,11 @@ var Contacts = (function() {
   // };
 
   var showForm = function c_showForm(edit) {
-    if (edit) {
+    console.log('edit---', edit);
+    if (edit === null) {
       navigation.go('view-contact-form', 'popup');
     } else {
-      navigation.go('view-contact-form', 'popup');
+      navigation.go('view-contact-form#' + contacts.Details.getCurrentContactId(), 'popup');
     }
     // initForm(function onInit() {
     //   doShowForm(edit);
