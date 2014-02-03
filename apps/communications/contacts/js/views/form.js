@@ -164,7 +164,7 @@ contacts.Form = (function() {
         checkDisableButton();
       }
     });
-    
+
     thumbAction.addEventListener(touchstart, function click(event) {
       // Removing current photo
       if (event.target.tagName == 'BUTTON')
@@ -188,7 +188,7 @@ contacts.Form = (function() {
       '#save-button': saveContact,
       '#contact-form button[data-field-type]': newField
     });
-    
+
     // Edit mode
     if (contactId) {
       console.log('------- 1');
@@ -199,25 +199,25 @@ contacts.Form = (function() {
 
           req.onsuccess = function() {
             console.log('------- 3');
-            render(contact, function(){}, req.result);
+            render(contact, function() {}, req.result);
           };
 
           req.onerror = function() {
             console.log('------- 4');
-            render(contact, function(){});
+            render(contact, function() {});
           };
         }
         else {
           console.log('------- 5');
-          render(contact, function(){});
+          render(contact, function() {});
         }
       });
     } else {
       //new contact
       console.log('------- 6');
-      render(null, function(){});
+      render(null, function() {});
     }
-    
+
   };
 
   var saveContact = function saveContact() {

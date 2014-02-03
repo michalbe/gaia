@@ -519,7 +519,9 @@ var Contacts = (function() {
     if (edit === null) {
       navigation.go('view-contact-form', 'popup');
     } else {
-      navigation.go('view-contact-form#' + contacts.Details.getCurrentContactId(), 'popup');
+      navigation.go(
+        'view-contact-form#' + contacts.Details.getCurrentContactId(),
+        'popup');
     }
     // initForm(function onInit() {
     //   doShowForm(edit);
