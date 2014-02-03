@@ -71,8 +71,13 @@ function navigationStack(currentView) {
   };
 
   this.go = function go(nextView, transition) {
-    if (nextView === 'view-contact-form') {
-      window.open('form.html');
+    if (nextView.indexOf('view-contact-form') !== -1) {
+      var id = nextView.split('#')[1];
+      if (id) {
+        window.open('form.html#' + id);
+      } else {
+        window.open('form.html');
+      }
     }
     if (nextView.indexOf('view-contact-details') !== -1) {
       window.open('details.html#' + nextView.split('#')[1]);

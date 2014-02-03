@@ -32,7 +32,8 @@ contacts.Form = (function() {
       nonEditableValues,
       deviceContact,
       fbContact,
-      currentPhoto;
+      currentPhoto,
+      contactId;
 
   var REMOVED_CLASS = 'removed';
   var FB_CLASS = 'facebook';
@@ -135,6 +136,9 @@ contacts.Form = (function() {
   };
 
   var init = function cf_init(tags, currentDom) {
+    contactId = window.location.hash.slice(1);
+    console.log('---cid', contactId);
+    console.log('---loc', window.location.hash);
     _ = navigator.mozL10n.get;
     dom = currentDom || document;
 
@@ -160,7 +164,7 @@ contacts.Form = (function() {
         checkDisableButton();
       }
     });
-
+    
     thumbAction.addEventListener(touchstart, function click(event) {
       // Removing current photo
       if (event.target.tagName == 'BUTTON')
@@ -175,6 +179,7 @@ contacts.Form = (function() {
       if (event.detail.prevValue !== event.detail.newValue) {
         saveButton.removeAttribute('disabled');
       }
+
     });
 
     // Add listeners
@@ -183,6 +188,36 @@ contacts.Form = (function() {
       '#save-button': saveContact,
       '#contact-form button[data-field-type]': newField
     });
+    
+    // Edit mode
+    if (contactId) {
+      console.log('------- 1');
+      utils.getContactById(contactId, function(contact, fbContact) {
+        if (contact && fbContact) {
+          console.log('------- 2');
+          var req = fbContact.getDataAndValues();
+
+          req.onsuccess = function() {
+            console.log('------- 3');
+            render(contact, function(){}, req.result);
+          };
+
+          req.onerror = function() {
+            console.log('------- 4');
+            render(contact, function(){});
+          };
+        }
+        else {
+          console.log('------- 5');
+          render(contact, function(){});
+        }
+      });
+    } else {
+      //new contact
+      console.log('------- 6');
+      render(null, function(){});
+    }
+    
   };
 
   var saveContact = function saveContact() {
@@ -1096,6 +1131,6 @@ contacts.Form = (function() {
 })();
 
 window.addEventListener('localized', function() {
-  contacts.Form.init();
-  contacts.Form.render(null, function() {});
+  Contacts.loadFacebook(contacts.Form.init);
+  //contacts.Form.render(null, function() {});
 });
