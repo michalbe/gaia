@@ -520,9 +520,6 @@ var Contacts = (function() {
         'view-contact-form#' + contacts.Details.getCurrentContactId(),
         'popup');
     }
-    // initForm(function onInit() {
-    //   doShowForm(edit);
-    // });
   };
 
   var doShowForm = function c_doShowForm(edit) {
