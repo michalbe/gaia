@@ -41,8 +41,8 @@ contacts.Details = (function() {
   }
 
   var init = function cd_init(currentDom) {
-    console.log('---init!');
-    //NFC.startListening();
+    // Enable NFC listening
+    NFC.startListening();
     _ = navigator.mozL10n.get;
     dom = currentDom || document;
     contactDetails = dom.querySelector('#contact-detail');
@@ -72,7 +72,8 @@ contacts.Details = (function() {
   };
 
   var handleDetailsBack = function handleDetailsBack() {
-    console.log('----- back!');
+    // disable NFC listeners
+    NFC.stopListening();
     if (ActivityHandler.currentlyHandling) {
       ActivityHandler.postCancel();
       Contacts.navigation.home();
