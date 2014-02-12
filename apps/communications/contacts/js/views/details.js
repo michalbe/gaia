@@ -41,8 +41,6 @@ contacts.Details = (function() {
   }
 
   var init = function cd_init(currentDom) {
-    // Enable NFC listening
-    NFC.startListening();
     _ = navigator.mozL10n.get;
     dom = currentDom || document;
     contactDetails = dom.querySelector('#contact-detail');

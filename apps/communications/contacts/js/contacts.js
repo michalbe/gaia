@@ -187,6 +187,11 @@ var Contacts = (function() {
   };
 
   var init = function init() {
+    // Disable NFC listeners on app startup
+    // Otherwise the contact list will trigger
+    // shrinking_ui transformation
+    NFC.stopListening();
+
     _ = navigator.mozL10n.get;
     initLanguages();
     initContainers();
@@ -251,6 +256,8 @@ var Contacts = (function() {
   var contactListClickHandler = function originalHandler(id) {
     initDetails(function onDetailsReady() {
       contactsList.getContactById(id, function findCb(contact, fbContact) {
+        // Enable NFC listening
+        NFC.startListening();
         currentContact = contact;
         currentFbContact = fbContact;
         if (ActivityHandler.currentlyHandling) {
