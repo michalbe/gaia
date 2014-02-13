@@ -71,7 +71,7 @@ contacts.Details = (function() {
 
   var handleDetailsBack = function handleDetailsBack() {
     // disable NFC listeners
-    NFC.stopListening();
+    contacts.NFC.stopListening();
     if (ActivityHandler.currentlyHandling) {
       ActivityHandler.postCancel();
       Contacts.navigation.home();

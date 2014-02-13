@@ -1,9 +1,13 @@
-var NFC = function() {
+'use strict';
+
+var contacts = window.contacts || {};
+
+contacts.NFC = (function() {
   console.log('NFC ready');
   var mozNfc = window.navigator.mozNfc;
 
   var startListening = function() {
-    console.log('start listening!');
+    console.log('start listessning!');
     mozNfc.onpeerready = function(e) {
       console.log('-----PEER READY!', e);
     };
@@ -18,4 +22,4 @@ var NFC = function() {
     startListening: startListening,
     stopListening: stopListening
   };
-}();
+})();
