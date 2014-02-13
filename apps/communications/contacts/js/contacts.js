@@ -257,7 +257,7 @@ var Contacts = (function() {
     initDetails(function onDetailsReady() {
       contactsList.getContactById(id, function findCb(contact, fbContact) {
         // Enable NFC listening
-        contacts.NFC.startListening();
+        contacts.NFC.startListening(contact);
         currentContact = contact;
         currentFbContact = fbContact;
         if (ActivityHandler.currentlyHandling) {
