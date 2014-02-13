@@ -30,7 +30,7 @@ contacts.NFC = (function() {
         LazyLoader.load('/shared/js/contact2vcard.js', function() {
           console.log('------- vcard module loaded');
           ContactToVcard(
-            [currentContact], 
+            [currentContact],
             function append(vcard) {
               console.log('------------ vcard ready!');
               vCardContact = vcard;
@@ -50,18 +50,18 @@ contacts.NFC = (function() {
        'contact',
        vCardContact
      );
-     
+
      var res = mozNfcPeer.sendNDEF([NDEFRecord]);
-     res.onsuccess = function(){
+     res.onsuccess = function() {
        console.log('------------------------- successssss');
      };
-     
-     res.onerror = function(){
+
+     res.onerror = function() {
        console.log('------------------------- errorrrrrrr');
      };
-  
+
    };
- 
+
   return {
     startListening: startListening,
     stopListening: stopListening
