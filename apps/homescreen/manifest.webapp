@@ -57,10 +57,10 @@
   "messages": [
     { "alarm": "/index.html" }
   ],
-  "connections": {
-    "eme-api": {
-      "description": "Handles connections from the E.me api.",
-      "rules": {}
+  "datastores-owned": {
+    "eme_store": {
+      "access": "readwrite",
+      "description": "Stores Everything.me data"
     }
   }
 }

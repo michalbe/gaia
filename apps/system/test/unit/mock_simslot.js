@@ -1,3 +1,6 @@
+/* exported MockSIMSlot */
+'use strict';
+
 var MockSIMSlot = function(conn, index) {
   this.conn = conn;
   this.index = index;
@@ -6,6 +9,7 @@ var MockSIMSlot = function(conn, index) {
   };
   this.update = function() {};
   this.isAbsent = function() {};
+  this.isLocked = function() { return false; };
   // Inject method
   ['sendStkResponse', 'sendStkMenuSelection',
     'sendStkTimerExpiration', 'sendStkEventDownload'].forEach(function(name) {
@@ -17,6 +21,8 @@ var MockSIMSlot = function(conn, index) {
     'getCardLockRetryCount', 'readContacts',
     'updateContact', 'iccOpenChannel', 'iccExchangeAPDU',
     'iccCloseChannel'].forEach(function(name) {
-      this[name] = function() {};
+      this[name] = function() {
+        return {};
+      };
     }, this);
 };

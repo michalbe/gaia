@@ -181,8 +181,6 @@ var exposureSlider = (function() {
     var thumbWidth = parseInt(thumb.clientWidth, 10);
     var offset = bar.offsetLeft + 4;
 
-    // Remember the new exposure value
-    currentExposure = exposure;
     // Convert exposure value to a unit coefficient position of thumb center
     var unitCoef = (exposure + 3) / 6;
 
@@ -197,6 +195,14 @@ var exposureSlider = (function() {
 
     // Display exposure value in thumb
     thumb.textContent = exposure;
+
+    // Don't need to update the currentExposure and dispatch the event if they
+    // are the same.
+    if (currentExposure === exposure) {
+      return;
+    }
+    // Remember the new exposure value
+    currentExposure = exposure;
 
     // Dispatch an event to actually change the image
     slider.dispatchEvent(new Event('change', {bubbles: true}));
@@ -547,7 +553,10 @@ ImageEditor.prototype.generateNewPreview = function(callback) {
   var canvas = document.createElement('canvas');
   canvas.width = previewWidth;
   canvas.height = previewHeight;
-  var context = canvas.getContext('2d');
+  // In this case, we only need graphic 2d to do the scaling. The
+  // willReadFrequently option makes canvas use software graphic 2d. This can
+  // skip a bug of GPU version, bug 960276.
+  var context = canvas.getContext('2d', { willReadFrequently: true });
 
   // Draw that region of the image into the canvas, scaling it down
   context.drawImage(this.original, this.source.x, this.source.y,

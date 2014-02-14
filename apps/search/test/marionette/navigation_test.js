@@ -1,6 +1,7 @@
 var Search = require('./lib/search');
-var Homescreen = require(
-  '../../../homescreen/test/marionette/lib/homescreen');
+var Homescreen = require('../../../homescreen/test/marionette/lib/homescreen');
+var Server = require('../../../../shared/test/integration/server');
+
 var assert = require('assert');
 
 marionette('navigation', function() {
@@ -8,6 +9,18 @@ marionette('navigation', function() {
 
   var homescreen;
   var search;
+  var server;
+
+  suiteSetup(function(done) {
+    Server.create(__dirname + '/fixtures/', function(err, _server) {
+      server = _server;
+      done();
+    });
+  });
+
+  suiteTeardown(function() {
+    server.stop();
+  });
 
   setup(function() {
     homescreen = new Homescreen(client);
@@ -38,7 +51,7 @@ marionette('navigation', function() {
     assert(!isResized);
   });
 
-  test.skip('cancel button closes rocketbar', function() {
+  test('cancel button closes rocketbar', function() {
     search.openRocketbar();
     search.cancelRocketbar();
   });
@@ -52,8 +65,9 @@ marionette('navigation', function() {
     search.goToResults();
   });
 
-  test.skip('opens browser with url', function() {
-    var url = 'http://mozilla.org/';
+  test('opens browser with url', function() {
+    var url = server.url('sample.html');
+
     // Enter the URL with enter key
     search.doSearch(url + '\uE006');
 

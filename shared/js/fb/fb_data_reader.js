@@ -29,13 +29,11 @@ this.fb = fb;
   // Creates the internal Object in the datastore that will act as an index
   function createIndex() {
     return {
-      // By Facebook UID
-      byUid: Object.create(null),
       // By tel number and all its possible variants
       // (We are not supporting dups right now)
       byTel: Object.create(null),
       // Prefix tree for enabling searching by partial tel numbers
-      treeTel: Object.create(null)
+      treeTel: []
     };
   }
 
@@ -66,6 +64,20 @@ this.fb = fb;
   function initError(outRequest, error) {
     outRequest.failed(error);
   }
+
+  function handleInitError(err, errorCb) {
+    readyState = 'error';
+    contacts.error = err;
+
+    if (typeof errorCb === 'function') {
+      window.setTimeout(function() {
+        errorCb(err);
+      }, 0);
+    }
+    // We resume other callers state
+    document.dispatchEvent(new CustomEvent(INITIALIZE_EVENT));
+  }
+
 
   // Creates a default handler for errors
   function defaultError(request) {
@@ -131,37 +143,10 @@ this.fb = fb;
   };
 
   function doGet(uid, outRequest) {
-    var dsId;
-
     var successCb = successGet.bind(null, outRequest);
     var errorCb = errorGet.bind(null, outRequest, uid);
 
-    if (datastore.revisionId !== revisionId) {
-      // Refreshing the index just in case
-      datastore.get(INDEX_ID).then(function success_index(obj) {
-        revisionId = datastore.revisionId;
-        setIndex(obj);
-        dsId = index.byUid[uid];
-        if (typeof dsId !== 'undefined') {
-          return datastore.get(dsId);
-        }
-        else {
-          // This is not an error is just that we cannot find it
-          outRequest.done(null);
-          // Just to avoid warnings of function not always returning
-          return null;
-        }
-      }, errorCb).then(successCb, errorCb);
-    }
-    else {
-      dsId = index.byUid[uid];
-      if (typeof dsId === 'number') {
-        datastore.get(dsId).then(successCb, errorCb);
-      }
-      else {
-        outRequest.done(null);
-      }
-    }
+    datastore.get(uid).then(successCb, errorCb);
   }
 
   /**
@@ -249,7 +234,8 @@ this.fb = fb;
 
   function doSearchByPhone(number, outRequest) {
     var normalizedNumber = navigator.mozPhoneNumberService.normalize(number);
-    LazyLoader.load('/shared/js/fb/fb_tel_index.js', function() {
+    LazyLoader.load(['/shared/js/fb/fb_tel_index.js',
+                    '/shared/js/binary_search.js'], function() {
       var toSearchNumber = normalizedNumber;
       // TODO: Temporal way of searching for international numbers
       // A follow-up is needed by using PhoneNumber.js exposed to Gaia
@@ -259,23 +245,27 @@ this.fb = fb;
       if (datastore.revisionId !== revisionId) {
         window.console.info('Datastore revision id has changed!');
         // Refreshing the index
-        datastore.get(INDEX_ID).then(function success(obj) {
-        setIndex(obj);
-        revisionId = datastore.revisionId;
-        var results = TelIndexer.search(index.treeTel, toSearchNumber);
-        var out = null;
-        if (results.length > 0) {
-          out = datastore.get(results);
-        }
-        else {
-          outRequest.done(results);
-        }
-        return out;
+          datastore.get(INDEX_ID).then(function success(obj) {
+
+          setIndex(obj);
+          revisionId = datastore.revisionId;
+          var results = TelIndexer.search(index.treeTel, toSearchNumber);
+          var out = null;
+          if (results.length > 0) {
+            out = datastore.get.apply(datastore, results);
+          }
+          return out;
       },function(err) {
         err = safeError(err);
         window.console.error('The index cannot be refreshed: ', err.name);
         outRequest.failed(err);
       }).then(function success(objList) {
+          if (objList && !Array.isArray(objList)) {
+            objList = [objList];
+          }
+          else {
+            objList = [];
+          }
           outRequest.done(objList);
       }, function error(err) {
           err = safeError(err);
@@ -286,10 +276,13 @@ this.fb = fb;
       }
       else {
         var results = TelIndexer.search(index.treeTel, toSearchNumber);
-
         if (results.length > 0) {
-          datastore.get(results).then(function success(objList) {
-            outRequest.done(objList);
+          datastore.get.apply(datastore, results).then(
+            function success(objList) {
+              if (!Array.isArray(objList)) {
+               objList = [objList];
+              }
+              outRequest.done(objList);
           }, function error(err) {
               err = safeError(err);
               window.console.error('Error while retrieving result data: ',
@@ -364,6 +357,11 @@ this.fb = fb;
     });
   }
 
+   // Needed only for testing purposes
+  contacts.restart = function() {
+    readyState = 'notInitialized';
+  };
+
   /**
    *  Initialization function
    *
@@ -386,12 +384,7 @@ this.fb = fb;
 
     navigator.getDataStores(DATASTORE_NAME).then(function success(ds) {
       if (ds.length < 1) {
-        window.console.error('FB: Cannot get access to the DataStore');
-         if (typeof errorCb === 'function') {
-          errorCb({
-            name: 'DatastoreNotFound'
-          });
-        }
+        handleInitError({ name: 'DatastoreNotFound' }, errorCb);
         return;
       }
 
@@ -407,15 +400,12 @@ this.fb = fb;
           return datastore.get(INDEX_ID);
         }
         else if (datastore.readOnly === true) {
-          // Index is created in order not to cause errors
           window.console.warn('The datastore is empty and readonly');
-          revisionId = datastore.revisionId;
-          setIndex(createIndex());
-          notifyOpenSuccess(cb);
         }
         return null;
       }).then(function add_index_success(v) {
-        if (typeof v === 'object') {
+        // Index is created in order not to cause errors
+        if (typeof v !== 'number') {
           setIndex(v);
         }
         revisionId = datastore.revisionId;
@@ -423,17 +413,13 @@ this.fb = fb;
       }, function add_index_error(err) {
           err = safeError(err);
           window.console.error('Error while setting the index: ', err.name);
-          if (typeof errorCb === 'function') {
-            errorCb(err);
-          }
+          handleInitError(err, errorCb);
       });
     }, function error(err) {
         err = safeError(err);
         window.console.error('FB: Error while opening the DataStore: ',
                              err.name);
-        if (typeof errorCb === 'function') {
-          errorCb(err);
-        }
+        handleInitError(err, errorCb);
     });
   };
 })();

@@ -1,12 +1,12 @@
 'use strict';
 
+mocha.globals(['SoftwareButtonManager']);
+
 requireApp('system/test/unit/mock_applications.js');
 requireApp('system/shared/test/unit/mocks/mock_settings_listener.js');
 requireApp('system/shared/test/unit/mocks/mock_navigator_moz_settings.js');
 requireApp('system/test/unit/mock_screen_layout.js');
 
-requireApp('system/js/home_gesture.js');
-requireApp('system/js/software_button_manager.js');
 var mocksForSftButtonManager = new MocksHelper([
   'SettingsListener',
   'ScreenLayout'
@@ -39,7 +39,7 @@ suite('enable/disable software home button', function() {
     navigator.mozSettings = realSettings;
   });
 
-  setup(function() {
+  setup(function(done) {
     fakeElement = document.createElement('div');
     fakeElement.id = 'software-buttons';
     fakeElement.height = '100px';
@@ -57,6 +57,8 @@ suite('enable/disable software home button', function() {
     fakeFullScreenHomeButton.id =
       'fullscreen-software-home-button';
     document.body.appendChild(fakeFullScreenHomeButton);
+
+    requireApp('system/js/software_button_manager.js', done);
   });
 
   teardown(function() {
@@ -66,22 +68,59 @@ suite('enable/disable software home button', function() {
     fakeFullScreenHomeButton.parentNode
       .removeChild(fakeFullScreenHomeButton);
     window.ScreenLayout.mTeardown();
+    MockNavigatorSettings.mTeardown();
   });
 
-  test('on real phone without hardware home button', function() {
-    ScreenLayout.setDefault({
-      tiny: true,
-      isonrealdevice: true,
-      hardwareHomeButton: false
+  suite('on real phone without hardware home button', function() {
+    var fakeGet;
+
+    setup(function() {
+      ScreenLayout.setDefault({
+        tiny: true,
+        isonrealdevice: true,
+        hardwareHomeButton: false
+      });
+      fakeGet = {
+        result: {}
+      };
+      this.sinon.stub(MockLock, 'get').returns(fakeGet);
     });
-    SoftwareButtonManager.init();
 
-    assert.equal(
-      SoftwareButtonManager._enable, true);
-    assert.equal(
-      MockNavigatorSettings.
-        mSettings['software-button.enabled'], true);
+    suite('when the home gesture is disabled', function() {
+      setup(function() {
+        fakeGet.result = {
+          'homegesture.enabled': false
+        };
+      });
+
+      test('should enable the software home button settings', function() {
+        SoftwareButtonManager.init();
+        fakeGet.onsuccess();
+
+        assert.equal(
+          MockNavigatorSettings.
+            mSettings['software-button.enabled'], true);
+      });
+    });
+
+    suite('when the home gesture is enabled', function() {
+      setup(function() {
+        fakeGet.result = {
+          'homegesture.enabled': true
+        };
+      });
+
+      test('should not enable the software home button settings', function() {
+        SoftwareButtonManager.init();
+        fakeGet.onsuccess();
+
+        assert.equal(
+          MockNavigatorSettings.
+            mSettings['software-button.enabled'], false);
+      });
+    });
   });
+
   test('on tablet without hardware home button', function() {
     ScreenLayout.setDefault({
       tiny: false,
@@ -106,9 +145,9 @@ suite('enable/disable software home button', function() {
 
     assert.equal(
       SoftwareButtonManager._enable, false);
-    assert.equal(
+    assert.isUndefined(
       MockNavigatorSettings.
-        mSettings['software-button.enabled'], true);
+        mSettings['software-button.enabled']);
   });
   test('on real tablet with hardware home button', function() {
     ScreenLayout.setDefault({
@@ -186,31 +225,4 @@ suite('enable/disable software home button', function() {
       MockNavigatorSettings.
         mSettings['software-button.enabled'], false);
   });
-
-  test('enable home gesture when software home button is enabled',
-    function() {
-    SoftwareButtonManager.init();
-    SoftwareButtonManager._enable = true;
-    HomeGesture.toggle(true);
-    assert.equal(
-      MockNavigatorSettings.
-        mSettings['software-button.enabled'], false);
-  });
-
-  test('disable home gesture when software home button is disabled on tablet',
-    function() {
-    ScreenLayout.setDefault({
-      hardwareHomeButton: false,
-      tiny: false,
-      isonrealdevice: true
-    });
-    SoftwareButtonManager.init();
-    SoftwareButtonManager._enable = false;
-    SoftwareButtonManager.OverrideFlag = false;
-    HomeGesture.toggle(false);
-    assert.equal(
-      MockNavigatorSettings.
-        mSettings['software-button.enabled'], true);
-  });
-
 });

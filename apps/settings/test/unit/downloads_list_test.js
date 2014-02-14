@@ -2,12 +2,14 @@
 
 'use strict';
 
+mocha.globals(['DownloadUI']);
+
 requireApp('settings/test/unit/mock_l10n.js');
 // Mockup the API
 require('/shared/test/unit/mocks/mock_download.js');
 require('/shared/test/unit/mocks/mock_navigator_moz_downloads.js');
 // We retrieve them for stubbing
-require('/shared/js/download/download_ui.js');
+requireApp('settings/test/unit/mock_download_ui.js');
 require('/shared/js/mime_mapper.js');
 
 // Mocks for several functions
@@ -37,7 +39,8 @@ suite('DownloadList', function() {
     'DownloadFormatter',
     'DownloadStore',
     'LazyLoader',
-    'DownloadHelper'
+    'DownloadHelper',
+    'DownloadUI'
   ]);
   var realMozDownloads, realL10n;
 
@@ -100,7 +103,6 @@ suite('DownloadList', function() {
 
 
   suite(' > edit mode', function() {
-    this.timeout(10000);
     test(' > edit mode button enabled/disabled', function(done) {
       DownloadsList.init(function() {
         // Edit button is false at the beginning
@@ -243,9 +245,9 @@ suite('DownloadList', function() {
 
     suite(' > tap actions', function() {
       var container;
-      var launchSpy, downloadUI;
+      var downloadUI, showActionsSpy;
       setup(function(done) {
-        launchSpy = this.sinon.spy(DownloadHelper, 'launch');
+        showActionsSpy = this.sinon.spy(DownloadUI, 'showActions');
         downloadUI = this.sinon.spy(DownloadUI, 'show');
         MockDownloadStore.downloads = [new MockDownload({
           state: 'succeeded'
@@ -257,7 +259,7 @@ suite('DownloadList', function() {
       });
 
       teardown(function() {
-        launchSpy = null;
+        showActionsSpy = null;
         downloadUI = null;
         container = null;
         MockDownloadStore.downloads = [];
@@ -265,19 +267,19 @@ suite('DownloadList', function() {
 
       test(' > a finalized download, so its in datastore', function() {
         container.firstChild.click();
-        assert.ok(launchSpy.calledOnce);
+        assert.ok(DownloadUI.showActions.calledOnce);
       });
 
       test(' > on downloading download', function() {
         container.childNodes[2].click();
-        assert.isFalse(launchSpy.calledOnce);
+        assert.isFalse(DownloadUI.showActions.calledOnce);
         assert.ok(downloadUI.calledOnce);
         assert.equal(downloadUI.args[0][0], DownloadUI.TYPE.STOP);
       });
 
       test(' > a stopped download', function() {
         container.lastChild.click();
-        assert.isFalse(launchSpy.calledOnce);
+        assert.isFalse(DownloadUI.showActions.calledOnce);
         assert.ok(downloadUI.calledOnce);
         // DownloadUI knows which will be the correct confirm depending on state
         // and error attributes
@@ -320,7 +322,7 @@ suite('DownloadList', function() {
         // and then deleting
 
         // Fail on the download;
-        var launchStub = sinon.stub(DownloadHelper, 'launch', function() {
+        var launchStub = sinon.stub(DownloadHelper, 'open', function() {
           return {
             set onsuccess(cb) {},
             set onerror(cb) {setTimeout(cb, 50);}

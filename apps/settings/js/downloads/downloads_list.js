@@ -32,8 +32,14 @@
     }
     var isEmpty = (downloadsContainer.children.length === 0);
 
-    downloadsContainer.className = isEmpty ? 'hide' : '';
-    emptyDownloadsContainer.className = isEmpty ? '' : 'hide';
+    if (isEmpty) {
+      downloadsContainer.hidden = true;
+      emptyDownloadsContainer.hidden = false;
+    } else {
+      downloadsContainer.hidden = false;
+      emptyDownloadsContainer.hidden = true;
+    }
+
     editButton.className = isEmpty ? 'disabled' : '';
   }
 
@@ -153,7 +159,7 @@
         break;
       case 'succeeded':
         // launch an app to view the download
-        _launchDownload(download);
+        _showDownloadActions(download);
         break;
     }
   }
@@ -193,28 +199,33 @@
     };
   };
 
-  function _launchDownload(download) {
-    var req = DownloadHelper.launch(download);
+  function _showDownloadActions(download) {
 
-    req.onerror = function() {
-      DownloadHelper.handlerError(req.error, download, function removed(d) {
-        if (!d) {
-          return;
-        }
-        // If error when opening, we need to delete it!
-        var downloadId = DownloadItem.getDownloadId(d);
-        var elementToDelete = _getElementForId(downloadId);
-        DownloadApiManager.deleteDownloads(
-          [downloadId],
-          function onDeleted() {
-            _removeDownloadsFromUI([elementToDelete]);
-            _checkEmptyList();
-          },
-          function onError() {
-            console.warn('Download not removed during launching');
+    var actionReq = DownloadUI.showActions(download);
+
+    actionReq.onconfirm = function(evt) {
+      var req = DownloadHelper[actionReq.result.name](download);
+
+      req.onerror = function() {
+        DownloadHelper.handlerError(req.error, download, function removed(d) {
+          if (!d) {
+            return;
           }
-        );
-      });
+          // If error when opening, we need to delete it!
+          var downloadId = DownloadItem.getDownloadId(d);
+          var elementToDelete = _getElementForId(downloadId);
+          DownloadApiManager.deleteDownloads(
+            [downloadId],
+            function onDeleted() {
+              _removeDownloadsFromUI([elementToDelete]);
+              _checkEmptyList();
+            },
+            function onError() {
+              console.warn('Download not removed during launching');
+            }
+          );
+        });
+      };
     };
   }
 

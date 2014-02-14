@@ -12,6 +12,7 @@
     <!-- Common style -->
     <link rel="stylesheet" type="text/css" href="shared/style/headers.css">
     <link rel="stylesheet" type="text/css" href="shared/style/switches.css">
+    <link rel="stylesheet" type="text/css" href="shared/style/status.css">
 
     <!-- Specific style -->
     <link rel="stylesheet" type="text/css" href="style/lists.css">
@@ -23,7 +24,7 @@
     <link rel="stylesheet" type="text/css" href="shared/style/buttons.css"/>
     <link rel="stylesheet" type="text/css" href="shared/style/confirm.css"/>
     <link rel="stylesheet" type="text/css" href="shared/style/input_areas.css"/>
-    <link rel="stylesheet" type="text/css" href="shared/style_unstable/progress_activity.css"/>
+    <link rel="stylesheet" type="text/css" href="shared/style/progress_activity.css"/>
     <link rel="stylesheet" type="text/css" href="style/apps.css"/>
     <link rel="stylesheet" type="text/css" href="style/phone_lock.css"/>
     <link rel="stylesheet" type="text/css" href="style/simcard.css"/>
@@ -70,12 +71,15 @@
     <!--<script defer src="shared/js/download/download_ui.js"></script>-->
     <!--<script defer src="shared/js/mime_mapper.js"></script>-->
     <!--<script defer src="shared/js/download/download_formatter.js"></script>-->
-    <!--<script defer src="/shared/js/icc_helper.js"></script>-->
+    <!--<script defer src="shared/js/icc_helper.js"></script>-->
     <!--<script defer src="shared/js/keyboard_helper.js"></script>-->
     <!--<script defer src="shared/js/mobile_operator.js"></script>-->
     <!--<script defer src="shared/js/async_storage.js"></script>-->
     <!--<script defer src="shared/js/wifi_helper.js"></script>-->
-    <!--<script defer src="/shared/js/settings_listener.js"></script> -->
+    <!--<script defer src="shared/js/settings_helper.js"></script> -->
+    <!--<script defer src="shared/js/settings_listener.js"></script> -->
+    <!--<script defer src="shared/js/airplane_mode_helper.js"></script> -->
+    <!--<script defer src="shared/js/toaster.js"></script> -->
 
     <!-- all non-#root panels will lazy-load their own scripts -->
     <link rel="import" href="/elements/wifi_status.html">
@@ -129,7 +133,6 @@
     <link rel="import" href="/elements/app_permissions_details.html">
     <link rel="import" href="/elements/app_permissions.html">
     <link rel="import" href="/elements/do_not_track.html">
-    <link rel="import" href="/elements/about_more_info_developer.html">
     <link rel="import" href="/elements/about_more_info.html">
     <link rel="import" href="/elements/about_your_rights.html">
     <link rel="import" href="/elements/about_your_privacy.html">
@@ -141,6 +144,8 @@
     <link rel="import" href="/elements/application_storage.html">
     <link rel="import" href="/elements/media_storage.html">
     <link rel="import" href="/elements/accessibility.html">
+    <link rel="import" href="/elements/developer_hud.html">
+    <link rel="import" href="/elements/developer.html">
     <link rel="import" href="/elements/crash_reports.html">
     <link rel="import" href="/elements/improve_browser_os_send_feedback.html">
     <link rel="import" href="/elements/improve_browser_os_choose_feedback.html">
@@ -278,8 +283,6 @@
     <!-- Security :: Do Not Track -->
     <section is="doNotTrack" role="region" id="doNotTrack"></section>
 
-    <!-- Device :: Information :: More Information :: Developer -->
-    <section is="about-moreInfo-developer" role="region" id="about-moreInfo-developer"></section>
     <!-- Device :: Information :: More Information -->
     <section is="about-moreInfo" role="region" id="about-moreInfo"></section>
     <!-- Device :: Information :: Your Rights -->
@@ -304,6 +307,10 @@
     <section is="mediaStorage" role="region" id="mediaStorage"></section>
     <!-- Device :: Accessibility -->
     <section is="accessibility" role="region" id="accessibility"></section>
+    <!-- Device :: Developer :: HUD -->
+    <section is="developer-hud" role="region" id="developer-hud"></section>
+    <!-- Device :: Developer -->
+    <section is="developer" role="region" id="developer"></section>
     <!-- Device :: Improve Browser OS :: Crash Reports-->
     <section is="crashReports" role="region" id="crashReports"></section>
     <!-- Device :: Send Feedback -->
@@ -346,14 +353,15 @@
             <small id="wifi-desc" class="menu-item-desc"></small>
             <a id="menuItem-wifi" class="menu-item" href="#wifi" data-l10n-id="wifi">Wi-Fi</a>
           </li>
-          <li id="simCardManager-settings" hidden>
+          <li id="simCardManager-settings" aria-disabled="true">
+            <small id="simmanager-desc" class="menu-item-desc"></small>
             <a id="menuItem-simManager" class="menu-item" href="#sim-manager" data-l10n-id="simManager">SIM manager</a>
           </li>
           <li id="call-settings" aria-disabled="true">
             <small id="call-desc" class="menu-item-desc"></small>
             <a id="menuItem-callSettings" class="menu-item" href="#call" data-l10n-id="callSettings">Call Settings</a>
           </li>
-          <li id="messaging-settings">
+          <li id="messaging-settings" aria-disabled="true">
             <small id="messaging-desc" class="menu-item-desc"></small>
             <a id="menuItem-messagingSettings" class="menu-item" href="#messaging" data-l10n-id="messagingSettings">Messaging Settings</a>
           </li>
@@ -431,9 +439,9 @@
             <small id="phoneLock-desc" class="menu-item-desc"></small>
             <a id="menuItem-phoneLock" class="menu-item" href="#phoneLock" data-l10n-id="phoneLock">Phone Lock</a>
           </li>
-          <li id="simSecurity-settings" hidden>
+          <li id="simSecurity-settings" aria-disabled="true">
             <small id="simCardLock-desc" class="menu-item-desc"></small>
-            <a id="menuItem-simSecurity" class="menu-item" href="#simpin" data-l10n-id="simSecurity">SIM Security</a>
+            <a id="menuItem-simSecurity" class="menu-item" href="#simpin" data-l10n-id="simSecurity">SIM security</a>
           </li>
           <li>
             <a id="menuItem-appPermissions" class="menu-item" href="#appPermissions" data-l10n-id="appPermissions">App permissions</a>
@@ -480,8 +488,11 @@
             <small id="battery-desc" class="menu-item-desc"></small>
             <a id="menuItem-battery" class="menu-item" href="#battery" data-l10n-id="battery">Battery</a>
           </li>
-          <li hidden="">
+          <li data-show-name="accessibility.show-settings" hidden>
             <a id="menuItem-accessibility" class="menu-item" href="#accessibility" data-l10n-id="accessibility">Accessibility</a>
+          </li>
+          <li data-show-name="developer.menu.enabled" hidden>
+            <a id="menuItem-developer" class="menu-item" href="#developer" data-l10n-id="developer">Developer</a>
           </li>
           <li>
             <a id="menuItem-improveBrowserOS" class="menu-item" href="#improveBrowserOS" data-l10n-id="improveBrowserOS">Improve Browser OS</a>
@@ -503,5 +514,18 @@
         </ul>
       </div>
     </section>
+
+    <form role="dialog" data-type="confirm" id="turn-on-ums-dialog" hidden>
+      <section>
+        <h1 data-l10n-id="ums-warning-title">Enable USB storage?</h1>
+        <p data-l10n-id="turn-on-ums-confirm">
+            Turning on Enable USB storage allows another computer or device connected using USB to access files on this phone.
+        </p>
+      </section>
+      <menu>
+        <button data-l10n-id="cancel" id="ums-cancel-option">Cancel</button>
+        <button data-l10n-id="ok" id="ums-confirm-option" class="recommend">OK</button>
+      </menu>
+    </form>
   </body>
 </html>

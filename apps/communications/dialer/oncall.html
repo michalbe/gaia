@@ -26,6 +26,7 @@
     <script defer type="application/javascript" src="/shared/js/settings_listener.js"></script>
     <script defer type="application/javascript" src="/shared/js/settings_url.js"></script>
     <script defer type="application/javascript" src="/shared/js/async_storage.js"></script>
+    <script defer type="application/javascript" src="/shared/js/contact_photo_helper.js"></script>
 
     <script defer type="application/javascript" src="/shared/js/simple_phone_matcher.js"></script>
     <script defer type="application/javascript" src="/dialer/js/contacts.js"></script>
@@ -102,6 +103,15 @@
           </button>
         </menu>
       </form>
+      <form id="bluetooth-menu" role="dialog" data-type="action" class="overlay">
+        <header data-l10n-id="select-audio-source">select audio source</header>
+        <menu>
+          <button data-l10n-id="bluetooth-handsfree-device" id='btmenu-btdevice'>bluetooth handsfree device</button>
+          <button data-l10n-id="receiver" id='btmenu-receiver'>receiver</button>
+          <button data-l10n-id="speaker" id='btmenu-speaker'>speaker</button>
+          <button data-l10n-id="cancel" id='btmenu-cancel'>cancel</button>
+        </menu>
+      </form>
       <article id="main-container">
         <div id="contact-background"></div>
         <div id="actions-container">
@@ -159,26 +169,26 @@
                     <span class="icon icon-speaker">
                     </span>
                   </button>
+                  <button id="bt" hidden class="co-advanced-option grid-wraper grid hide">
+                    <span class="icon icon-bt">
+                    </span>
+                  </button>
                 </span>
             </section>
             <footer id="callbar">
-              <div id="callbar-hang-up">
-                <span role="button" id="callbar-hang-up-action" class="callbar-button">
-                  <div>
-                  </div>
-                </span>
-              </div>
-              <div id="callbar-answer">
-                <span role="button" id="callbar-start-call-action" class="callbar-button">
-                  <div>
-                  </div>
-                </span>
-              </div>
-              <div id="callbar-hold">
-                <span role="button" id="callbar-hold-action" class="callbar-button" data-l10n-id="resume">
+              <button id="callbar-hang-up">
+                <div class="callbar-inner-button">
+                </div>
+              </button>
+              <button id="callbar-answer">
+                <div class="callbar-inner-button">
+                </div>
+              </button>
+              <button id="callbar-hold">
+                <div class="callbar-inner-button" data-l10n-id="resume">
                   Resume
-                </span>
-              </div>
+                </div>
+              </button>
             </footer>
           </footer>
         </div>

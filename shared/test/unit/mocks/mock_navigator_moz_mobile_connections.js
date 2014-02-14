@@ -4,12 +4,18 @@
   function MockMobileconnection() {
     var props = ['voice', 'data', 'iccId', 'radioState', 'iccInfo'];
     var eventListeners = null;
+    var radioEnabledReq = null;
 
     function mnmmc_init() {
       props.forEach(function(prop) {
         _mock[prop] = null;
       });
-      eventListeners = { 'iccinfochange': [] };
+      eventListeners = {
+        'voicechange': [],
+        'iccinfochange': [],
+        'radiostatechange': []
+      };
+      radioEnabledReq = {};
     }
 
     function mnmmc_addEventListener(type, callback) {
@@ -43,11 +49,19 @@
       }
     }
 
+    function mnmmc_setRadioEnabled() {
+      return radioEnabledReq;
+    }
+
     var _mock = {
       addEventListener: mnmmc_addEventListener,
       removeEventListener: mnmmc_removeEventListener,
       triggerEventListeners: mnmmc_triggerEventListeners,
+      setRadioEnabled: mnmmc_setRadioEnabled,
       mTeardown: mnmmc_init,
+      get mCachedRadioEnabledReq() {
+        return radioEnabledReq;
+      },
       get mEventListeners() {
         return eventListeners;
       }

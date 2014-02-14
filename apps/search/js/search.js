@@ -3,26 +3,10 @@
 
   // timeout before notifying providers
   var SEARCH_DELAY = 600;
-  var SEARCH_URI = 'http://www.google.com/search?q={searchTerms}';
 
   var timeoutSearchWhileTyping = null;
 
   var rscheme = /^(?:[a-z\u00a1-\uffff0-9-+]+)(?::|:\/\/)/i;
-
-  function getUrlFromInput(input) {
-    var hasScheme = !!(rscheme.exec(input) || [])[0];
-
-    // Not a valid URL, could be a search term
-    if (UrlHelper.isNotURL(input) && SEARCH_URI) {
-      return SEARCH_URI.replace('{searchTerms}', input);
-    }
-
-    // No scheme, prepend basic protocol and return
-    if (!hasScheme) {
-      return 'http://' + input;
-    }
-    return input;
-  };
 
   window.Search = {
     _port: null,
@@ -53,17 +37,8 @@
           function(connectionRequest) {
             var keyword = connectionRequest.keyword;
             var port = connectionRequest.port;
-            if (keyword === 'eme-client') {
-              var SuggestionsProvider = self.providers.Suggestions;
-              var WebResultsProvider = self.providers.WebResults;
-
-              port.onmessage = function onmessage(msg) {
-                SuggestionsProvider.onmessage.call(SuggestionsProvider, msg);
-                WebResultsProvider.onmessage.call(WebResultsProvider, msg);
-              };
-              port.start();
-            } else if (keyword === 'search') {
-              port.onmessage = self.onSearchInput.bind(self);
+            if (keyword === 'search') {
+              port.onmessage = self.dispatchMessage.bind(self);
               port.start();
             }
           });
@@ -84,36 +59,96 @@
       this.providers[provider.name] = provider;
     },
 
-    onSearchInput: function(msg) {
-      clearTimeout(timeoutSearchWhileTyping);
+    /**
+     * Dispatches messages to handlers in the Search class
+     */
+    dispatchMessage: function(msg) {
+      if (typeof this[msg.data.action] === 'function') {
+        this[msg.data.action](msg);
+      }
+    },
+
+    /**
+     * Called when the user changes the search query
+     */
+    change: function(msg) {
+      clearTimeout(this.changeTimeout);
 
       var input = msg.data.input;
-      var type = msg.data.type;
       var providers = this.providers;
 
-      timeoutSearchWhileTyping = setTimeout(function doSearch() {
-        if (type === 'submit') {
-          Search.browse(getUrlFromInput(input));
-        } else {
-          for (var i in providers) {
-            providers[i].search(input, type);
-          }
+      this.changeTimeout = setTimeout(function doSearch() {
+        for (var i in providers) {
+          providers[i].search(input);
         }
       }, SEARCH_DELAY);
+    },
+
+    /**
+     * Expands the search experience when the user taps on a suggestion
+     * or submits a query.
+     */
+    expandSearch: function(query) {
+      this.clear();
+      this.providers.WebResults.search(query);
+      this.providers.BGImage.fetchImage(query);
+    },
+
+    /**
+     * Called when the user submits the search form
+     */
+    submit: function(msg) {
+      var input = msg.data.input;
+
+      // Not a valid URL, could be a search term
+      if (UrlHelper.isNotURL(input)) {
+        this.expandSearch(input);
+        return;
+      }
+
+      var hasScheme = !!(rscheme.exec(input) || [])[0];
+
+      // No scheme, prepend basic protocol and return
+      if (!hasScheme) {
+        input = 'http://' + input;
+      }
+
+      this.navigate(input);
+    },
+
+    /**
+     * Called when the user submits the search form
+     */
+    clear: function(msg) {
+      this.abort();
+      for (var i in this.providers) {
+        this.providers[i].clear();
+      }
+    },
+
+    /**
+     * Aborts all in-progress provider requests.
+     */
+    abort: function() {
+      clearTimeout(this.changeTimeout);
+      for (var i in this.providers) {
+        this.providers[i].abort();
+      }
     },
 
     /**
      * Messages the parent container to close
      */
     close: function() {
+      this.abort();
       this._port.postMessage({'action': 'hide'});
     },
 
     /**
      * Opens a browser to a URL
      */
-    browse: function(url) {
-      window.open(url, '_blank', 'remote=true');
+    navigate: function(url) {
+      window.open(url, '_blank', 'remote=true,useAsyncPanZoom=true');
     },
 
     /**
@@ -123,6 +158,7 @@
       this._port.postMessage({
         'input': input
       });
+      this.expandSearch(input);
     }
   };
 

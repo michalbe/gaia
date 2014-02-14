@@ -110,7 +110,8 @@ function optimize_getFileContent(webapp, htmlFile, relativePath) {
       }
     // we substitute the localization properties file from gaia with the ones
     // from LOCALE_BASEDIR
-    } else if (RE_PROPS.test(relativePath) && gaia.l10nManager) {
+    } else if (RE_PROPS.test(relativePath) && gaia.l10nManager &&
+      !file.path.contains('en-US')) {
       let propFile = gaia.l10nManager.getPropertiesFile(webapp, file.path);
       if (propFile.exists()) {
         file = propFile;
@@ -230,7 +231,14 @@ function optimize_aggregateJsResources(doc, webapp, htmlFile) {
 
   // find the absolute root of the app's html file.
   let rootUrl = htmlFile.parent.path;
-  rootUrl = rootUrl.replace(webapp.manifestFile.parent.path, '') || '.';
+  if (webapp.build && webapp.build.dir) {
+    // Only required for keyboard a.t.m. Because all other apps that use build
+    // don't use defer'ed javascripts in their HTML files.
+    rootUrl = '.';
+  }
+  else {
+    rootUrl = rootUrl.replace(webapp.manifestFile.parent.path, '') || '.';
+  }
   // the above will yield something like: '', '/facebook/', '/contacts/', etc...
 
   function writeAggregatedScript(conf) {
@@ -277,6 +285,22 @@ function optimize_aggregateJsResources(doc, webapp, htmlFile) {
 }
 
 /**
+ * Append values to the global object on the page
+ *
+ * @param {HTMLDocument} doc DOM document of the file.
+ * @param {Object} globals dictionary containing the appended globals.
+ */
+function optimize_embedGlobals(doc, globals) {
+  var script = doc.createElement('script');
+  var content = '';
+  for (var key in globals) {
+    content += 'window.' + key + '="' + globals[key] + '";';
+  }
+  script.innerHTML = content;
+  doc.documentElement.appendChild(script);
+}
+
+/**
  * Inline and minify all css/script resources on the page
  *
  * @param {HTMLDocument} doc DOM document of the file.
@@ -314,6 +338,13 @@ function optimize_inlineResources(doc, webapp, filePath, htmlFile) {
       oldScript.parentNode.insertBefore(newScript, oldScript);
     }
     oldScript.parentNode.removeChild(oldScript);
+  });
+
+  // add the browser manifest url to our global object for net_error
+  // see: https://bugzilla.mozilla.org/show_bug.cgi?id=959800#c8
+  optimize_embedGlobals(doc, {
+    BROWSER_MANIFEST:
+      'app://browser.' + config.GAIA_DOMAIN + '/manifest.webapp'
   });
 
   // inline stylesheets
@@ -359,10 +390,7 @@ function optimize_embedHtmlImports(doc, webapp, htmlFile) {
   Array.prototype.forEach.call(imports, function eachImport(eachImport) {
     let content = optimize_getFileContent(webapp, htmlFile, eachImport.href);
     content = '<div>' + content + '</div>';
-
-    let DOMParser = CC('@mozilla.org/xmlextras/domparser;1', 'nsIDOMParser');
-    let elementRoot = (new DOMParser()).
-        parseFromString(content, 'text/html');
+    let elementRoot = utils.getDocument(content);
     let elements = elementRoot.querySelectorAll('element');
 
     // Remove import node from doc
@@ -583,9 +611,7 @@ function optimize_compile(webapp, file, callback) {
   };
 
   // load and parse the HTML document
-  let DOMParser = CC('@mozilla.org/xmlextras/domparser;1', 'nsIDOMParser');
-  win.document = (new DOMParser()).
-      parseFromString(utils.getFileContent(file), 'text/html');
+  win.document = utils.getDocument(utils.getFileContent(file));
 
   // If this HTML document uses l10n.js, pre-localize it --
   //   note: a document can use l10n.js by including either l10n.js or

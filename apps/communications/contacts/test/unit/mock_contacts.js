@@ -12,24 +12,24 @@ var MockContacts = {
   },
   getTags: function() {
     return {
-      'phone-type': [
-        {value: 'mobile'},
-        {value: 'home'},
-        {value: 'work'},
-        {value: 'personal'},
-        {value: 'faxHome'},
-        {value: 'faxOffice'},
-        {value: 'faxOther'},
-        {value: 'another'}
+      'phone-type' : [
+        {type: 'mobile', value: 'Mobile'},
+        {type: 'home', value: 'Home'},
+        {type: 'work', value: 'Work'},
+        {type: 'personal', value: 'Personal'},
+        {type: 'faxHome', value: 'FaxHome'},
+        {type: 'faxOffice', value: 'Fax Office'},
+        {type: 'faxOther', value: 'Fax Other'},
+        {type: 'other', value: 'Other'}
       ],
-      'email-type': [
-        {value: 'personal'},
-        {value: 'home'},
-        {value: 'work'}
+      'email-type' : [
+        {type: 'personal', value: 'Personal'},
+        {type: 'home', value: 'Home'},
+        {type: 'work', value: 'Work'}
       ],
-      'address-type': [
-        {value: 'home'},
-        {value: 'work'}
+      'address-type' : [
+        {type: 'home', value: 'Home'},
+        {type: 'work', value: 'Work'}
       ]
     };
   },
@@ -45,10 +45,7 @@ var MockContacts = {
     importLive: function() {},
     importGmail: function() {}
   },
-  navigation: {
-    go: function() {},
-    home: function() {}
-  },
+  navigation: new MockNavigationStack(),
   checkCancelableActivity: function() {},
   cancel: function() {},
   confirmDialog: function() {

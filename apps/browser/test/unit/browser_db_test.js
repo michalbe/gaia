@@ -1,3 +1,6 @@
+'use strict';
+/* global BrowserDB, NumberHelper, MockNavigatorSettings */
+
 // Stub of Browser object.
 var Browser = {
   _doNotCustomize: true,
@@ -61,7 +64,7 @@ var Browser = {
 requireApp('browser/shared/test/unit/mocks/mock_navigator_moz_settings.js');
 requireApp('browser/shared/js/simple_operator_variant_helper.js');
 
-requireApp('browser/js/utilities.js');
+requireApp('browser/shared/js/utilities.js');
 requireApp('browser/js/browser_db.js');
 
 const DATA_URI =
@@ -87,7 +90,6 @@ var clearBrowserStores = function(done) {
 
 suite('BrowserDB', function() {
   var realMozSettings = null;
-  this.timeout(5000);
 
   suiteSetup(function() {
     realMozSettings = navigator.mozSettings;
@@ -194,6 +196,41 @@ suite('BrowserDB', function() {
       var bookmark = {
         uri: 'http://mozilla.org/test1',
         title: 'Mozilla',
+        timestamp: new Date().valueOf()
+      };
+      BrowserDB.db.saveBookmark(bookmark, function() {
+        done();
+      });
+    });
+
+    // TODO: SHOULD FAIL
+    test('saveBookmarkInvalidURI', function(done) {
+      var bookmark = {
+        uri: 'notAURI',
+        title: 'Mozilla',
+        timestamp: new Date().valueOf()
+      };
+      BrowserDB.db.saveBookmark(bookmark, function() {
+        done();
+      });
+    });
+
+    // TODO: SHOULD FAIL
+    test('saveBookmarkInvalidTitle', function(done) {
+      var bookmark = {
+        uri: 'http://mozilla.org/test1',
+        title: '',
+        timestamp: new Date().valueOf()
+      };
+      BrowserDB.db.saveBookmark(bookmark, function() {
+        done();
+      });
+    });
+
+    test('saveBookmarkNonHTTP(S)', function(done) {
+      var bookmark = {
+        uri: 'rtsp://mozilla.org/test1',
+        title: '',
         timestamp: new Date().valueOf()
       };
       BrowserDB.db.saveBookmark(bookmark, function() {

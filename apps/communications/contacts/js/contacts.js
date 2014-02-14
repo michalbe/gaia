@@ -2,8 +2,7 @@
 
 var _;
 var TAG_OPTIONS;
-var COMMS_APP_ORIGIN = document.location.protocol + '//' +
-  document.location.host;
+var COMMS_APP_ORIGIN = location.origin;
 var asyncScriptsLoaded;
 
 // Scale ratio for different devices
@@ -104,6 +103,10 @@ var Contacts = (function() {
           showApp();
         });
         break;
+      case 'home':
+        navigation.home();
+        showApp();
+        break;
       default:
         showApp();
     }
@@ -156,12 +159,13 @@ var Contacts = (function() {
         {type: 'faxHome', value: _('faxHome')},
         {type: 'faxOffice', value: _('faxOffice')},
         {type: 'faxOther', value: _('faxOther')},
-        {type: 'another', value: _('another')}
+        {type: 'other', value: _('other')}
       ],
       'email-type' : [
         {type: 'personal', value: _('personal')},
         {type: 'home', value: _('home')},
-        {type: 'work', value: _('work')}
+        {type: 'work', value: _('work')},
+        {type: 'other', value: _('other')}
       ],
       'address-type' : [
         {type: 'home', value: _('home')},
@@ -177,7 +181,9 @@ var Contacts = (function() {
     window.addEventListener('asyncScriptsLoaded', function onAsyncLoad() {
       asyncScriptsLoaded = true;
       window.removeEventListener('asyncScriptsLoaded', onAsyncLoad);
-      contactsList.initAlphaScroll();
+      if (contactsList) {
+        contactsList.initAlphaScroll();
+      }
       checkUrl();
 
       PerformanceTestingHelper.dispatch('init-finished');
@@ -403,13 +409,15 @@ var Contacts = (function() {
   };
 
   var sendSms = function sendSms(number) {
-    if (!ActivityHandler.currentlyHandling)
+    if (!ActivityHandler.currentlyHandling ||
+        ActivityHandler.activityName === 'open')
       SmsIntegration.sendSms(number);
   };
 
   var callOrPick = function callOrPick(number) {
     LazyLoader.load('/dialer/js/mmi.js', function mmiLoaded() {
-      if (ActivityHandler.currentlyHandling) {
+      if (ActivityHandler.currentlyHandling &&
+          ActivityHandler.activityName !== 'open') {
         ActivityHandler.postPickSuccess({ number: number });
       } else if (MmiManager.isMMI(number)) {
         // For security reasons we cannot directly call MmiManager.send(). We
@@ -471,24 +479,18 @@ var Contacts = (function() {
   };
 
   var sendEmailOrPick = function sendEmailOrPick(address) {
-    if (ActivityHandler.currentlyHandling) {
-      // Placeholder for the email app if we want to
-      // launch contacts to select an email address.
-      // So far we do nothing
-    } else {
-      try {
-        // We don't check the email format, lets the email
-        // app do that
-        var activity = new MozActivity({
-          name: 'new',
-          data: {
-            type: 'mail',
-            URI: 'mailto:' + address
-          }
-        });
-      } catch (e) {
-        console.log('WebActivities unavailable? : ' + e);
-      }
+    try {
+      // We don't check the email format, lets the email
+      // app do that
+      var activity = new MozActivity({
+        name: 'new',
+        data: {
+          type: 'mail',
+          URI: 'mailto:' + address
+        }
+      });
+    } catch (e) {
+      console.log('WebActivities unavailable? : ' + e);
     }
   };
 
@@ -520,11 +522,14 @@ var Contacts = (function() {
       callback();
     } else {
       initDetails(function onDetails() {
-        Contacts.view('Form', function viewLoaded() {
-          formReady = true;
-          contactsForm = contacts.Form;
-          contactsForm.init(TAG_OPTIONS);
-          callback();
+        LazyLoader.load(['/contacts/js/utilities/image_thumbnail.js'],
+        function() {
+          Contacts.view('Form', function viewLoaded() {
+            formReady = true;
+            contactsForm = contacts.Form;
+            contactsForm.init(TAG_OPTIONS);
+            callback();
+          });
         });
       });
     }

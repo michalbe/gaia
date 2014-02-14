@@ -4,7 +4,7 @@ require('/shared/test/unit/mocks/mock_navigator_moz_apps.js');
 require('/shared/test/unit/mocks/mock_navigator_moz_set_message_handler.js');
 require('/shared/js/url_helper.js');
 
-mocha.globals(['Search']);
+mocha.globals(['Search', 'open']);
 
 suite('search/search', function() {
   var realMozApps;
@@ -44,7 +44,9 @@ suite('search/search', function() {
       Search.providers = [{
         init: function() {
           initCalled = true;
-        }
+        },
+        search: function() {},
+        abort: function() {}
       }];
 
       Search.init();
@@ -74,17 +76,110 @@ suite('search/search', function() {
     });
   });
 
-  suite('onSearchInput', function() {
-    test('calls browse for submit types', function() {
-      var stub = this.sinon.stub(Search, 'browse');
-      Search.onSearchInput({
+  suite('dispatchMessage', function() {
+    test('dispatches messages based on action', function() {
+      var stub = this.sinon.stub(Search, 'change');
+      Search.dispatchMessage({
         data: {
-          type: 'submit',
+          action: 'change',
+          input: 'http://mozilla.org'
+        }
+      });
+      assert.ok(stub.calledOnce);
+    });
+  });
+
+  suite('change', function() {
+    setup(function() {
+      var fakeProvider = {
+        name: 'Foo',
+        search: function() {},
+        abort: function() {}
+      };
+      Search.provider(fakeProvider);
+    });
+
+    test('only searches once if called twice rapidly', function() {
+      var stub = this.sinon.stub(Search.providers.Foo, 'search');
+      Search.change({
+        data: {
+          input: 'a'
+        }
+      });
+      Search.change({
+        data: {
+          input: 'a'
+        }
+      });
+      assert.ok(stub.notCalled);
+      clock.tick(1000); // For typing timeout
+      assert.ok(stub.calledOnce);
+    });
+
+    test('aborting will cancel search timeout', function() {
+      var stub = this.sinon.stub(Search.providers.Foo, 'search');
+      Search.change({
+        data: {
+          input: 'a'
+        }
+      });
+      Search.change({
+        data: {
+          input: 'a'
+        }
+      });
+      assert.ok(stub.notCalled);
+      Search.abort();
+      clock.tick(1000); // For typing timeout
+      assert.ok(stub.notCalled);
+    });
+  });
+
+  suite('submit', function() {
+    test('calls navigate for submit types', function() {
+      var stub = this.sinon.stub(Search, 'navigate');
+      Search.dispatchMessage({
+        data: {
+          action: 'submit',
           input: 'http://mozilla.org'
         }
       });
       clock.tick(1000); // For typing timeout
       assert.ok(stub.calledOnce);
+    });
+  });
+
+  suite('clear', function() {
+    var called = 0;
+
+    suiteSetup(function() {
+      Search.providers = {
+        Fake: {
+          clear: function() {
+            called++;
+          },
+          abort: function() {}
+        }
+      };
+    });
+
+    test('calls the provider.clear method', function() {
+      Search.clear();
+      assert.equal(called, 1);
+    });
+  });
+
+  suite('abort', function() {
+    test('calls abort method of provider', function() {
+      Search.providers = {
+        Fake: {
+          clear: function() {},
+          abort: function() {}
+        }
+      };
+      var abortStub = this.sinon.stub(Search.providers.Fake, 'abort');
+      Search.abort();
+      assert.ok(abortStub.calledOnce);
     });
   });
 
@@ -97,12 +192,42 @@ suite('search/search', function() {
     });
   });
 
-  suite('browse', function() {
+  suite('navigate', function() {
     test('window.open is called', function() {
       var url = 'http://mozilla.org';
       var stub = this.sinon.stub(window, 'open');
-      Search.browse(url);
+      Search.navigate(url);
       assert.ok(stub.calledWith(url));
+    });
+  });
+
+  suite('expandSearch', function() {
+    setup(function() {
+      Search.providers = {
+        WebResults: {
+          clear: function() {},
+          abort: function() {},
+          search: function() {}
+        },
+        BGImage: {
+          clear: function() {},
+          abort: function() {},
+          search: function() {},
+          fetchImage: function() {}
+        }
+      };
+    });
+
+    test('calls search for WebResults', function() {
+      var searchStub = this.sinon.stub(Search.providers.WebResults, 'search');
+      Search.expandSearch();
+      assert.ok(searchStub.calledOnce);
+    });
+
+    test('calls fetchImage for BGImage', function() {
+      var searchStub = this.sinon.stub(Search.providers.BGImage, 'fetchImage');
+      Search.expandSearch();
+      assert.ok(searchStub.calledOnce);
     });
   });
 
@@ -110,6 +235,7 @@ suite('search/search', function() {
     test('posts a message to the port', function() {
       Search._port = { postMessage: function() {} };
       var stub = this.sinon.stub(Search._port, 'postMessage');
+      this.sinon.stub(Search, 'expandSearch');
       Search.setInput('foo');
       assert.ok(stub.calledWith({input: 'foo'}));
     });

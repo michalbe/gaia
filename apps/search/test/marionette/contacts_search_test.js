@@ -1,3 +1,5 @@
+'use strict';
+
 var Search = require('./lib/search');
 var Contacts = require(
   '../../../communications/contacts/test/marionette/lib/contacts');

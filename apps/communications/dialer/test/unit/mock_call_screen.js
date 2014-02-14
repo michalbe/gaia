@@ -21,16 +21,19 @@ var MockCallScreen = {
     this.mSetCallerContactImageCalled = true;
     this.mSetCallerContactImageArg = arg;
   },
+  setEmergencyWallpaper: function() {
+    this.mSetEmergencyWallpaperCalled = true;
+  },
   mute: function() {
     this.mMuteOn = true;
   },
   unmute: function() {
     this.mMuteOn = false;
   },
-  turnSpeakerOff: function() {
+  switchToDefaultOut: function() {
     this.mSpeakerOn = false;
   },
-  turnSpeakerOn: function() {
+  switchToSpeaker: function() {
     this.mSpeakerOn = true;
   },
   render: function(mode) {
@@ -51,6 +54,7 @@ var MockCallScreen = {
   hideGroupDetails: function() {
     this.mGroupDetailsShown = false;
   },
+  setBTReceiverIcon: function() {},
   createTicker: function(node) {
     this.mCalledCreateTicker = true;
   },
@@ -101,6 +105,7 @@ var MockCallScreen = {
     this.mSyncSpeakerCalled = false;
     this.mSetCallerContactImageCalled = false;
     this.mSetCallerContactImageArg = null;
+    this.mSetEmergencyWallpaperCalled = false;
     this.mMuteOn = false;
     this.mSpeakerOn = false;
     this.mLastRenderMode = null;

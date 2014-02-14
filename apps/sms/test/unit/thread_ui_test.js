@@ -5,7 +5,7 @@
          MockActivityPicker, Threads, Settings, MockMessages, MockUtils,
          MockContacts, ActivityHandler, Recipients, MockMozActivity,
          ThreadListUI, ContactRenderer, UIEvent, Drafts, OptionMenu,
-         ActivityPicker */
+         ActivityPicker, KeyEvent, MockNavigatorSettings, Draft */
 
 'use strict';
 
@@ -53,6 +53,7 @@ requireApp('sms/test/unit/mock_compose.js');
 requireApp('sms/test/unit/mock_activity_handler.js');
 requireApp('sms/test/unit/mock_information.js');
 require('/test/unit/mock_contact_renderer.js');
+require('/shared/test/unit/mocks/mock_contact_photo_helper.js');
 
 var mocksHelperForThreadUI = new MocksHelper([
   'Attachment',
@@ -73,7 +74,8 @@ var mocksHelperForThreadUI = new MocksHelper([
   'ActivityHandler',
   'TimeHeaders',
   'ContactRenderer',
-  'Information'
+  'Information',
+  'ContactPhotoHelper'
 ]);
 
 mocksHelperForThreadUI.init();
@@ -118,7 +120,6 @@ suite('thread_ui.js >', function() {
   }
 
   suiteSetup(function(done) {
-    this.timeout(5000);
     mocksHelper.suiteSetup();
 
     realMozL10n = navigator.mozL10n;
@@ -808,7 +809,7 @@ suite('thread_ui.js >', function() {
       setup(function() {
         var segmentInfo = {
           segments: 1,
-          charsAvailableInLastSegment: 20
+          charsAvailableInLastSegment: 25
         };
 
         updateCounter.call(this, segmentInfo);
@@ -831,9 +832,9 @@ suite('thread_ui.js >', function() {
       });
     });
 
-    suite('in first segment, less than 10 chars left >', function() {
+    suite('in first segment, less than 20 chars left >', function() {
       var segment = 1,
-          availableChars = 10;
+          availableChars = 20;
 
       setup(function() {
         var segmentInfo = {
@@ -1068,50 +1069,207 @@ suite('thread_ui.js >', function() {
     });
   });
 
-  suite('subject max length banner', function() {
-    var banner,
-        localize;
+  suite('Subject', function() {
 
-    setup(function() {
-      banner = document.getElementById('messages-max-length-notice');
-      localize = this.sinon.spy(navigator.mozL10n, 'localize');
-      Compose.toggleSubject();
-    });
+    suite('Max Length banner', function() {
+      var banner,
+          localize,
+          subject;
 
-    teardown(function() {
-      banner.classList.add('hide');
-      Compose.clear();
-    });
-
-    test('should be hidden if limit not reached', function() {
-      assert.isTrue(banner.classList.contains('hide'));
-    });
-
-    suite('when trying to pass the limit...', function() {
       setup(function() {
-        subject.value = '1234567890123456789012345678901234567890'; // 40 char
-        // Event is launched on keypress
-        subject.dispatchEvent(new CustomEvent('keypress'));
+        banner = document.getElementById('messages-max-length-notice');
+        subject = document.getElementById('messages-subject-input');
+        localize = this.sinon.spy(navigator.mozL10n, 'localize');
+        Compose.toggleSubject();
       });
 
-      test('should be visible', function() {
-        assert.isFalse(banner.classList.contains('hide'));
+      teardown(function() {
+        banner.classList.add('hide');
+        Compose.clear();
       });
 
-      test('should be localized', function() {
-        assert.ok(localize.calledWith(banner.querySelector('p'),
-                  'messages-max-subject-length-text'));
-      });
-
-      test('should be hidden if focus is away', function() {
-        subject.dispatchEvent(new CustomEvent('blur'));
+      test('should be hidden if limit not reached', function() {
         assert.isTrue(banner.classList.contains('hide'));
       });
 
-      test('should be visible if focus comes back', function() {
-        subject.dispatchEvent(new CustomEvent('blur'));
-        subject.dispatchEvent(new CustomEvent('focus'));
-        assert.isFalse(banner.classList.contains('hide'));
+      suite('when trying to pass the limit...', function() {
+        var clock;
+        setup(function() {
+          clock = this.sinon.useFakeTimers();
+          subject.value = '1234567890123456789012345678901234567890'; // 40 char
+          clock.tick(0);
+          // Event is launched on keypress
+          subject.dispatchEvent(new CustomEvent('keyup'));
+        });
+
+        teardown(function() {
+          clock.restore();
+        });
+
+        test('should create a timeout', function() {
+          assert.isFalse(!ThreadUI.timeouts.subjectLengthNotice);
+        });
+
+        test('banner should be hidden after an amount of secs.',
+          function(done) {
+          assert.isFalse(banner.classList.contains('hide'));
+          clock.tick(3100);
+          assert.isTrue(banner.classList.contains('hide'));
+          done();
+        });
+
+        test('should be visible', function() {
+          assert.isFalse(banner.classList.contains('hide'));
+        });
+
+        test('should be localized', function() {
+          assert.ok(localize.calledWith(banner.querySelector('p'),
+                    'messages-max-subject-length-text'));
+        });
+
+        test('should be hidden if focus is away', function() {
+          subject.dispatchEvent(new CustomEvent('blur'));
+          assert.isTrue(banner.classList.contains('hide'));
+        });
+
+        test('should not be visible if focus comes back.', function() {
+          subject.dispatchEvent(new CustomEvent('blur'));
+          subject.dispatchEvent(new CustomEvent('focus'));
+          assert.isTrue(banner.classList.contains('hide'));
+        });
+      });
+    });
+
+
+    suite('Visibility', function() {
+      var event, backspace;
+
+      suiteSetup(function() {
+        event = {
+          keyCode: KeyEvent.DOM_VK_BACK_SPACE,
+          DOM_VK_BACK_SPACE: KeyEvent.DOM_VK_BACK_SPACE
+        };
+
+        backspace = function(id) {
+          ThreadUI.onSubjectKeydown(event);
+          ThreadUI.onSubjectKeyup(event);
+        };
+      });
+
+      test('<delete> in empty subject hides field', function() {
+
+        // 1. This "tricks" Compose.updateType() into thinking we've
+        // entered some text into the subject. This ensures that
+        // Compose.type is correctly updated as it would be if
+        // the user had actually typed into the field.
+        subject.value = 'Howdy!';
+
+        Compose.toggleSubject();
+
+        // 2. Assert the correct state condition updates have occurred,
+        // as described in step 1
+        assert.isTrue(Compose.isSubjectVisible);
+        // Per discussion, this is being deferred to another bug
+        // https://bugzilla.mozilla.org/show_bug.cgi?id=959360
+        //
+        // assert.isTrue(sendButton.classList.contains('has-counter'));
+        assert.equal(Compose.type, 'mms');
+
+        // 3. To simulate the user "deleting" the subject,
+        // set the value to an empty string.
+        subject.value = '';
+
+        // 4. Simulate backspace on the subject field
+        backspace();
+
+        // 5. Confirm that the state of the compose
+        // area has updated properly.
+        assert.isFalse(Compose.isSubjectVisible);
+        // Per discussion, this is being deferred to another bug
+        // https://bugzilla.mozilla.org/show_bug.cgi?id=959360
+        //
+        // assert.isFalse(sendButton.classList.contains('has-counter'));
+        assert.equal(Compose.type, 'sms');
+      });
+
+      test('<delete> in non-empty subject does not hide field', function() {
+
+        // 1. This "tricks" Compose.updateType() into thinking we've
+        // entered some text into the subject. This ensures that
+        // Compose.type is correctly updated as it would be if
+        // the user had actually typed into the field.
+        subject.value = 'Howdy!';
+
+        Compose.toggleSubject();
+
+        // 2. Assert the correct state condition updates have occurred,
+        // as described in step 1
+        assert.isTrue(Compose.isSubjectVisible);
+
+        // 3. Simulate backspace on the subject field
+        backspace();
+
+        // 4. Confirm that the state of the compose area not changed.
+        assert.isTrue(Compose.isSubjectVisible);
+      });
+
+      test('<delete> holding subject does not hide field', function() {
+
+        // 1. This "tricks" Compose.updateType() into thinking we've
+        // entered some text into the subject. This ensures that
+        // Compose.type is correctly updated as it would be if
+        // the user had actually typed into the field.
+        subject.value = 'Howdy!';
+
+        Compose.toggleSubject();
+
+        // 2. Assert the correct state condition updates have occurred,
+        // as described in step 1
+        assert.isTrue(Compose.isSubjectVisible);
+
+        // 3. Simulate holding backspace on the subject field
+        for (var i = 0; i < 5; i++) {
+          ThreadUI.onSubjectKeydown(event);
+        }
+
+        // 4. This is the "release" from a holding state
+        ThreadUI.onSubjectKeyup(event);
+
+        // 5. Confirm that the state of the compose area not changed.
+        assert.isTrue(Compose.isSubjectVisible);
+      });
+
+      test('<delete> holding subject, release and tap hides field', function() {
+
+        // 1. This "tricks" Compose.updateType() into thinking we've
+        // entered some text into the subject. This ensures that
+        // Compose.type is correctly updated as it would be if
+        // the user had actually typed into the field.
+        subject.value = 'Howdy!';
+
+        Compose.toggleSubject();
+
+        // 2. Assert the correct state condition updates have occurred,
+        // as described in step 1
+        assert.isTrue(Compose.isSubjectVisible);
+
+        // 3. Simulate holding backspace on the subject field
+        for (var i = 0; i < 5; i++) {
+          ThreadUI.onSubjectKeydown(event);
+        }
+
+        // 4. This is the "release" from a holding state
+        ThreadUI.onSubjectKeyup(event);
+
+        // 5. To simulate the user "deleting" the subject,
+        // set the value to an empty string.
+        subject.value = '';
+
+        // 6. Simulate backspace on the subject field.
+        backspace();
+
+        // 7. Confirm that the state of the compose area not changed.
+        assert.isFalse(Compose.isSubjectVisible);
       });
     });
   });
@@ -1316,6 +1474,19 @@ suite('thread_ui.js >', function() {
     teardown(function() {
       Threads.delete(1);
       window.location.hash = '';
+    });
+
+    suite('Recipients.View.isFocusable', function() {
+
+      setup(function() {
+        window.location.hash = '#new';
+        Recipients.View.isFocusable = true;
+      });
+
+      test('Assimilation revokes Recipients focusability ', function() {
+        ThreadUI.assimilateRecipients();
+        assert.isFalse(Recipients.View.isFocusable);
+      });
     });
 
     suite('Existing Conversation', function() {
@@ -2321,6 +2492,11 @@ suite('thread_ui.js >', function() {
 
         setup(function() {
           localize.reset();
+          if (!('mozSettings' in navigator)) {
+           navigator.mozSettings = null;
+          }
+
+          this.sinon.stub(navigator, 'mozSettings', MockNavigatorSettings);
           showMessageErrorSpy = this.sinon.spy(ThreadUI, 'showMessageError');
           ThreadUI.handleMessageClick({
             target: button
@@ -2376,6 +2552,15 @@ suite('thread_ui.js >', function() {
             assert.equal(opts.messageId, message.id);
             assert.isTrue(!!opts.confirmHandler);
             assert.equal(MockErrorDialog.prototype.show.called, true);
+          });
+
+          test('confirmHandler called with correct state', function() {
+            this.sinon.spy(Settings, 'switchSimHandler');
+            MockErrorDialog.calls[0][1].confirmHandler();
+            assert.isTrue(element.classList.contains('pending'));
+            assert.isFalse(element.classList.contains('error'));
+            sinon.assert.calledWith(localize, button, 'downloading');
+            sinon.assert.called(Settings.switchSimHandler);
           });
         });
         suite('response error with other errorCode', function() {
@@ -2594,6 +2779,19 @@ suite('thread_ui.js >', function() {
         attachments: [],
         timestamp: +new Date(Date.now() - 100000),
         expiryDate: +new Date(Date.now())
+      },
+      {
+        id: 3,
+        threadId: 8,
+        sender: '123456',
+        type: 'mms',
+        delivery: 'received',
+        deliveryInfo: [{receiver: null, deliveryStatus: 'success'}],
+        subject: '',
+        smil: '',
+        attachments: [],
+        timestamp: +new Date(Date.now() - 50000),
+        expiryDate: +new Date(Date.now())
       }];
 
       return testMessages[index];
@@ -2626,26 +2824,14 @@ suite('thread_ui.js >', function() {
       test('no-attachment class present', function() {
         assert.isTrue(element.classList.contains('no-attachment'));
       });
-      test('error class present', function() {
-        assert.isTrue(element.classList.contains('error'));
+      test('error class absent', function() {
+        assert.isFalse(element.classList.contains('error'));
       });
       test('pending class absent', function() {
         assert.isFalse(element.classList.contains('pending'));
       });
       test('message is correct', function() {
-        assert.ok(
-          localize.calledWith(noAttachmentMessage, 'no-attachment-text')
-        );
-      });
-      suite('clicking', function() {
-        setup(function() {
-          ThreadUI.handleMessageClick({
-            target: element
-          });
-        });
-        test('Should not call retrieveMMS', function() {
-          assert.isFalse(MessageManager.retrieveMMS.called);
-        });
+        assert.equal(noAttachmentMessage.textContent, '');
       });
     });
 
@@ -2665,16 +2851,42 @@ suite('thread_ui.js >', function() {
       test('no-attachment class present', function() {
         assert.isTrue(element.classList.contains('no-attachment'));
       });
+      test('error class absent', function() {
+        assert.isFalse(element.classList.contains('error'));
+      });
+      test('pending class absent', function() {
+        assert.isFalse(element.classList.contains('pending'));
+      });
+      test('message is Empty', function() {
+        assert.equal(noAttachmentMessage.textContent, '');
+      });
+    });
+
+    suite('Invalid empty content message', function() {
+      var message;
+      var element;
+      var noAttachmentMessage;
+      setup(function() {
+        message = getTestMessage(2);
+        ThreadUI.appendMessage(message);
+        element = document.getElementById('message-' + message.id);
+        noAttachmentMessage = element.querySelector('p');
+      });
+      test('element has correct data-message-id', function() {
+        assert.equal(element.dataset.messageId, message.id);
+      });
+      test('invalid-empty-content class present', function() {
+        assert.isTrue(element.classList.contains('invalid-empty-content'));
+      });
       test('error class present', function() {
         assert.isTrue(element.classList.contains('error'));
       });
       test('pending class absent', function() {
         assert.isFalse(element.classList.contains('pending'));
       });
-      test('message is correct', function() {
-        assert.ok(
-          localize.calledWith(noAttachmentMessage, 'no-attachment-text')
-        );
+      test('message is Empty', function() {
+        sinon.assert.calledWithMatch(localize, noAttachmentMessage,
+          'no-attachment-text');
       });
       suite('clicking', function() {
         setup(function() {
@@ -2683,7 +2895,7 @@ suite('thread_ui.js >', function() {
           });
         });
         test('Should not call retrieveMMS', function() {
-          assert.isFalse(MessageManager.retrieveMMS.called);
+          sinon.assert.notCalled(MessageManager.retrieveMMS);
         });
       });
     });
@@ -2937,7 +3149,7 @@ suite('thread_ui.js >', function() {
         id: messageId,
         type: 'sms',
         body: 'This is a test with 123123123',
-        delivery: 'error',
+        delivery: 'sent',
         timestamp: Date.now()
       });
       // Retrieve DOM element for executing the event
@@ -2974,8 +3186,38 @@ suite('thread_ui.js >', function() {
       // Dispatch custom event for testing long press
       link.dispatchEvent(contextMenuEvent);
       assert.ok(MockOptionMenu.calls.length, 1);
-      // Is first element of the menu 'delete'?
-      assert.equal(MockOptionMenu.calls[0].items[0].l10nId, 'delete');
+      // Is first element of the menu 'forward'?
+      assert.equal(MockOptionMenu.calls[0].items[0].l10nId, 'forward');
+    });
+    test(' "long-press" on bubble shows a menu with delete option',
+      function() {
+      // Dispatch custom event for testing long press
+      link.dispatchEvent(contextMenuEvent);
+      assert.ok(MockOptionMenu.calls.length, 1);
+      // Show menu with 'delete' option
+      assert.equal(MockOptionMenu.calls[0].items[2].l10nId, 'delete');
+    });
+    test(' "long-press" on an error bubble shows a menu with resend option',
+      function() {
+
+      // Create a message with a delivery error:
+      ThreadUI.appendMessage({
+        id: 9,
+        type: 'sms',
+        body: 'This is a test with 123123123',
+        delivery: 'error',
+        timestamp: Date.now()
+      });
+
+      // Retrieve the message node
+      link = document.getElementById('message-9').querySelector('a');
+
+      // Dispatch custom event for testing long press
+      link.dispatchEvent(contextMenuEvent);
+      assert.ok(MockOptionMenu.calls.length, 1);
+
+      // Confirm that the menu contained a "resend-message" option
+      assert.equal(MockOptionMenu.calls[0].items[2].l10nId, 'resend-message');
     });
   });
 
@@ -3701,7 +3943,7 @@ suite('thread_ui.js >', function() {
     test('Deletes draft if there was a draft', function() {
       spy = this.sinon.spy(Drafts, 'delete');
 
-      MessageManager.draft = {id: 3};
+      ThreadUI.draft = {id: 3};
       ThreadUI.recipients.add({
         number: '888'
       });
@@ -3710,13 +3952,13 @@ suite('thread_ui.js >', function() {
       ThreadUI.onSendClick();
 
       assert.isTrue(spy.calledOnce);
-      assert.isNull(MessageManager.draft);
+      assert.isNull(ThreadUI.draft);
     });
 
     test('Removes draft thread if there was a draft thread', function() {
       spy = this.sinon.spy(ThreadListUI, 'removeThread');
 
-      MessageManager.draft = {id: 3};
+      ThreadUI.draft = {id: 3};
       ThreadUI.recipients.add({
         number: '888'
       });
@@ -3727,6 +3969,30 @@ suite('thread_ui.js >', function() {
       assert.isTrue(spy.calledOnce);
     });
 
+    suite('sendMMS errors', function() {
+      setup(function() {
+        this.sinon.spy(MessageManager, 'sendMMS');
+        this.sinon.spy(MockErrorDialog.prototype, 'show');
+
+        ThreadUI.recipients.add({
+          number: '999'
+        });
+
+        Compose.append(mockAttachment(512));
+
+        sendButton.click();
+      });
+
+      test('NotFoundError', function() {
+        MessageManager.sendMMS.callArg(2, { name: 'NotFoundError' });
+        sinon.assert.notCalled(MockErrorDialog.prototype.show);
+      });
+
+      test('Generic error', function() {
+        MessageManager.sendMMS.callArg(2, { name: 'GenericError' });
+        sinon.assert.called(MockErrorDialog.prototype.show);
+      });
+    });
   });
 
   suite('Contact Picker Behavior(contactPickButton)', function() {
@@ -3734,7 +4000,7 @@ suite('thread_ui.js >', function() {
       this.sinon.spy(ThreadUI, 'assimilateRecipients');
     });
     teardown(function() {
-      Recipients.View.isObscured = false;
+      Recipients.View.isFocusable = true;
     });
 
     test('assimilate called after mousedown on picker button', function() {
@@ -3742,13 +4008,13 @@ suite('thread_ui.js >', function() {
       assert.ok(ThreadUI.assimilateRecipients.called);
     });
 
-    suite('Recipients.View.isObscured', function() {
-      test('true during activity', function() {
+    suite('Recipients.View.isFocusable', function() {
+      test('false during activity', function() {
         ThreadUI.requestContact();
-        assert.isTrue(Recipients.View.isObscured);
+        assert.isFalse(Recipients.View.isFocusable);
       });
 
-      test('false after activity', function() {
+      test('true after activity', function() {
         this.sinon.stub(Utils, 'basicContact').returns({});
 
         ThreadUI.requestContact();
@@ -3761,53 +4027,7 @@ suite('thread_ui.js >', function() {
 
         MockMozActivity.instances[0].onsuccess();
 
-        assert.isFalse(Recipients.View.isObscured);
-      });
-    });
-  });
-
-  suite('setMessageBody', function() {
-    setup(function() {
-      this.sinon.stub(Compose, 'clear');
-      this.sinon.stub(Compose, 'append');
-      this.sinon.stub(Compose, 'focus');
-    });
-
-    suite('with data', function() {
-      var testText = 'testing';
-      setup(function() {
-        ThreadUI.setMessageBody(testText);
-      });
-
-      test('calls clear', function() {
-        assert.ok(Compose.clear.called);
-      });
-
-      test('calls append with correct data', function() {
-        assert.ok(Compose.append.calledWith(testText));
-      });
-
-      test('calls focus', function() {
-        assert.ok(Compose.focus.called);
-      });
-    });
-
-    suite('without data', function() {
-      var testText = '';
-      setup(function() {
-        ThreadUI.setMessageBody(testText);
-      });
-
-      test('calls clear', function() {
-        assert.ok(Compose.clear.called);
-      });
-
-      test('does not call append with empty data', function() {
-        assert.isFalse(Compose.append.called);
-      });
-
-      test('calls focus', function() {
-        assert.ok(Compose.focus.called);
+        assert.isTrue(Recipients.View.isFocusable);
       });
     });
   });
@@ -3898,12 +4118,13 @@ suite('thread_ui.js >', function() {
   });
 
   suite('saveDraft() > ', function() {
-    var addSpy, updateSpy, arg;
+    var addSpy, updateSpy, bannerSpy, arg;
 
     setup(function() {
       window.location.hash = '#new';
       addSpy = this.sinon.spy(Drafts, 'add');
       updateSpy = this.sinon.spy(ThreadListUI, 'updateThread');
+      bannerSpy = this.sinon.spy(ThreadListUI, 'onDraftSaved');
 
       ThreadUI.recipients.add({
         number: '999'
@@ -3915,16 +4136,26 @@ suite('thread_ui.js >', function() {
     test('do not preserve draft for replacement', function() {
       ThreadUI.saveDraft();
 
-      assert.isNull(MessageManager.draft);
+      assert.isNull(ThreadUI.draft);
     });
 
-    test('preserve draft for replacement', function() {
+    test('preserve pre-existing draft for replacement', function() {
       var draft = {id: 55};
-      MessageManager.draft = draft;
+      ThreadUI.draft = draft;
       ThreadUI.saveDraft({preserve: true});
 
-      assert.isNotNull(MessageManager.draft);
-      assert.equal(MessageManager.draft, draft);
+      assert.isNotNull(ThreadUI.draft);
+      assert.equal(ThreadUI.draft, draft);
+    });
+
+    test('preserve new draft for replacement', function() {
+      ThreadUI.draft = null;
+      ThreadUI.saveDraft({preserve: true});
+
+      assert.isNotNull(ThreadUI.draft);
+      assert.deepEqual(ThreadUI.draft.recipients, ['999']);
+      assert.equal(ThreadUI.draft.content, 'foo');
+      assert.equal(ThreadUI.draft.threadId, null);
     });
 
     test('has entered content and recipients', function() {
@@ -3973,15 +4204,15 @@ suite('thread_ui.js >', function() {
     test('saves brand new threadless draft if not within thread', function() {
       Drafts.clear();
 
-      MessageManager.draft = {id: 1};
+      ThreadUI.draft = {id: 1};
       ThreadUI.saveDraft();
       assert.equal(Drafts.byThreadId(null).length, 1);
 
-      MessageManager.draft = {id: 2};
+      ThreadUI.draft = {id: 2};
       ThreadUI.saveDraft();
       assert.equal(Drafts.byThreadId(null).length, 2);
 
-      MessageManager.draft = {id: 3};
+      ThreadUI.draft = {id: 3};
       ThreadUI.saveDraft();
       assert.equal(Drafts.byThreadId(null).length, 3);
     });
@@ -4039,6 +4270,175 @@ suite('thread_ui.js >', function() {
 
       assert.equal(Threads.get(1).unreadCount, 0);
     });
+
+    test('shows draft saved banner if not autosaved', function() {
+      Threads.set(1, {
+        participants: ['999']
+      });
+      window.location.hash = '#thread=1';
+
+      ThreadUI.saveDraft();
+
+      sinon.assert.calledOnce(bannerSpy);
+    });
+
+    test('does not show draft saved banner if autosaved', function() {
+      Threads.set(1, {
+        participants: ['999']
+      });
+      window.location.hash = '#thread=1';
+
+      ThreadUI.saveDraft({autoSave: true});
+
+      sinon.assert.notCalled(bannerSpy);
+    });
+  });
+
+  suite('onVisibilityChange() >', function() {
+    var isDocumentHidden;
+
+    suiteSetup(function() {
+      Object.defineProperty(document, 'hidden', {
+        configurable: true,
+        get: function() {
+          return isDocumentHidden;
+        }
+      });
+    });
+
+    suiteTeardown(function() {
+      delete document.hidden;
+      MessageManager.draft = null;
+    });
+
+    setup(function() {
+      this.sinon.spy(ThreadUI, 'saveDraft');
+    });
+
+    teardown(function() {
+      isDocumentHidden = false;
+    });
+
+    suite('Draft saved: content AND recipients exist', function() {
+      setup(function() {
+        this.sinon.stub(Compose, 'isEmpty').returns(false);
+      });
+
+      test('new: has message', function() {
+        window.location.hash = '#new';
+
+        isDocumentHidden = true;
+
+        ThreadUI.onVisibilityChange();
+
+        sinon.assert.calledOnce(ThreadUI.saveDraft);
+        sinon.assert.calledWithMatch(
+          ThreadUI.saveDraft,
+          {preserve: true, autoSave: true}
+        );
+      });
+
+      test('new: has message, has recipients', function() {
+        window.location.hash = '#new';
+
+        ThreadUI.recipients.length = 1;
+        isDocumentHidden = true;
+
+        ThreadUI.onVisibilityChange();
+
+        sinon.assert.calledOnce(ThreadUI.saveDraft);
+        sinon.assert.calledWithMatch(
+          ThreadUI.saveDraft,
+          {preserve: true, autoSave: true}
+        );
+      });
+
+      test('thread: has message', function() {
+        window.location.hash = '#thread=1';
+
+        isDocumentHidden = true;
+
+        ThreadUI.onVisibilityChange();
+
+        sinon.assert.calledOnce(ThreadUI.saveDraft);
+        sinon.assert.calledWithMatch(
+          ThreadUI.saveDraft,
+          {preserve: true, autoSave: true}
+        );
+      });
+    });
+
+    suite('Draft saved: content OR recipients exist', function() {
+      test('new: has message, no recipients', function() {
+        window.location.hash = '#new';
+
+        this.sinon.stub(Compose, 'isEmpty').returns(false);
+        ThreadUI.recipients.length = 0;
+        isDocumentHidden = true;
+
+        ThreadUI.onVisibilityChange();
+
+        sinon.assert.calledOnce(ThreadUI.saveDraft);
+        sinon.assert.calledWithMatch(
+          ThreadUI.saveDraft,
+          {preserve: true, autoSave: true}
+        );
+      });
+
+      test('new: no message, has recipients', function() {
+        window.location.hash = '#new';
+
+        this.sinon.stub(Compose, 'isEmpty').returns(true);
+        ThreadUI.recipients.length = 1;
+        isDocumentHidden = true;
+
+        ThreadUI.onVisibilityChange();
+
+        sinon.assert.calledOnce(ThreadUI.saveDraft);
+        sinon.assert.calledWithMatch(
+          ThreadUI.saveDraft,
+          {preserve: true, autoSave: true}
+        );
+      });
+    });
+
+    suite('Draft not saved: content or recipients do not exist', function() {
+      setup(function() {
+        this.sinon.stub(Compose, 'isEmpty').returns(true);
+        ThreadUI.recipients.length = 0;
+      });
+
+      test('new: no message', function() {
+        window.location.hash = '#new';
+
+        isDocumentHidden = true;
+
+        ThreadUI.onVisibilityChange();
+
+        sinon.assert.notCalled(ThreadUI.saveDraft);
+      });
+
+      test('new: no message, no recipients', function() {
+        window.location.hash = '#new';
+
+        ThreadUI.recipients.length = 0;
+        isDocumentHidden = true;
+
+        ThreadUI.onVisibilityChange();
+
+        sinon.assert.notCalled(ThreadUI.saveDraft);
+      });
+
+      test('thread: no message', function() {
+        window.location.hash = '#thread=1';
+
+        isDocumentHidden = true;
+
+        ThreadUI.onVisibilityChange();
+
+        sinon.assert.notCalled(ThreadUI.saveDraft);
+      });
+    });
   });
 
   suite('Back button behaviour', function() {
@@ -4087,6 +4487,7 @@ suite('thread_ui.js >', function() {
           number: '999'
         });
 
+        ThreadUI.draft = null;
       });
 
       test('Displays OptionMenu prompt if recipients', function() {
@@ -4148,7 +4549,8 @@ suite('thread_ui.js >', function() {
         });
 
         test('Discard', function() {
-          MessageManager.draft = {id: 3};
+          ThreadUI.draft = new Draft({id: 3});
+          ThreadUI.draft.isEdited = true;
           var spy = this.sinon.spy(ThreadListUI, 'removeThread');
           ThreadUI.back();
 
@@ -4158,59 +4560,104 @@ suite('thread_ui.js >', function() {
           assert.equal(ThreadUI.recipients.length, 0);
           assert.equal(Compose.getContent(), '');
           assert.isTrue(spy.calledOnce);
-          assert.isNull(MessageManager.draft);
+          assert.isNull(ThreadUI.draft);
         });
       });
 
       suite('If existing draft', function() {
 
-        suiteSetup(function() {
-          MessageManager.draft = {id: 55};
+        suite('If draft edited', function() {
+
+          setup(function() {
+            ThreadUI.recipients.add({
+              number: '999'
+            });
+
+            ThreadUI.draft = new Draft({
+              id: 55
+            });
+
+            ThreadUI.draft.isEdited = true; // can't set this via options
+          });
+
+          test('Prompts for replacement if recipients', function() {
+            ThreadUI.back();
+
+            assert.isTrue(OptionMenu.calledOnce);
+            assert.isTrue(showCalled);
+
+            var items = OptionMenu.args[0][0].items;
+
+            // Assert the correct menu items were displayed
+            assert.equal(items[0].l10nId, 'replace-draft');
+            assert.equal(items[1].l10nId, 'discard-message');
+            assert.equal(items[2].l10nId, 'cancel');
+          });
+
+          test('Prompts for replacement if recipients & content', function() {
+            Compose.append('foo');
+            ThreadUI.back();
+
+            assert.isTrue(OptionMenu.calledOnce);
+            assert.isTrue(showCalled);
+
+            var items = OptionMenu.args[0][0].items;
+
+            // Assert the correct menu items were displayed
+            assert.equal(items[0].l10nId, 'replace-draft');
+            assert.equal(items[1].l10nId, 'discard-message');
+            assert.equal(items[2].l10nId, 'cancel');
+          });
+
+          test('Prompts for replacement if content', function() {
+            ThreadUI.recipients.remove('999');
+            Compose.append('foo');
+            ThreadUI.back();
+
+            assert.isTrue(OptionMenu.calledOnce);
+            assert.isTrue(showCalled);
+
+            var items = OptionMenu.args[0][0].items;
+
+            // Assert the correct menu items were displayed
+            assert.equal(items[0].l10nId, 'replace-draft');
+            assert.equal(items[1].l10nId, 'discard-message');
+            assert.equal(items[2].l10nId, 'cancel');
+          });
         });
 
-        test('Displays replacement prompt if recipients', function() {
-          ThreadUI.back();
+        suite('If draft not edited', function() {
 
-          assert.isTrue(OptionMenu.calledOnce);
-          assert.isTrue(showCalled);
+          setup(function() {
+            ThreadUI.draft = {id: 55};
+          });
 
-          var items = OptionMenu.args[0][0].items;
+          test('No prompt for replacement if recipients', function() {
+            ThreadUI.draft.isEdited = false;
+            ThreadUI.back();
 
-          // Assert the correct menu items were displayed
-          assert.equal(items[0].l10nId, 'replace-draft');
-          assert.equal(items[1].l10nId, 'discard-message');
-          assert.equal(items[2].l10nId, 'cancel');
-        });
+            assert.isFalse(OptionMenu.calledOnce);
+            assert.isFalse(showCalled);
+          });
 
-        test('Displays replacement prompt if recipients & content', function() {
-          Compose.append('foo');
-          ThreadUI.back();
+          test('No prompt for replacement if recipients & content', function() {
+            Compose.append('foo');
+            ThreadUI.draft.isEdited = false;
+            ThreadUI.back();
 
-          assert.isTrue(OptionMenu.calledOnce);
-          assert.isTrue(showCalled);
+            assert.isFalse(OptionMenu.calledOnce);
+            assert.isFalse(showCalled);
+          });
 
-          var items = OptionMenu.args[0][0].items;
+          test('No prompt for replacement if content', function() {
+            ThreadUI.recipients.remove('999');
+            Compose.append('foo');
+            ThreadUI.draft.isEdited = false;
+            ThreadUI.back();
 
-          // Assert the correct menu items were displayed
-          assert.equal(items[0].l10nId, 'replace-draft');
-          assert.equal(items[1].l10nId, 'discard-message');
-          assert.equal(items[2].l10nId, 'cancel');
-        });
-
-        test('Displays replacement prompt if content', function() {
-          ThreadUI.recipients.remove('999');
-          Compose.append('foo');
-          ThreadUI.back();
-
-          assert.isTrue(OptionMenu.calledOnce);
-          assert.isTrue(showCalled);
-
-          var items = OptionMenu.args[0][0].items;
-
-          // Assert the correct menu items were displayed
-          assert.equal(items[0].l10nId, 'replace-draft');
-          assert.equal(items[1].l10nId, 'discard-message');
-          assert.equal(items[2].l10nId, 'cancel');
+            assert.isFalse(OptionMenu.calledOnce);
+            assert.isFalse(showCalled);
+          });
         });
       });
     });
@@ -4324,6 +4771,50 @@ suite('thread_ui.js >', function() {
       test('should show settings options last', function() {
         assert.equal(options[options.length - 2].l10nId, 'settings');
       });
+    });
+  });
+
+  suite('getMessageBubble(element) > ', function() {
+    var tree, li, section, span;
+
+    setup(function() {
+      tree = document.createElement('div');
+
+      tree.innerHTML = [
+        '<div id="thread-messages">',
+          '<ul>',
+            '<li data-message-id="1">',
+              '<section class="bubble">',
+                '<span>.</span>',
+              '</section>',
+            '</li>',
+          '</ul>',
+        '</div>'
+      ].join();
+
+      span = tree.querySelector('span');
+      section = tree.querySelector('section');
+      li = tree.querySelector('li');
+    });
+
+    test('Finds the bubble (event target is lower)', function() {
+      var data = ThreadUI.getMessageBubble(span);
+
+      assert.equal(data.node, section);
+      assert.equal(data.id, 1);
+    });
+
+    test('Finds the bubble (event target is bubble)', function() {
+      var data = ThreadUI.getMessageBubble(section);
+
+      assert.equal(data.node, section);
+      assert.equal(data.id, 1);
+    });
+
+    test('Does not find the bubble (event target is higher)', function() {
+      var data = ThreadUI.getMessageBubble(li);
+
+      assert.equal(data, null);
     });
   });
 });

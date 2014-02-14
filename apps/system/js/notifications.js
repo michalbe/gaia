@@ -85,7 +85,7 @@ var NotificationScreen = {
     window.addEventListener('ftuopen', this);
     window.addEventListener('ftudone', this);
 
-    this._sound = 'style/notifications/ringtones/notifier_exclamation.ogg';
+    this._sound = 'style/notifications/ringtones/notifier_exclamation.opus';
 
     this.ringtoneURL = new SettingsURL();
 
@@ -146,20 +146,10 @@ var NotificationScreen = {
     }
   },
 
-  // TODO: Workaround for bug 929895 until bug 890440 is addressed
-  clearBlacklist: [
-    window.location.protocol + '//wappush.gaiamobile.org/manifest.webapp'
-  ],
-
+  // TODO: Remove this when we ditch mozNotification (bug 952453)
   handleAppopen: function ns_handleAppopen(evt) {
     var manifestURL = evt.detail.manifestURL,
         selector = '[data-manifest-u-r-l="' + manifestURL + '"]';
-
-    var isBlacklisted = (this.clearBlacklist.indexOf(manifestURL) >= 0);
-
-    if (isBlacklisted) {
-      return;
-    }
 
     var nodes = this.container.querySelectorAll(selector);
 
@@ -242,7 +232,6 @@ var NotificationScreen = {
         id: notificationId
       }
     }));
-    window.dispatchEvent(event);
 
     // Desktop notifications are removed when they are clicked (see bug 890440)
     if (notificationNode.dataset.type === 'desktop-notification' &&

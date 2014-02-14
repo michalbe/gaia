@@ -1,24 +1,25 @@
+/* globals contacts, MockFindMatcher, utils, MocksHelper, MockThumbnailImage  */
+
+'use strict';
+
 require('/shared/js/simple_phone_matcher.js');
+requireApp('communications/contacts/js/utilities/misc.js');
 requireApp('communications/contacts/test/unit/mock_find_matcher.js');
+requireApp('communications/contacts/test/unit/mock_image_thumbnail.js');
+require('/shared/test/unit/mocks/mock_contact_photo_helper.js');
+
 requireApp('communications/contacts/js/contacts_merger.js');
 
-if (!this.toMergeContacts) {
-  this.toMergeContacts = null;
-}
-
-if (!this.toMergeContact) {
-  this.toMergeContact = null;
-}
-
-if (!this.realmozContacts) {
-  this.realmozContacts = null;
-}
-
-if (!this.SimplePhoneMatcher) {
-  this.SimplePhoneMatcher = null;
-}
+var mocksHelperForContactsMerger = new MocksHelper([
+  'ContactPhotoHelper'
+]).init();
 
 suite('Contacts Merging Tests', function() {
+  mocksHelperForContactsMerger.attachTestHelpers();
+  var toMergeContacts = null,
+      toMergeContact = null,
+      realmozContacts = null,
+      realThumbnailImage = null;
 
   var aPhoto = new Blob();
 
@@ -59,10 +60,14 @@ suite('Contacts Merging Tests', function() {
 
     realmozContacts = navigator.mozContacts;
     navigator.mozContacts = MockFindMatcher;
+
+    realThumbnailImage = utils.thumbnailImage;
+    utils.thumbnailImage = MockThumbnailImage;
   });
 
   suiteTeardown(function() {
     navigator.mozContacts = realmozContacts;
+    utils.thumbnailImage = realThumbnailImage;
   });
 
   function assertFieldValues(field, values, property) {
@@ -150,6 +155,54 @@ suite('Contacts Merging Tests', function() {
       success: function(result) {
         assert.equal(result.givenName[0], 'Alfred');
         assert.equal(result.familyName[0], 'Müller von Bismarck');
+
+        done();
+    }});
+  });
+
+  test('Merge first name and last name. existing and incoming given names' +
+       'empty', function(done) {
+    toMergeContact.matchingContact = {
+      givenName: [],
+      familyName: ['Müller von Bismarck'],
+       tel: [{
+        type: ['work'],
+        value: '67676767'
+      }]
+    };
+
+    var masterContact = new MasterContact();
+
+    masterContact.givenName = null;
+
+    contacts.Merger.merge(masterContact, toMergeContacts, {
+      success: function(result) {
+        assert.isTrue(result.givenName.length === 0);
+        assert.equal(result.familyName[0], 'Müller');
+
+        done();
+    }});
+  });
+
+  test('Merge first name and last name. existing and incoming last names empty',
+       function(done) {
+    toMergeContact.matchingContact = {
+      givenName: ['Alfred Albert'],
+      familyName: [],
+       tel: [{
+        type: ['work'],
+        value: '67676767'
+      }]
+    };
+
+    var masterContact = new MasterContact();
+
+    masterContact.familyName = null;
+
+    contacts.Merger.merge(masterContact, toMergeContacts, {
+      success: function(result) {
+        assert.isTrue(result.familyName.length === 0);
+        assert.equal(result.givenName[0], 'Alfred');
 
         done();
     }});
@@ -244,7 +297,7 @@ suite('Contacts Merging Tests', function() {
         assert.lengthOf(result.email, 1);
 
         assertFieldValues(result.tel, ['67676767', '0987654']);
-        assertFieldValues(result.tel, ['work', 'another'], 'type');
+        assertFieldValues(result.tel, ['work', 'other'], 'type');
 
         done();
     }});
@@ -352,7 +405,7 @@ suite('Contacts Merging Tests', function() {
 
         assertFieldValues(result.email, ['jj@jj.com', 'home@sweet.home']);
 
-        assertFieldValues(result.email, ['work', 'personal'], 'type');
+        assertFieldValues(result.email, ['work', 'other'], 'type');
 
         done();
     }});

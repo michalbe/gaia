@@ -28,16 +28,17 @@
     "search": {
       "handler_path": "index.html",
       "description": "Proxies search to copied search app. Should be moved to the search app manifest if we split the app up.",
-      "rules": {
-        "manifestURLs": ["app://system.gaiamobile.org/manifest.webapp"]
-      }
+      "rules": {}
+    }
+  },
+  "datastores-access": {
+    "eme_store": {
+      "readonly": false,
+      "description": "Stores Everything.me data"
     },
-    "eme-client": {
-      "handler_path": "index.html",
-      "description": "Handles message from the E.me app.",
-      "rules": {
-        "manifestURLs": ["app://homescreen.gaiamobile.org/manifest.webapp"]
-      }
+    "places": {
+      "access": "readonly",
+      "description": "Stores data about browsing history."
     }
   }
 }

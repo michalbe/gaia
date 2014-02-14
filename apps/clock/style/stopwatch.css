@@ -8,21 +8,21 @@
   color: #CFE2E6;
   font-weight: lighter;
   font-variant-numeric: tabular-nums;
-  font-size: 5.5rem;
+  font-size: 8.6rem;
   letter-spacing: -0.5rem;
   pointer-events: none;
 }
 
 #stopwatch-controls {
-  width: 100%;
-  margin: 0px 0.5rem 0px -2.5rem;
+  display: flex;
+  padding: 0;
+  margin: 2rem 1rem 0;
 }
 
 #stopwatch-controls button {
-  float: left;
-
-  width: 45%;
-  margin: 0 1rem 0 0;
+  flex: auto;
+  height: 3.8rem;
+  margin: 0 0.5rem;
 }
 
 .stopwatch-laps {

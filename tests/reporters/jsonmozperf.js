@@ -18,13 +18,18 @@ function JSONMozPerfReporter(runner) {
   var failures = [];
   var passes = [];
   var mozPerfDurations;
+  var mozPerfMemory;
 
   runner.on('test', function(test) {
     mozPerfDurations = [];
   });
 
   runner.on('mozPerfDuration', function(content) {
-    mozPerfDurations = content;
+    mozPerfDurations[content.title] = content.values;
+  });
+
+  runner.on('mozPerfMemory', function(content) {
+    mozPerfMemory = content;
   });
 
   runner.on('pass', function(test) {
@@ -43,7 +48,9 @@ function JSONMozPerfReporter(runner) {
         fullTitle: test.fullTitle() + ' ' + title,
         duration: test.duration,
         mozPerfDurations: mozPerfDurations[title],
-        mozPerfDurationsAverage: average(mozPerfDurations[title])
+        mozPerfDurationsAverage: average(mozPerfDurations[title]),
+        mozPerfMemory: mozPerfMemory[title],
+        mozPerfMemoryAverage: averageObjects(mozPerfMemory[title])
       });
     }
   });
@@ -95,6 +102,43 @@ function average(arr) {
   });
 
   return sum / arr.length;
+}
+
+function averageObjects(arr) {
+  if (arr.length === 0) {
+    return null;
+  }
+  var total = arr.reduce(function(cur, nxt) {
+    for (var part in nxt) {
+      for (var type in nxt[part]) {
+        if (typeof nxt[part][type] === 'number') {
+          cur[part][type] += nxt[part][type];
+        }
+      }
+    }
+    return cur;
+  }, {
+    app: {
+      uss: 0,
+      pss: 0,
+      rss: 0,
+      vsize: 0
+    },
+    system: {
+      uss: 0,
+      pss: 0,
+      rss: 0,
+      vsize: 0
+    }
+  });
+
+  for (var part in total) {
+    for (var type in total[part]) {
+      total[part][type] /= arr.length;
+    }
+  }
+
+  return total;
 }
 
 JSONMozPerfReporter.prototype.__proto__ = Mocha.reporters.Base.prototype;

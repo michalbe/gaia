@@ -19,7 +19,7 @@
     <!-- Building blocks -->
     <link rel="stylesheet" type="text/css" href="shared/style/headers.css">
     <link rel="stylesheet" type="text/css" href="shared/style/switches.css">
-    <link rel="stylesheet" type="text/css" href="shared/style_unstable/lists.css">
+    <link rel="stylesheet" type="text/css" href="shared/style/lists.css">
 
     <!-- App and Views -->
     <link rel="stylesheet" type="text/css" href="style/app.css">
@@ -38,7 +38,7 @@
     <script type="text/javascript" defer src="js/settings/settings.js"></script>
   </head>
   <body role="application">
-    <section role="region" class="window skin-organic" id="settings-view">
+    <section role="region" class="window skin-organic">
       <!-- Settings view -->
       <section role="region" id="settings-view" class="view">
         <header data-theme="organic">
@@ -50,7 +50,7 @@
 
         <!-- Plantype -->
         <section class="view-scroll" role="region">
-          <ul id="plantype-settings" class="settings">
+          <ul id="plantype-settings" class="settings" aria-hidden="true">
            <li>
             <span class="button icon icon-dialog fake-select">
               <select id="widget-plantype" class="settings-option" data-option="plantype">
@@ -78,10 +78,10 @@
           </ul>
 
           <!-- Balance alerts -->
-          <header id="balance-settings">
+          <header id="balance-settings" aria-hidden="true">
             <h2 data-l10n-id="balance">Balance</h2>
           </header>
-          <ul class="settings">
+          <ul class="settings" aria-hidden="true">
             <li>
                 <p id="balance"></p>
                 <p class="meta"></p>

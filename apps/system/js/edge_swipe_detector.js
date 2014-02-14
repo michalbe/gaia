@@ -5,15 +5,19 @@ var EdgeSwipeDetector = {
   next: document.getElementById('right-panel'),
   screen: document.getElementById('screen'),
 
+  _touchForwarder: null,
+
   init: function esd_init() {
     window.addEventListener('homescreenopening', this);
     window.addEventListener('appopen', this);
     window.addEventListener('launchapp', this);
 
-    ['touchstart', 'touchmove', 'touchend'].forEach(function(e) {
+    ['touchstart', 'touchmove', 'touchend',
+     'mousedown', 'mousemove', 'mouseup'].forEach(function(e) {
       this.previous.addEventListener(e, this);
       this.next.addEventListener(e, this);
     }, this);
+    this._touchForwarder = new TouchForwarder();
 
     SettingsListener.observe('edgesgesture.enabled', false,
                              this.settingUpdate.bind(this));
@@ -36,6 +40,24 @@ var EdgeSwipeDetector = {
 
   handleEvent: function esd_handleEvent(e) {
     switch (e.type) {
+      case 'mousedown':
+      case 'mousemove':
+      case 'mouseup':
+        // Preventing gecko reflows
+        e.preventDefault();
+        break;
+      case 'touchstart':
+        e.preventDefault();
+        this._touchStart(e);
+        break;
+      case 'touchmove':
+        e.preventDefault();
+        this._touchMove(e);
+        break;
+      case 'touchend':
+        e.preventDefault();
+        this._touchEnd(e);
+        break;
       case 'appopen':
         this.screen.classList.add('edges');
         break;
@@ -49,15 +71,6 @@ var EdgeSwipeDetector = {
           this._lifecycleEnabled = true;
           this._updateEnabled();
         }
-        break;
-      case 'touchstart':
-        this._touchStart(e);
-        break;
-      case 'touchmove':
-        this._touchMove(e);
-        break;
-      case 'touchend':
-        this._touchEnd(e);
         break;
     }
   },
@@ -79,7 +92,7 @@ var EdgeSwipeDetector = {
   _progress: null,
   _winWidth: null,
   _direction: null,
-  _notSwiping: null,
+  _forwarding: null,
 
   _touchStart: function esd_touchStart(e) {
     this._winWidth = window.innerWidth;
@@ -87,22 +100,23 @@ var EdgeSwipeDetector = {
     this._touchStartEvt = e;
     this._startDate = Date.now();
 
-    this._iframe = StackManager.getCurrent().iframe;
+    var iframe = StackManager.getCurrent().iframe;
+    this._touchForwarder.destination = iframe;
 
     var touch = e.changedTouches[0];
-    this._startX = touch.screenX;
-    this._startY = touch.screenY;
+    this._startX = touch.clientX;
+    this._startY = touch.clientY;
     this._deltaX = 0;
     this._deltaY = 0;
-    this._notSwiping = false;
+    this._forwarding = false;
 
     this._clearForwardTimeout();
     this._forwardTimeout = setTimeout((function longTouch() {
       // Didn't move for a while after the touchstart,
       // this isn't a swipe
       this._forwardTimeout = null;
-      this._notSwiping = true;
-      this._sendTouchEvent(this._touchStartEvt);
+      this._forwarding = true;
+      this._touchForwarder.forward(this._touchStartEvt);
     }).bind(this), 300);
 
     SheetsTransition.begin(this._direction);
@@ -110,12 +124,10 @@ var EdgeSwipeDetector = {
 
   _touchMove: function esd_touchMove(e) {
     var touch = e.touches[0];
-    this._deltaX = Math.abs(touch.screenX - this._startX);
-    this._deltaY = Math.abs(touch.screenY - this._startY);
-    this._progress = this._deltaX / this._winWidth;
+    this._updateProgress(touch);
 
-    if (this._notSwiping) {
-      this._sendTouchEvent(e);
+    if (this._forwarding) {
+      this._touchForwarder.forward(e);
       return;
     }
 
@@ -128,11 +140,17 @@ var EdgeSwipeDetector = {
   },
 
   _touchEnd: function esd_touchEnd(e) {
-    if ((this._deltaX < 5) && (this._deltaY < 5)) {
-      this._sendTap(e);
-      this._notSwiping = true;
-    } else if (this._notSwiping) {
-      this._sendTouchEvent(e);
+    var touch = e.changedTouches[0];
+    this._updateProgress(touch);
+
+    if (this._forwarding) {
+      this._touchForwarder.forward(e);
+    } else if ((this._deltaX < 5) && (this._deltaY < 5)) {
+      setTimeout(function(self, touchstart, touchend) {
+        self._touchForwarder.forward(touchstart);
+        self._touchForwarder.forward(touchend);
+      }, 0, this, this._touchStartEvt, e);
+      this._forwarding = true;
     }
 
     this._clearForwardTimeout();
@@ -142,7 +160,7 @@ var EdgeSwipeDetector = {
     var inertia = speed * 120; // 120 ms of intertia
     var adjustedProgress = (this._progress + inertia);
 
-    if (adjustedProgress < 0.33 || this._notSwiping) {
+    if (adjustedProgress < 0.33 || this._forwarding) {
       SheetsTransition.snapInPlace();
       SheetsTransition.end();
       return;
@@ -164,6 +182,12 @@ var EdgeSwipeDetector = {
     });
   },
 
+  _updateProgress: function esd_updateProgress(touch) {
+    this._deltaX = Math.abs(touch.clientX - this._startX);
+    this._deltaY = Math.abs(touch.clientY - this._startY);
+    this._progress = this._deltaX / this._winWidth;
+  },
+
   _clearForwardTimeout: function esd_clearForwardTimeout() {
     if (this._forwardTimeout) {
       clearTimeout(this._forwardTimeout);
@@ -175,61 +199,13 @@ var EdgeSwipeDetector = {
     if ((this._deltaX * 2 < this._deltaY) &&
         (this._deltaY > 5)) {
       this._clearForwardTimeout();
-      this._notSwiping = true;
-      this._sendTouchEvent(this._touchStartEvt);
-      this._sendTouchEvent(e);
+      this._forwarding = true;
+      this._touchForwarder.forward(this._touchStartEvt);
+      this._touchForwarder.forward(e);
 
       SheetsTransition.snapInPlace();
       SheetsTransition.end();
     }
-  },
-
-  _sendTouchEvent: function esd_sendTouchEvent(e) {
-    this._iframe.sendTouchEvent.apply(null, this._unSynthetizeEvent(e));
-  },
-
-  _sendTap: function esd_sendTap(e) {
-    var firstTouch = this._touchStartEvt.changedTouches[0];
-    var lastTouch = e.changedTouches[0];
-
-    // If the timeout ended the touchstart was already sent
-    if (this._forwardTimeout) {
-      this._sendTouchEvent(this._touchStartEvt);
-    }
-    this._iframe.sendMouseEvent('mousedown', firstTouch.pageX,
-                                firstTouch.pageY, 0, 1, 0);
-
-    setTimeout((function fakeTap() {
-      this._sendTouchEvent(e);
-      this._iframe.sendMouseEvent('mouseup', lastTouch.pageX,
-                                  lastTouch.pageY, 0, 1, 0);
-    }).bind(this), 80);
-  },
-
-  _unSynthetizeEvent: function esd_unSynthetizeEvent(e) {
-    var type = e.type;
-    var relevantTouches = (type == 'touchmove') ? e.touches : e.changedTouches;
-    var identifiers = [];
-    var xs = [];
-    var ys = [];
-    var rxs = [];
-    var rys = [];
-    var rs = [];
-    var fs = [];
-
-    for (var i = 0; i < relevantTouches.length; i++) {
-      var t = relevantTouches[i];
-
-      identifiers.push(t.identifier);
-      xs.push(t.pageX);
-      ys.push(t.pageY);
-      rxs.push(t.radiusX);
-      rys.push(t.radiusY);
-      rs.push(t.rotationAngle);
-      fs.push(t.force);
-    }
-
-    return [type, identifiers, xs, ys, rxs, rys, rs, fs, xs.length];
   }
 };
 

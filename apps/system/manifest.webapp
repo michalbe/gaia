@@ -76,7 +76,8 @@
      { "icc-stkcommand": "/index.html" },
      { "cdma-info-rec-received": "/index.html" },
      { "nfc-manager-tech-discovered": "/index.html" },
-     { "nfc-manager-tech-lost": "/index.html" }
+     { "nfc-manager-tech-lost": "/index.html" },
+     { "nfc-manager-send-file": "/index.html" }
   ],
   "connections": {
     "mediacomms": {
@@ -98,12 +99,22 @@
     "dialercomms": {
       "description": "Communication with dialer app for sleep message",
       "rules": {}
+    },
+    "fxa-mgmt": {
+      "description": "Firefox Accounts management API",
+      "rules": {
+        "minimumAccessLevel": "certified"
+      }
     }
   },
   "datastores-owned": {
     "download_store": {
       "access": "readwrite",
       "description": "Stores successful downloads"
+    },
+    "places": {
+      "access": "readwrite",
+      "description": "Stores data about browsing history."
     }
   }
 }

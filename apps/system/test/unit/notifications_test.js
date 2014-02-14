@@ -1,18 +1,29 @@
+/* global
+  mocha,
+  MocksHelper,
+  MockStatusBar,
+  NotificationScreen
+ */
+
 'use strict';
 
 mocha.globals(['ScreenManager']);
 
-requireApp('system/shared/test/unit/mocks/mock_settings_url.js');
-requireApp('system/test/unit/mock_statusbar.js');
-requireApp('system/test/unit/mock_gesture_detector.js');
-requireApp('system/shared/test/unit/mocks/mock_settings_listener.js');
-requireApp('system/js/notifications.js');
+require('/shared/test/unit/mocks/mock_settings_url.js');
+require('/test/unit/mock_statusbar.js');
+require('/shared/test/unit/mocks/mock_gesture_detector.js');
+require('/test/unit/mock_screen_manager.js');
+require('/test/unit/mock_utility_tray.js');
+require('/shared/test/unit/mocks/mock_settings_listener.js');
+require('/js/notifications.js');
 
 var mocksForNotificationScreen = new MocksHelper([
   'StatusBar',
   'GestureDetector',
+  'ScreenManager',
   'SettingsListener',
-  'SettingsURL'
+  'SettingsURL',
+  'UtilityTray'
 ]).init();
 
 suite('system/NotificationScreen >', function() {
@@ -32,7 +43,7 @@ suite('system/NotificationScreen >', function() {
       var obj = document.createElement(tag);
       obj.id = id;
       return obj;
-    };
+    }
 
     fakeLockScreenContainer = createFakeElement('div',
       'notifications-lockscreen-container');
@@ -82,36 +93,31 @@ suite('system/NotificationScreen >', function() {
     test('showing a notification', function() {
       sendChromeEvent({
         type: 'desktop-notification',
-        id: 1
+        id: 'id-1'
       });
 
       assert.ok(NotificationScreen.addNotification.called);
-      assert.equal(NotificationScreen.addNotification.args[0][0].id, 1);
+      assert.equal(NotificationScreen.addNotification.args[0][0].id, 'id-1');
     });
 
     test('closing a notification', function() {
       sendChromeEvent({
         type: 'desktop-notification-close',
-        id: 1
+        id: 'id-1'
       });
       assert.ok(NotificationScreen.removeNotification.called);
-      assert.equal(NotificationScreen.removeNotification.args[0][0], 1);
+      assert.equal(NotificationScreen.removeNotification.args[0][0], 'id-1');
     });
   });
 
   suite('updateStatusBarIcon >', function() {
-    var realScreenManager;
     setup(function() {
-      realScreenManager = window.ScreenManager;
-      window.ScreenManager = {
-        screenEnabled: true,
-        turnScreenOn: sinon.stub()
-      };
+      this.sinon.spy(MockStatusBar, 'updateNotification');
       NotificationScreen.updateStatusBarIcon();
     });
 
     test('should update the icon in the status bar', function() {
-      assert.ok(MockStatusBar.wasMethodCalled['updateNotification']);
+      sinon.assert.called(MockStatusBar.updateNotification);
       assert.equal(2, MockStatusBar.notificationsCount);
     });
 
@@ -166,7 +172,7 @@ suite('system/NotificationScreen >', function() {
                     bidi: dir};
       NotificationScreen.addNotification(detail);
       assert.equal(dir, toasterTitle.dir);
-    };
+    }
 
     test('calling addNotification with rtl direction', function() {
       testNotificationWithDirection('rtl');
@@ -205,16 +211,14 @@ suite('system/NotificationScreen >', function() {
     });
 
     test('remove lockscreen notifications at the same time', function() {
-      NotificationScreen.addNotification({ id: 10000, title: '', message: '' });
-      NotificationScreen.removeNotification(10000);
+      NotificationScreen.addNotification({
+        id: 'id-10000', title: '', message: ''
+      });
+      NotificationScreen.removeNotification('id-10000');
       assert.equal(
         null,
         fakeLockScreenContainer.querySelector(
-          '[data-notification-i-d="10000"]'));
-    });
-
-    teardown(function() {
-      window.ScreenManager = realScreenManager;
+          '[data-notification-i-d="id-10000"]'));
     });
   });
 
@@ -235,6 +239,52 @@ suite('system/NotificationScreen >', function() {
         message: ''
       });
       assert.equal('false', node.dataset.obsoleteAPI);
+    });
+  });
+
+  suite('tap a notification >', function() {
+    var notificationNode, notifClickedStub, contentEventStub;
+    var details = {
+      type: 'desktop-notification',
+      id: 'id-1',
+      title: '',
+      message: ''
+    };
+
+    setup(function() {
+      notificationNode = NotificationScreen.addNotification(details);
+
+      notifClickedStub = sinon.stub();
+      contentEventStub = sinon.stub();
+
+      window.addEventListener('notification-clicked', notifClickedStub);
+      window.addEventListener('mozContentEvent', contentEventStub);
+
+      var event = new CustomEvent('tap', { bubbles: true, cancelable: true });
+      notificationNode.dispatchEvent(event);
+    });
+
+    teardown(function() {
+      window.removeEventListener('notification-clicked', notifClickedStub);
+      window.removeEventListener('mozContentEvent', contentEventStub);
+    });
+
+    test('dispatch events once with the expected parameters', function() {
+      sinon.assert.calledOnce(notifClickedStub);
+      sinon.assert.calledOnce(contentEventStub);
+
+      sinon.assert.calledWithMatch(notifClickedStub, {
+        detail: {
+          id: details.id
+        }
+      });
+
+      sinon.assert.calledWithMatch(contentEventStub, {
+        detail: {
+          type: 'desktop-notification-click',
+          id: details.id
+        }
+      });
     });
   });
 

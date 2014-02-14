@@ -411,9 +411,6 @@ if (typeof window.importer === 'undefined') {
      *
      */
     function friendsAvailable() {
-      FixedHeader.init('#mainContent', '#fixed-container',
-                     '.import-list header, .fb-import-list header');
-
       imgLoader = new ImageLoader('#mainContent',
                                 ".block-item:not([data-uuid='#uid#'])");
 
@@ -733,7 +730,6 @@ if (typeof window.importer === 'undefined') {
 
       var contacts = [];
       var unSelectedKeys = Object.keys(unSelectedContacts);
-      // ContactsCleaner expects an Array object
       unSelectedKeys.forEach(function iterator(uid) {
         var deviceContacts = unSelectedContacts[uid];
         for (var i = 0; i < deviceContacts.length; i++) {

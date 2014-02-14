@@ -240,8 +240,8 @@ var vibrationEnabled;
 var isSoundEnabled;
 
 // data URL for keyboard click sound
-const CLICK_SOUND = './resources/sounds/key.ogg';
-const SPECIAL_SOUND = './resources/sounds/special.ogg';
+const CLICK_SOUND = './resources/sounds/key.opus';
+const SPECIAL_SOUND = './resources/sounds/special.opus';
 
 // The audio element used to play the click sound
 var clicker;
@@ -769,8 +769,15 @@ function renderKeyboard(keyboardName, callback) {
 
     IMERender.ime.classList.remove('full-candidate-panel');
 
+    // Rule of thumb: always render uppercase, unless secondLayout has been
+    // specified (for e.g. arabic, then depending on shift key)
+    var needsUpperCase = currentLayout.secondLayout ?
+      (isUpperCaseLocked || isUpperCase) :
+      true;
+
     // And draw the layout
     IMERender.draw(currentLayout, {
+      uppercase: needsUpperCase,
       inputType: currentInputType,
       showCandidatePanel: needsCandidatePanel()
     }, function() {
@@ -823,6 +830,12 @@ function setUpperCase(upperCase, upperCaseLocked) {
   if (!isKeyboardRendered)
     return;
 
+  // When we have secondLayout, we need to force re-render on uppercase switch
+  if (currentLayout.secondLayout) {
+    return renderKeyboard(keyboardName);
+  }
+
+  // Otherwise we can just update only the keys we need...
   // Try to block the event loop as little as possible
   requestAnimationFrame(function() {
     startTime('BLOCKING (nextTick) updateUpperCaseUI');

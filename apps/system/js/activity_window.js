@@ -126,13 +126,20 @@
   ActivityWindow.prototype.setOrientation =
     function acw_setOrientation(noCapture) {
       if (this.isActive()) {
-        var manifest = this.activityCaller ?
-                        this.activityCaller.manifest :
-                        (this.manifest || this.config.manifest);
 
-        var orientation = manifest ? (manifest.orientation ||
-                          OrientationManager.globalOrientation) :
-                          OrientationManager.globalOrientation;
+        var orientation1 = (this.manifest) ?
+                            this.manifest.orientation : null;
+        var orientation2 = (this.config.manifest) ?
+                            this.config.manifest.orientation : null;
+        var orientation3 = (this.activityCaller.manifest) ?
+                            this.activityCaller.manifest.orientation : null;
+        var orientation4 = OrientationManager.globalOrientation;
+
+        var orientation = orientation1 ||
+                          orientation2 ||
+                          orientation3 ||
+                          orientation4;
+
         if (orientation) {
           var rv = false;
           if ('lockOrientation' in screen) {
@@ -171,7 +178,8 @@
   ActivityWindow.SUB_COMPONENTS = {
     'transitionController': window.AppTransitionController,
     'modalDialog': window.AppModalDialog,
-    'authDialog': window.AppAuthenticationDialog
+    'authDialog': window.AppAuthenticationDialog,
+    'contextmenu': window.BrowserContextMenu
   };
 
   ActivityWindow.REGISTERED_EVENTS =
@@ -203,11 +211,12 @@
     if (this.isActive()) {
       var self = this;
       this.element.addEventListener('_closed', function onClose() {
-        self.element.addEventListener('_closed', onClose);
+        self.element.removeEventListener('_closed', onClose);
         self.publish('terminated');
         // If caller is an instance of appWindow,
         // tell AppWindowManager to open it.
         // XXX: Call this.activityCaller.open() if open logic is done.
+        self.debug('request caller to open again');
         if (self.activityCallee) {
           self.activityCallee.kill();
         }
@@ -223,7 +232,10 @@
         } else {
           console.warn('unknown window type of activity caller.');
         }
-        self.element.parentNode.removeChild(self.element);
+
+        var e = self.element.parentNode.removeChild(self.element);
+        self.debug('removing ' + e);
+        self.publish('removed');
       });
       this.close();
     } else {
@@ -231,7 +243,9 @@
       if (this.activityCallee) {
         this.activityCallee.kill();
       }
-      this.element.parentNode.removeChild(this.element);
+      var e = this.element.parentNode.removeChild(this.element);
+      this.debug('removing ' + e);
+      this.publish('removed');
     }
     this.debug('killed by ', evt ? evt.type : 'direct function call.');
     this.activityCaller.unsetActivityCallee();
@@ -276,6 +290,16 @@
    */
   ActivityWindow.prototype.containerElement =
     document.getElementById('windows');
+
+  /**
+   * Bringing ourselves up. To do so we simply do
+   * requestOpen() the original caller app window instance.
+   * Note: this overrides AppWindow.prototype.requestOpen().
+   */
+  ActivityWindow.prototype.requestOpen = function acw_requestOpen() {
+    if (this.activityCaller)
+      this.activityCaller.requestOpen();
+  };
 
   /**
    * Restore caller's visibility when we start closing.

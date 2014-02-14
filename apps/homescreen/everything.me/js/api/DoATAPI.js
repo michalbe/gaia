@@ -21,6 +21,12 @@ Evme.DoATAPI = new function Evme_DoATAPI() {
       // maximum number of calls to save in the user's cache
       MAX_ITEMS_IN_CACHE = 20,
 
+      MAX_QUERY_LENGTH = {
+        'App': 300,
+        'Search': 128,
+        'Location': 64
+      },
+
       CACHE_EXPIRATION_IN_MINUTES = 24 * 60,
       STORAGE_KEY_CREDS = 'credentials',
       authCookieName = '',
@@ -94,12 +100,7 @@ Evme.DoATAPI = new function Evme_DoATAPI() {
     authCookieName = options.authCookieName;
     manualCampaignStats = options.manualCampaignStats;
 
-    // temporarily generate a device id, so that requests going out before we
-    // took it from the cache won't fail
-    deviceId = generateDeviceId();
-    getDeviceId(function deviceIdGot(value) {
-      deviceId = value;
-    });
+    deviceId = options.deviceId;
 
     Evme.Storage.get(STORAGE_KEY_CREDS, function storageGot(value) {
       manualCredentials = value;
@@ -709,6 +710,12 @@ Evme.DoATAPI = new function Evme_DoATAPI() {
 
       _request;
 
+    // truncate query
+    var nsQueryLength = MAX_QUERY_LENGTH[methodNamespace];
+    if (nsQueryLength && 'query' in params &&
+        params.query.length > nsQueryLength) {
+      params.query = params.query.substr(0, nsQueryLength);
+    }
 
     // init the session (and THEN make the request)
     // if the session expired/non-existent
@@ -921,27 +928,9 @@ Evme.DoATAPI = new function Evme_DoATAPI() {
     return retParams.join(',');
   }
 
-  function getDeviceId(callback) {
-    Evme.Storage.get('deviceId', function storageGot(deviceId) {
-      if (!deviceId) {
-        deviceId = generateDeviceId();
-        Evme.Storage.set('deviceId', deviceId);
-      }
-
-      callback(deviceId);
-    });
-  }
-
   this.getDeviceId = function getDeviceId() {
     return deviceId;
   };
-
-  function generateDeviceId() {
-    var queryString = {};
-    (location.search || '').replace(/(?:[?&]|^)([^=]+)=([^&]*)/g,
-      function regexmatch(ig, k, v) {queryString[k] = v;});
-    return queryString['did'] || 'fxos-' + Evme.Utils.uuid();
-  }
 
   function cbRequest(methodNamespace, method,
                                             params, retryNumber, completeURL) {
@@ -954,6 +943,12 @@ Evme.DoATAPI = new function Evme_DoATAPI() {
   }
 
   function cbRequestAbort(methodNamespace, method, params, retryNumber) {
+    if (sessionInitRequest) {
+      sessionInitRequest.abort();
+      requestingSession = false;
+      sessionInitRequest = null;
+    }
+
     Evme.EventHandler.trigger(NAME, 'abort', {
       'method': methodNamespace + '/' + method,
       'params': params,

@@ -18,13 +18,11 @@ var CallLog = {
     this._initialized = true;
 
     var lazyFiles = [
-      '/dialer/style/fixed_header.css',
       '/shared/style/confirm.css',
       '/shared/style/switches.css',
-      '/shared/style_unstable/lists.css',
+      '/shared/style/lists.css',
       '/contacts/js/utilities/confirm.js',
       '/dialer/js/phone_action_menu.js',
-      '/dialer/js/fixed_header.js',
       '/dialer/js/utils.js'
     ];
     var self = this;
@@ -81,10 +79,6 @@ var CallLog = {
 
       LazyL10n.get(function localized(_) {
         self._ = _;
-        var headerSelector = '#call-log-container header';
-        FixedHeader.init('#call-log-container',
-                         '#fixed-container', headerSelector);
-
         self.render();
 
         self.callLogIconEdit.addEventListener('click',
@@ -207,7 +201,6 @@ var CallLog = {
             PerformanceTestingHelper.dispatch('first-chunk-ready');
           }
           self.enableEditMode();
-          FixedHeader.refresh();
           self.updateHeadersContinuously();
           PerformanceTestingHelper.dispatch('call-log-ready');
         }
@@ -351,8 +344,6 @@ var CallLog = {
       }
       container.appendChild(callLogSection);
     }
-
-    FixedHeader.refresh();
   },
 
   // Method that places a log group in the right place inside a section
@@ -387,7 +378,7 @@ var CallLog = {
   //      <span></span>
   //    </label>
   //    <aside class="pack-end">
-  //      <img src="" class="call-log-contact-photo">
+  //      <span data-type="img" class="call-log-contact-photo">
   //    </aside>
   //    <a>
   //      <aside class="icon call-type-icon icon icon-outgoing">
@@ -449,11 +440,12 @@ var CallLog = {
 
     var aside = document.createElement('aside');
     aside.className = 'pack-end';
-    var img = document.createElement('img');
+    var img = document.createElement('span');
+    img.dataset.type = 'img';
     img.className = 'call-log-contact-photo';
+
     if (contact && contact.photo) {
-      img.src = typeof contact.photo == 'string' ? contact.photo :
-                URL.createObjectURL(contact.photo);
+      this.loadBackgroundImage(img, contact.photo);
       groupDOM.classList.add('hasPhoto');
     }
 
@@ -612,8 +604,9 @@ var CallLog = {
 
   filter: function cl_filter() {
     if (document.body.classList.contains('recents-edit')) {
-      return;
+      this.hideEditMode();
     }
+
     this.callLogContainer.classList.add('filter');
     this.allFilter.setAttribute('aria-selected', 'false');
     this.missedFilter.setAttribute('aria-selected', 'true');
@@ -640,8 +633,9 @@ var CallLog = {
 
   unfilter: function cl_unfilter() {
     if (document.body.classList.contains('recents-edit')) {
-      return;
+      this.hideEditMode();
     }
+
     // If the call log is empty display the appropriate message, otherwise hide
     // the empty call log message and enable edit mode
     if (this._empty) {
@@ -657,7 +651,9 @@ var CallLog = {
     this.missedFilter.setAttribute('aria-selected', 'false');
 
     var hiddenContainers = document.getElementsByClassName('groupFiltered');
-    for (var i = 0, l = hiddenContainers.length; i < l; i++) {
+    // hiddenContainers is a live list, so let's iterate on the list in the
+    // reverse order.
+    for (var i = (hiddenContainers.length - 1); i >= 0; i--) {
       hiddenContainers[i].classList.remove('groupFiltered');
     }
   },
@@ -924,7 +920,7 @@ var CallLog = {
         // Remove contact info.
         primInfoCont.textContent = element.dataset.phoneNumber;
         addInfoCont.textContent = '';
-        contactPhoto.src = '';
+        this.unloadBackgroundImage(contactPhoto);
         element.classList.remove('hasPhoto');
         delete element.dataset.contactId;
       }
@@ -937,14 +933,12 @@ var CallLog = {
       primInfoCont.textContent = primaryInfo;
     }
 
-    if (contact && contact.photo && contact.photo[0]) {
-      var image_url = contact.photo[0];
-      var photoURL;
-      var isString = (typeof image_url == 'string');
-      contactPhoto.src = isString ? image_url : URL.createObjectURL(image_url);
+    var photo = ContactPhotoHelper.getThumbnail(contact);
+    if (photo) {
+      this.loadBackgroundImage(contactPhoto, photo);
       element.classList.add('hasPhoto');
     } else {
-      contactPhoto.src = '';
+      this.unloadBackgroundImage(contactPhoto);
       element.classList.remove('hasPhoto');
     }
 
@@ -957,6 +951,28 @@ var CallLog = {
     if (contact) {
       element.dataset.contactId = contact.id;
     }
+  },
+
+  loadBackgroundImage: function cl_loadBackgroundImage(element, url) {
+    if (typeof url === 'string') {
+      element.style.backgroundImage = 'url(' + url + ')';
+    } else if (url instanceof Blob) {
+      url = URL.createObjectURL(url);
+      element.style.backgroundImage = 'url(' + url + ')';
+
+      // Revoke the blob once it's ready.
+      setTimeout(function() {
+        var image = new Image();
+        image.src = url;
+        image.onload = image.onerror = function() {
+          URL.revokeObjectURL(this.src);
+        };
+      });
+    }
+  },
+
+  unloadBackgroundImage: function cl_unloadBackgroundImage(element) {
+    element.style.backgroundImage = '';
   },
 
   cleanNotifications: function cl_cleanNotifcations() {

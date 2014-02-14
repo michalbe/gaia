@@ -14,11 +14,6 @@ window.fb = fb;
     var LAST_UPDATED_KEY = Utils.LAST_UPDATED_KEY = 'lastUpdatedTime';
     Utils.ALARM_ID_KEY = 'nextAlarmId';
 
-    function getContact(contact) {
-      return (contact instanceof mozContact) ?
-        contact : new mozContact(contact);
-    }
-
     var REDIRECT_LOGOUT_URI = window.oauthflow ?
       oauthflow.params.facebook['redirectLogout'] : '';
     var STORAGE_KEY = Utils.TOKEN_DATA_KEY = 'tokenData';
@@ -314,43 +309,7 @@ window.fb = fb;
 
             window.addEventListener('message', m_listen);
 
-            var xhr = new XMLHttpRequest({
-              mozSystem: true
-            });
-
-            xhr.open('GET', logoutUrl, true);
-            xhr.responseType = 'json';
-
-            xhr.timeout = TIMEOUT_QUERY;
-
-            xhr.onload = function(e) {
-              if (xhr.status === 200 || xhr.status === 0) {
-                if (!xhr.response || !xhr.response.success) {
-                  window.console.error('FB: Logout unexpected redirect or ' +
-                                       'token expired');
-                }
-                window.asyncStorage.removeItem(STORAGE_KEY);
-                outReq.done();
-              }
-              else {
-                window.console.error('FB: Error executing logout. Status: ',
-                                     xhr.status);
-                outReq.failed(xhr.status.toString());
-              }
-            };
-
-            xhr.ontimeout = function(e) {
-              window.console.error('FB: Timeout!!! while logging out');
-              outReq.failed('Timeout');
-            };
-
-            xhr.onerror = function(e) {
-              window.console.error('FB: Error while logging out',
-                                  JSON.stringify(e));
-              outReq.failed(e.name);
-            };
-
-            xhr.send();
+            window.open(logoutUrl);
           } // if
           else {
             outReq.done();
@@ -446,7 +405,8 @@ window.fb = fb;
               req = fbContact.remove();
             }
             else {
-              var req = navigator.mozContacts.remove(getContact(contact));
+              var req = navigator.mozContacts.remove(
+                utils.misc.toMozContact(contact));
             }
           }
           req.number = number;

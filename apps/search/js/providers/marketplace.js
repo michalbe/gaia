@@ -1,3 +1,5 @@
+/* global Provider, MozActivity, Search */
+
 (function() {
 
   'use strict';
@@ -9,12 +11,11 @@
 
   Marketplace.prototype = {
 
-    __proto__: AppProvider.prototype,
+    __proto__: Provider.prototype,
 
     name: 'Marketplace',
 
     click: function(e) {
-      Search.close();
       var slug = e.target.dataset.slug;
       var activity = new MozActivity({
         name: 'marketplace-app',
@@ -24,16 +25,13 @@
       });
 
       activity.onerror = function onerror() {
-        Search.browse('https://marketplace.firefox.com/app/' + slug);
+        Search.navigate('https://marketplace.firefox.com/app/' + slug);
       };
     },
 
     search: function(input) {
       this.clear();
-
-      if (this.lastReq) {
-        this.lastReq.abort();
-      }
+      this.abort();
 
       var req = new XMLHttpRequest();
       req.open('GET', API.replace('{q}', input), true);
@@ -59,7 +57,8 @@
           }
 
           formatted.push({
-            title: nameL10n,
+            title: navigator.mozL10n.get('install-marketplace-title',
+              {title: nameL10n}),
             icon: app.icons['64'],
             dataset: {
               slug: app.slug
@@ -75,7 +74,7 @@
         console.log('Marketplace timeout.');
       };
       req.send();
-      this.lastReq = req;
+      this.request = req;
     }
   };
 

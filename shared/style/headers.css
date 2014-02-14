@@ -117,8 +117,11 @@ section[role="region"] > header:first-child button {
   text-decoration: none;
 }
 
-
 /* Pressed state */
+section[role="region"] > header:first-child a:focus {
+  outline: none;
+}
+
 section[role="region"] > header:first-child button::-moz-focus-inner {
   outline: none;
   border: none;
@@ -273,6 +276,7 @@ section[role="region"].skin-dark > header:first-child,
 
 
 /* Navigation links (back, cancel, etc) */
+/* the `organic' blue arrows work fine with the dark theme, let's reuse them */
 section[role="region"].skin-dark > header:first-child .icon.icon-back {
   background-image: url(headers/images/icons/organic/back.png);
 }
@@ -316,8 +320,8 @@ section[role="region"].skin-organic > header:first-child h1,
   color: #868692;
 }
 
+/* clear background => specific dark icons */
 
-/* Navigation links (back, cancel, etc) */
 section[role="region"].skin-organic > header:first-child .icon.icon-back,
 .skin-organic section[role="region"] > header:first-child .icon.icon-back {
   background-image: url(headers/images/icons/organic/back.png);
@@ -326,6 +330,16 @@ section[role="region"].skin-organic > header:first-child .icon.icon-back,
 section[role="region"].skin-organic > header:first-child .icon.icon-close,
 .skin-organic section[role="region"] > header:first-child .icon.icon-close {
   background-image: url(headers/images/icons/organic/close.png);
+}
+
+section[role="region"].skin-organic > header:first-child .icon.icon-add,
+.skin-organic section[role="region"] > header:first-child .icon.icon-add {
+  background-image: url(headers/images/icons/organic/add.png);
+}
+
+section[role="region"].skin-organic > header:first-child .icon.icon-edit,
+.skin-organic section[role="region"] > header:first-child .icon.icon-edit {
+  background-image: url(headers/images/icons/organic/edit.png);
 }
 
 section[role="region"].skin-organic > header:first-child > a:not([aria-disabled="true"]):active:after,
@@ -368,28 +382,43 @@ section[role="region"].skin-organic > header:first-child button,
 
 html[dir="rtl"] section[role="region"] > header:first-child h1 {
   text-align: right;
-  margin: 0 3rem 0 0;
+  padding: 0 3rem 0 1rem;
+}
+html[dir="rtl"] section[role="region"] > header:first-child form {
+  padding: 1rem .5rem 0 1rem ;
+  margin-right: 3.5rem;
+  margin-left:0;
+}
+html[dir="rtl"] section[role="region"] > header:first-child input[type="text"] {
+  background: #fff url(headers/images/ui/shadow.png) repeat-x right -0.1rem;
 }
 
-html[dir="rtl"] section[role="region"] > header:first-child button,
-html[dir="rtl"] section[role="region"] > header:first-child a {
-  left: inherit;
+html[dir="rtl"] section[role="region"] > header:first-child form button[type="reset"] {
+  left: 1rem;
+  right:inherit;
+}
+html[dir="rtl"] section[role="region"] > header:first-child menu[type="toolbar"] {
+  float: left;
+}
+html[dir="rtl"] section[role="region"] > header:first-child menu[type="toolbar"] a,
+html[dir="rtl"] section[role="region"] > header:first-child menu[type="toolbar"] button {
+  float: right;
+}
+html[dir="rtl"] section[role="region"] > header:first-child > button,
+html[dir="rtl"] section[role="region"] > header:first-child > a {
+  float: right;
+  margin: 0 0 0 -5rem;
+}
+html[dir="rtl"] section[role="region"] > header:first-child > button:after,
+html[dir="rtl"] section[role="region"] > header:first-child > a:after {
   right: 0;
 }
-
-html[dir="rtl"] section[role="region"] > header:first-child > button .icon,
-html[dir="rtl"] section[role="region"] > header:first-child > a .icon {
-  margin-left: 0;
-  margin-right: -2rem;
-}
-
-html[dir="rtl"] section[role="region"] > header:first-child > button .icon:after,
-html[dir="rtl"] section[role="region"] > header:first-child > a .icon:after {
-  left: inherit;
-  right: 0;
-}
-
 html[dir="rtl"] section[role="region"] > header:first-child .icon.icon-back {
-  background-image: url(headers/images/icons/back-rtl.png);
+  background-image: url(headers/images/icons/back_rtl.png);
+}
+html[dir="rtl"] section[role="region"].skin-organic > header:first-child .icon.icon-back,
+html[dir="rtl"] .skin-organic section[role="region"] > header:first-child .icon.icon-back,
+html[dir="rtl"] section[role="region"].skin-dark > header:first-child .icon.icon-back {
+  background-image: url(headers/images/icons/organic/back_rtl.png);
 }
 

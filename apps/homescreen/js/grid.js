@@ -325,7 +325,7 @@ var GridManager = (function() {
         window.addEventListener(touchmove, pan, true);
 
         removePanHandler = function removePanHandler(e) {
-          touchEndTimestamp = e ? e.timeStamp : Number.MAX_VALUE;
+          touchEndTimestamp = e ? e.timeStamp : 0;
           window.removeEventListener(touchend, removePanHandler, true);
 
           window.removeEventListener(touchmove, pan, true);
@@ -378,6 +378,10 @@ var GridManager = (function() {
         'y': startEvent.pageY
       });
     });
+  }
+
+  function cancelPanning() {
+    removePanHandler();
   }
 
   function onTouchEnd(deltaX, evt) {
@@ -487,6 +491,7 @@ var GridManager = (function() {
     if (index < 0 || index >= pages.length)
       return;
 
+    touchEndTimestamp = touchEndTimestamp || lastGoingPageTimestamp;
     var delay = touchEndTimestamp - lastGoingPageTimestamp ||
                 kPageTransitionDuration;
     lastGoingPageTimestamp += delay;
@@ -564,6 +569,14 @@ var GridManager = (function() {
 
   function updatePaginationBar() {
     PaginationBar.update(currentPage, pages.length);
+  }
+
+  function updatePageSetSize() {
+    for (var i in pages) {
+      var container = pages[i].container;
+      container.setAttribute('aria-setsize', pages.length);
+      container.setAttribute('aria-posinset', Number(i) + 1);
+    }
   }
 
   /*
@@ -697,6 +710,7 @@ var GridManager = (function() {
       pages.push(page);
 
       pageElement.className = 'page';
+      pageElement.setAttribute('role', 'region');
       container.appendChild(pageElement);
 
       // If the new page is situated right after the current displayed page,
@@ -706,6 +720,7 @@ var GridManager = (function() {
       }
 
       updatePaginationBar();
+      updatePageSetSize();
     },
 
     /*
@@ -717,6 +732,7 @@ var GridManager = (function() {
       pages[index].destroy(); // Destroy page
       pages.splice(index, 1); // Removes page from the list
       updatePaginationBar();
+      updatePageSetSize();
     },
 
     /*
@@ -969,8 +985,8 @@ var GridManager = (function() {
       for (var manifestURL in iconsByManifestURL) {
         var iconsForApp = iconsByManifestURL[manifestURL];
         for (var entryPoint in iconsForApp) {
-          if (entryPoint) {
-            var icon = iconsForApp[entryPoint];
+          var icon = iconsForApp[entryPoint];
+          if (icon) {
             icon.remove();
             markDirtyState();
           }
@@ -1504,6 +1520,7 @@ var GridManager = (function() {
         for (var entryPoint in iconsForApp) {
           var icon = iconsForApp[entryPoint];
           updateDock = updateDock || dock.containsIcon(icon);
+          icon.app.ondownloadapplied = icon.app.ondownloaderror = null;
           icon.remove();
         }
         delete appIcons[app.manifestURL];
@@ -1577,6 +1594,8 @@ var GridManager = (function() {
     ensurePagesOverflow: ensurePagesOverflow,
 
     contextmenu: contextmenu,
+
+    cancelPanning: cancelPanning,
 
     get container() {
       return container;

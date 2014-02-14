@@ -1239,7 +1239,6 @@ console.log('BISECT CASE', serverUIDs.length, 'curDaysDelta', curDaysDelta);
       // build the list of requests based on downloading required.
       var requests = [];
       bodyInfo.bodyReps.forEach(function(rep, idx) {
-
         // attempt to be idempotent by only requesting the bytes we need if we
         // actually need them...
         if (rep.isDownloaded)
@@ -1652,7 +1651,7 @@ ImapFolderSyncer.prototype = {
    */
   initialSync: function(slice, initialDays, syncCallback,
                         doneCallback, progressCallback) {
-    syncCallback('sync', false);
+    syncCallback('sync', false /* Ignore Headers */);
     // We want to enter the folder and get the box info so we can know if we
     // should trigger our SYNC_WHOLE_FOLDER_AT_N_MESSAGES logic.
     // _timelySyncSearch is what will get called next either way, and it will
@@ -1781,11 +1780,7 @@ ImapFolderSyncer.prototype = {
     // intended to be a new thing for each request.  So we don't want extra
     // desire building up, so we set it to what we have every time.
     //
-    // We don't want to affect this value in accumulating mode, however, since
-    // it could result in sending more headers than actually requested over the
-    // wire.
-    if (!this._syncSlice._accumulating)
-      this._syncSlice.desiredHeaders = this._syncSlice.headers.length;
+    this._syncSlice.desiredHeaders = this._syncSlice.headers.length;
 
     if (this._curSyncDoneCallback)
       this._curSyncDoneCallback(err);
@@ -1978,10 +1973,6 @@ console.log("folder message count", folderMessageCount,
                   "[oldest defined as", $sync.OLDEST_SYNC_DATE, "]");
       this._doneSync();
       return;
-    }
-    else if (this._syncSlice._accumulating) {
-      // flush the accumulated results thus far
-      this._syncSlice.setStatus('synchronizing', true, true, true);
     }
 
     // - Increase our search window size if we aren't finding anything
@@ -4354,6 +4345,16 @@ define('pop3/transport',['exports'], function(exports) {
   }
 
   /**
+   * Trigger the response callback with '-ERR desc\r\n'.
+   */
+  Request.prototype._respondWithError = function(desc) {
+    var rsp = new Response([textEncoder.encode(
+      '-ERR ' + desc + '\r\n')], false);
+    rsp.request = this;
+    this.onresponse(rsp, null);
+  }
+
+  /**
    * Couple a POP3 parser with a request/response model, such that
    * you can easily hook Pop3Protocol up to a socket (or other
    * transport) to get proper request/response semantics.
@@ -4370,6 +4371,7 @@ define('pop3/transport',['exports'], function(exports) {
     this.unsentRequests = []; // if not pipelining, queue requests one at a time
     this.pipeline = false;
     this.pendingRequests = [];
+    this.closed = false;
   }
 
   exports.Response = Response;
@@ -4397,6 +4399,12 @@ define('pop3/transport',['exports'], function(exports) {
     } else {
       req = new Request(cmd, args, expectMultiline, cb);
     }
+
+    if (this.closed) {
+      req._respondWithError('(request sent after connection closed)');
+      return;
+    }
+
     if (this.pipeline || this.pendingRequests.length === 0) {
       this.onsend(req.toByteArray());
       this.pendingRequests.push(req);
@@ -4438,6 +4446,25 @@ define('pop3/transport',['exports'], function(exports) {
           req.onresponse(null, response);
         }
       }
+    }
+  }
+
+  /**
+   * Call this function when the socket attached to this protocol is
+   * closed. Any current requests that have been enqueued but not yet
+   * responded to will be sent a dummy "-ERR" response, indicating
+   * that the underlying connection closed without actually
+   * responding. This avoids the case where we hang if we never
+   * receive a response from the server.
+   */
+  Pop3Protocol.prototype.onclose = function() {
+    this.closed = true;
+    var requestsToRespond = this.pendingRequests.concat(this.unsentRequests);
+    this.pendingRequests = [];
+    this.unsentRequests = [];
+    for (var i = 0; i < requestsToRespond.length; i++) {
+      var req = requestsToRespond[i];
+      req._respondWithError('(connection closed, no response)');
     }
   }
 });
@@ -6556,7 +6583,6 @@ exports.chewHeaderAndBodyStructure =
  *
  */
 exports.updateMessageWithFetch = function(header, body, req, res, _LOG) {
-
   var bodyRep = body.bodyReps[req.bodyRepIndex];
 
   // check if the request was unbounded or we got back less bytes then we
@@ -6978,6 +7004,11 @@ function(module, exports, log, net, crypto,
         message: 'Socket exception: ' + JSON.stringify(err),
         exception: err,
       });
+    }.bind(this));
+
+    this.socket.on('close', function() {
+      this.protocol.onclose();
+      this.die();
     }.bind(this));
 
     // To track requests/responses in the presence of a server
@@ -8072,7 +8103,7 @@ Pop3FolderSyncer.prototype = {
    * at a time.
    */
   initialSync: function(slice, initialDays, syncCb, doneCb, progressCb) {
-    syncCb('sync', false /* accumulateMode */, true /* ignoreHeaders */);
+    syncCb('sync', true /* ignoreHeaders */);
     this.sync('initial', slice, doneCb, progressCb);
   },
 
@@ -9371,6 +9402,7 @@ exports.configurator = {
         incomingInfo.preferredAuthMethod = null;
       }
       smtpConnInfo = {
+        emailAddress: userDetails.emailAddress, // used for probing
         hostname: domainInfo.outgoing.hostname,
         port: domainInfo.outgoing.port,
         crypto: (typeof domainInfo.outgoing.socketType === 'string' ?

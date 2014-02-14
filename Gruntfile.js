@@ -12,6 +12,7 @@ module.exports = function(grunt) {
         src: ['apps/system/js/**/*.js',
               '!apps/system/js/airplane_mode.js',
               '!apps/system/js/sound_manager.js',
+              '!apps/system/js/title.js',
               '!apps/system/js/value_selector/date_picker.js',
               '!apps/system/js/value_selector/spin_date_picker.js'],
         options: {
@@ -19,7 +20,8 @@ module.exports = function(grunt) {
         }
       },
       keyboard: {
-        src: ['apps/keyboard/js/**/*.js'],
+        src: ['apps/keyboard/js/**/*.js',
+              '!apps/keyboard/js/render.js'],
         options: {
           destination: 'docs/keyboard'
         }

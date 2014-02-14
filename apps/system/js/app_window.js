@@ -1,10 +1,8 @@
 'use strict';
 
-(function(window) {
-  'use strict';
+(function(exports) {
   var DEBUG = false;
   var _id = 0;
-  var _start = new Date().getTime() / 1000;
 
   /**
    * AppWindow creates, contains, manages a
@@ -40,7 +38,7 @@
    * @class AppWindow
    * @mixes BrowserMixin into AppWindow.prototype
    */
-  window.AppWindow = function AppWindow(configuration) {
+  var AppWindow = function AppWindow(configuration) {
     this.reConfig(configuration);
     this.render();
     /**
@@ -58,6 +56,13 @@
     return this;
   };
 
+  /**
+   * Change this if new window has its own styles.
+   *
+   * @type string
+   * @memberof AppWindow
+   */
+  AppWindow.prototype.CLASS_LIST = 'appWindow';
   AppWindow.prototype._DEBUG = false;
 
   /**
@@ -136,13 +141,13 @@
   AppWindow.prototype.rotatingDegree = 0;
 
   AppWindow.prototype._dump = function aw__dump() {
-    dump('======================');
+    self.dump('======================');
     try {
       throw new Error('e');
     } catch (e) {
       this.debug(e.stack);
     }
-    dump('======================');
+    self.dump('======================');
   };
 
   /**
@@ -204,8 +209,9 @@
    */
   AppWindow.prototype._showFrame = function aw__showFrame() {
     this.debug('before showing frame');
-    if (this._screenshotOverlayState != 'frame')
+    if (this._screenshotOverlayState != 'frame') {
       return;
+    }
 
     this.browser.element.classList.remove('hidden');
     this._setVisible(true);
@@ -303,7 +309,7 @@
     }
 
     if (this.activityCallee) {
-      if (this.activityCallee instanceof ActivityWindow) {
+      if (this.activityCallee instanceof self.ActivityWindow) {
         this.activityCallee.kill();
       } else if (this.activityCallee instanceof AppWindow) {
         delete this.activityCallee.activityCaller;
@@ -316,11 +322,10 @@
     // If the app is the currently displayed app, switch to the homescreen
     if (this.isActive() && !this.isHomescreen) {
       // XXX: Refine this in transition state controller.
-      var self = this;
-      this.element.addEventListener('_closed', function onClosed() {
+      this.element.addEventListener('_closed', (function onClosed() {
         window.removeEventListener('_closed', onClosed);
-        self.destroy();
-      });
+        this.destroy();
+      }).bind(this));
       this.requestClose();
     } else {
       this.destroy();
@@ -368,7 +373,8 @@
   AppWindow.prototype.containerElement = document.getElementById('windows');
 
   AppWindow.prototype.view = function aw_view() {
-    return '<div class="appWindow" id="' + this.instanceID +
+    return '<div class=" ' + this.CLASS_LIST +
+            ' " id="' + this.instanceID +
             '" transition-state="closed">' +
               '<div class="screenshot-overlay"></div>' +
               '<div class="fade-overlay"></div>' +
@@ -380,15 +386,16 @@
    * @inner
    */
   AppWindow.prototype._render = function aw__render() {
-    if (this.element)
+    if (this.element) {
       return;
+    }
     /**
      * Fired before this element is appended to the DOM tree.
      * @event AppWindow#appwillrender
      */
     this.publish('willrender');
     this.containerElement.insertAdjacentHTML('beforeend', this.view());
-    this.browser = new BrowserFrame(this.browser_config);
+    this.browser = new self.BrowserFrame(this.browser_config);
     this.element = document.getElementById(this.instanceID);
 
     // For gaiauitest usage.
@@ -448,13 +455,16 @@
    */
   AppWindow.REGISTERED_EVENTS =
     ['mozbrowserclose', 'mozbrowsererror', 'mozbrowservisibilitychange',
-      'mozbrowserloadend', 'mozbrowseractivitydone', 'mozbrowserloadstart',
-      'mozbrowsertitlechange', '_localized', '_swipein', '_swipeout'];
+     'mozbrowserloadend', 'mozbrowseractivitydone', 'mozbrowserloadstart',
+     'mozbrowsertitlechange', 'mozbrowserlocationchange',
+     'mozbrowsericonchange',
+     '_localized', '_swipein', '_swipeout'];
 
   AppWindow.SUB_COMPONENTS = {
     'transitionController': window.AppTransitionController,
     'modalDialog': window.AppModalDialog,
-    'authDialog': window.AppAuthenticationDialog
+    'authDialog': window.AppAuthenticationDialog,
+    'contextmenu': window.BrowserContextMenu
   };
 
   AppWindow.prototype.openAnimation = 'enlarge';
@@ -486,7 +496,7 @@
       }
 
       if (this.config.chrome) {
-        this.appChrome = new AppChrome(this);
+        this.appChrome = new self.AppChrome(this);
       }
     };
 
@@ -506,11 +516,13 @@
     };
 
   AppWindow.prototype._handle__localized = function aw__handle__localized() {
-    if (!this.manifest)
+    if (!this.manifest) {
       return;
-    this.name = new ManifestHelper(this.manifest).name;
+    }
+    this.name = new self.ManifestHelper(this.manifest).name;
     // For uitest.
     this.element.dataset.localizedName = this.name;
+    this.publish('namechanged');
   };
 
   AppWindow.prototype._handle_mozbrowservisibilitychange =
@@ -540,8 +552,9 @@
 
   AppWindow.prototype._handle_mozbrowsererror =
     function aw__handle_mozbrowsererror(evt) {
-      if (evt.detail.type !== 'fatal')
+      if (evt.detail.type !== 'fatal') {
         return;
+      }
       // Send event instead of call crash reporter directly.
       this.publish('crashed');
       this.kill();
@@ -596,6 +609,13 @@
   AppWindow.prototype._handle_mozbrowserlocationchange =
     function aw__handle_mozbrowserlocationchange(evt) {
       this.config.url = evt.detail;
+      this.publish('locationchange');
+    };
+
+  AppWindow.prototype._handle_mozbrowsericonchange =
+    function aw__handle_mozbrowsericonchange(evt) {
+      this.config.favicon = evt.detail;
+      this.publish('iconchange');
     };
 
   AppWindow.prototype._registerEvents = function aw__registerEvents() {
@@ -635,7 +655,7 @@
     if (DEBUG || this._DEBUG) {
       console.log('[Dump: ' + this.CLASS_NAME + ']' +
         '[' + (this.name || this.origin) + ']' +
-        '[' + System.currentTime() + ']' +
+        '[' + self.System.currentTime() + ']' +
         Array.slice(arguments).concat());
     }
   };
@@ -644,7 +664,7 @@
   AppWindow.prototype.forceDebug = function aw_debug(msg) {
     console.log('[Dump:' + this.CLASS_NAME + ']' +
       '[' + (this.name || this.origin) + ']' +
-      '[' + System.currentTime() + ']' +
+      '[' + self.System.currentTime() + ']' +
       Array.slice(arguments).concat());
   };
 
@@ -664,8 +684,9 @@
    * Wait for a full repaint of the mozbrowser iframe.
    */
   AppWindow.prototype.tryWaitForFullRepaint = function onTWFRepaint(callback) {
-    if (!callback)
+    if (!callback) {
       return;
+    }
 
     if (this.isHomescreen) {
       setTimeout(callback);
@@ -688,7 +709,6 @@
         return null;
       }
       var screenshotURL = URL.createObjectURL(this._screenshotBlob);
-      var self = this;
       setTimeout(function onTimeout() {
         if (screenshotURL) {
           URL.revokeObjectURL(screenshotURL);
@@ -711,8 +731,9 @@
       this.getScreenshot(function onGettingScreenshot(screenshotBlob) {
         // If the callback is too late,
         // and we're brought to foreground by somebody.
-        if (this._screenshotOverlayState == 'frame')
+        if (this._screenshotOverlayState == 'frame') {
           return;
+        }
 
         if (!screenshotBlob) {
           // If no screenshot,
@@ -727,8 +748,9 @@
           'url(' + screenshotURL + ')';
         this.screenshotOverlay.classList.add('visible');
 
-        if (!this.iframe.classList.contains('hidden'))
+        if (!this.iframe.classList.contains('hidden')) {
           this._hideFrame();
+        }
       }.bind(this));
     };
 
@@ -740,8 +762,9 @@
     function aw__hideScreenshotOverlay() {
       if (this.screenshotOverlay &&
           this._screenshotOverlayState != 'screenshot' &&
-          this.screenshotOverlay.classList.contains('visible'))
+          this.screenshotOverlay.classList.contains('visible')) {
         this.screenshotOverlay.classList.remove('visible');
+      }
     };
 
   // Get cached screenshot Blob if there is one.
@@ -807,24 +830,26 @@
 
   var OrientationRotationTable = {
     'portrait-primary': [0, 180, 0, 90,
-                270, 90, OrientationManager.isDefaultPortrait() ? 0 : 90],
+              270, 90, self.OrientationManager.isDefaultPortrait() ? 0 : 90],
     'landscape-primary': [270, 90, 270, 0,
-                180, 0, OrientationManager.isDefaultPortrait() ? 270 : 0],
+              180, 0, self.OrientationManager.isDefaultPortrait() ? 270 : 0],
     'portrait-secondary': [180, 0, 180, 270,
-                90, 270, OrientationManager.isDefaultPortrait() ? 180 : 270],
+              90, 270, self.OrientationManager.isDefaultPortrait() ? 180 : 270],
     'landscape-secondary': [90, 270, 90, 180,
-                0, 180, OrientationManager.isDefaultPortrait() ? 180 : 90]
+              0, 180, self.OrientationManager.isDefaultPortrait() ? 180 : 90]
   };
 
   AppWindow.prototype.determineRotationDegree =
     function aw__determineRotationDegree() {
-      if (!this.manifest)
+      if (!this.manifest) {
         return 0;
+      }
 
       var appOrientation = this.manifest.orientation;
       var orientation = this.determineOrientation(appOrientation);
       var table =
-        OrientationRotationTable[OrientationManager.defaultOrientation];
+        OrientationRotationTable[
+          self.OrientationManager.defaultOrientation];
       var degree = table[OrientationRotationArray.indexOf(orientation)];
       this.rotatingDegree = degree;
       if (degree == 90 || degree == 270) {
@@ -835,12 +860,14 @@
 
   AppWindow.prototype.determineClosingRotationDegree =
     function aw__determineClosingRotationDegree() {
-      if (!this.manifest)
+      if (!this.manifest) {
         return 0;
+      }
 
       // XXX: Assume homescreen's orientation is just device default.
-      var homeOrientation = OrientationManager.defaultOrientation;
-      var currentOrientation = OrientationManager.fetchCurrentOrientation();
+      var homeOrientation = self.OrientationManager.defaultOrientation;
+      var currentOrientation = self.OrientationManager
+        .fetchCurrentOrientation();
       this.debug(currentOrientation);
       var table = OrientationRotationTable[homeOrientation];
       var degree = table[OrientationRotationArray.indexOf(currentOrientation)];
@@ -873,8 +900,9 @@
         return this._defaultOrientation;
       }
 
-      if (!Array.isArray(orientation))
+      if (!Array.isArray(orientation)) {
         orientation = [orientation];
+      }
 
       this._defaultOrientation = orientation[0];
 
@@ -892,7 +920,7 @@
   AppWindow.prototype._resize = function aw__resize() {
     var height, width;
     this.debug('force RESIZE...');
-    if (LayoutManager.keyboardEnabled) {
+    if (self.LayoutManager.keyboardEnabled) {
       /**
        * The event is dispatched on the app window only when keyboard is up.
        *
@@ -910,13 +938,13 @@
       this.broadcast('withoutkeyboard');
     }
     if (this.isFullScreen()) {
-      height = LayoutManager.fullscreenHeight + this.calibratedHeight();
+      height = self.LayoutManager.fullscreenHeight + this.calibratedHeight();
     } else {
-      height = LayoutManager.usualHeight + this.calibratedHeight();
+      height = self.LayoutManager.usualHeight + this.calibratedHeight();
     }
 
     // If we have sidebar in the future, change LayoutManager then.
-    width = LayoutManager.width;
+    width = self.LayoutManager.width;
 
     this.width = width;
     this.height = height;
@@ -934,7 +962,7 @@
     // TODO: Put ActivityWindow resize logic inside AppWindow
     // seems strange.
     if (this.activityCallee &&
-        this.activityCallee instanceof ActivityWindow) {
+        this.activityCallee instanceof self.ActivityWindow) {
       this.activityCallee.resize();
     }
   };
@@ -972,8 +1000,8 @@
       if (this.isActive()) {
         var manifest = this.manifest || this.config.manifest;
         var orientation = manifest ? (manifest.orientation ||
-                          OrientationManager.globalOrientation) :
-                          OrientationManager.globalOrientation;
+                          self.OrientationManager.globalOrientation) :
+                          self.OrientationManager.globalOrientation;
         if (orientation) {
           var rv = false;
           if ('lockOrientation' in screen) {
@@ -999,7 +1027,7 @@
 
       // TODO: Maybe have orientation manager to do this.
       if (!noCapture && this.activityCallee &&
-          this.activityCallee instanceof ActivityWindow) {
+          this.activityCallee instanceof self.ActivityWindow) {
         this.activityCallee.setOrientation(noCapture);
       }
     };
@@ -1032,8 +1060,9 @@
 
   AppWindow.prototype.unsetActivityCallee =
     function aw_setActivityCallee() {
-      if (this.activityCallee.activityCaller)
+      if (this.activityCallee.activityCaller) {
         this.activityCallee.activityCaller = null;
+      }
       this.activityCallee = null;
     };
 
@@ -1043,8 +1072,9 @@
    * @param  {String} state State name.
    */
   AppWindow.prototype._changeState = function aw__changeState(type, state) {
-    if (this.element)
+    if (this.element) {
       this.element.setAttribute(type + '-state', state.toString());
+    }
   };
 
   /**
@@ -1093,12 +1123,12 @@
   AppWindow.prototype.getIconForSplash =
     function aw_getIconForSplash(manifest) {
       var icons = this.manifest ?
-        ('icons' in this.manifest ? this.manifest['icons'] : null) : null;
+        ('icons' in this.manifest ? this.manifest.icons : null) : null;
       if (!icons) {
         return null;
       }
 
-      var targetedPixelSize = 2 * (ScreenLayout.getCurrentLayout('tiny') ?
+      var targetedPixelSize = 2 * (self.ScreenLayout.getCurrentLayout('tiny') ?
         this.SPLASH_ICON_SIZE_TINY : this.SPLASH_ICON_SIZE_NOT_TINY) *
         Math.ceil(window.devicePixelRatio || 1);
 
@@ -1107,16 +1137,19 @@
 
       for (var size in icons) {
         size = parseInt(size, 10);
-        if (size > max)
+        if (size > max) {
           max = size;
+        }
 
-        if (size >= targetedPixelSize && size < preferredSize)
+        if (size >= targetedPixelSize && size < preferredSize) {
           preferredSize = size;
+        }
       }
       // If there is an icon matching the preferred size, we return the result,
       // if there isn't, we will return the maximum available size.
-      if (preferredSize === Number.MAX_VALUE)
+      if (preferredSize === Number.MAX_VALUE) {
         preferredSize = max;
+      }
 
       this._splash = icons[preferredSize];
       this.preloadSplash();
@@ -1134,7 +1167,7 @@
         this.splashed = true;
         this.element.style.backgroundImage = 'url("' + this._splash + '")';
 
-        var iconCSSSize = 2 * (ScreenLayout.getCurrentLayout('tiny') ?
+        var iconCSSSize = 2 * (self.ScreenLayout.getCurrentLayout('tiny') ?
         this.SPLASH_ICON_SIZE_TINY : this.SPLASH_ICON_SIZE_NOT_TINY);
         this.element.style.backgroundSize =
           iconCSSSize + 'px ' + iconCSSSize + 'px';
@@ -1196,8 +1229,9 @@
    * @param  {Function} callback Callback when app is ready to be opened.
    */
   AppWindow.prototype.ready = function aw_ready(callback) {
-    if (!this.element)
+    if (!this.element) {
       return;
+    }
 
     this.debug('requesting to open');
     if (!this.loaded) {
@@ -1207,8 +1241,9 @@
     } else {
       var invoked = false;
       this.waitForNextPaint(function() {
-        if (invoked)
+        if (invoked) {
           return;
+        }
         invoked = true;
         setTimeout(callback);
       });
@@ -1217,8 +1252,9 @@
         return;
       }
       this.tryWaitForFullRepaint(function() {
-        if (invoked)
+        if (invoked) {
           return;
+        }
         invoked = true;
         setTimeout(callback);
       });
@@ -1264,4 +1300,6 @@
       this.publish('closed');
     }
   };
-}(this));
+
+  exports.AppWindow = AppWindow;
+}(window));

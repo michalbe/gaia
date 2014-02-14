@@ -58,8 +58,15 @@
 #screen.cards-view > [data-z-index-level="app"] > .appWindow.transition-closing.fullscreen-app.to-cardview:not(.homescreen) {
   z-index: 65537;
 }
+
 #screen.cards-view > [data-z-index-level="cards-view"] {
   z-index: 65535;
+}
+
+/* Keyboard is shown above task manager */
+#screen.cards-view.task-manager > [data-z-index-level="keyboards"],
+#screen.cards-view.task-manager > [data-z-index-level="software-buttons"] {
+  z-index: 65538;
 }
 
 #screen > [data-z-index-level="keyboards"] {
@@ -97,11 +104,6 @@
 }
 
 /* Level 5: Statusbar, Utility-Tray */
-#screen > [data-z-index-level="app"] > .appWindow.transition-opening.fullscreen-app:not(.homescreen),
-#screen > [data-z-index-level="app"] > .appWindow.transition-closing.fullscreen-app:not(.homescreen) {
-  z-index: 4097;
-}
-
 #screen > [data-z-index-level="statusbar"] {
   z-index: 4096;
 }
@@ -112,10 +114,6 @@
 
 /* Demote level 5 elements to homescreen level if there is an active
  * full screen app frame */
-#screen.fullscreen-app:not(.locked):not(.attention) > [data-z-index-level="statusbar"],
-#screen.fullscreen-app:not(.locked):not(.attention) > [data-z-index-level="utility-tray"] {
-  z-index: 1;
-}
 
 /* Promote level 5 elements to attention screen level when
  * there is an active attention screen not minimized in
@@ -128,6 +126,13 @@
 }
 
 /* Level 6: Lock Screen */
+
+#screen > [data-z-index-level="app"] > .secureAppWindow.active:not(.homescreen)
+{
+  /* Or the .appWindow one would be first adopted.*/
+  z-index: 4098 !important;
+}
+
 #screen > [data-z-index-level="lockscreen"] {
   z-index: 2048;
 }
@@ -238,7 +243,7 @@
 #screen:-moz-full-screen-ancestor > [data-z-index-level="value-selector"],
 #screen:-moz-full-screen-ancestor > [data-z-index-level="system-overlay"],
 #screen:-moz-full-screen-ancestor > [data-z-index-level="dialog-overlay"],
-
+#screen:-moz-full-screen-ancestor > [data-z-index-level="app"] > .appWindow.active > .modal-dialog,
 #screen:-moz-full-screen-ancestor > [data-z-index-level="keyboards"],
 
 #screen:-moz-full-screen-ancestor > [data-z-index-level="notification-toaster"],

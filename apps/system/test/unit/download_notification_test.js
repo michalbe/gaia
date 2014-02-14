@@ -45,120 +45,161 @@ suite('system/DownloadNotification >', function() {
     navigator.mozL10n = realL10n;
   });
 
-  setup(function() {
-    this.sinon.stub(NotificationScreen, 'addNotification');
-    this.sinon.spy(DownloadStore, 'add');
-  });
-
-  function assertUpdatedNotification(download) {
+  function assertUpdatedNotification(download, state) {
     assert.isTrue(NotificationScreen.addNotification.called);
 
     var args = NotificationScreen.addNotification.args[0];
     var fileName = DownloadFormatter.getFileName(download);
     assert.isTrue(args[0].text.indexOf(fileName) !== -1);
-    assert.equal(args[0].type, 'download-notification-' + download.state);
+    state = state || download.state;
+    assert.equal(args[0].type, 'download-notification-' + state);
   }
 
-  test('Download notification has been created', function() {
-    notification = new DownloadNotification(download);
-    assert.isTrue(NotificationScreen.addNotification.called);
-    assert.isUndefined(MockStatusBar.wasMethodCalled['incSystemDownloads']);
-    assert.isUndefined(MockStatusBar.wasMethodCalled['decSystemDownloads']);
-  });
+  suite('Download whole life cycle', function() {
 
-  test('The download starts', function() {
-    assert.isFalse(NotificationScreen.addNotification.called);
-    download.state = 'downloading';
-    download.onstatechange();
-    assertUpdatedNotification(download);
-
-    sinon.assert.calledWithMatch(NotificationScreen.addNotification, {
-      noNotify: true
+    setup(function() {
+      this.sinon.stub(NotificationScreen, 'addNotification');
+      this.sinon.spy(DownloadStore, 'add');
     });
-    assert.ok(MockStatusBar.wasMethodCalled['incSystemDownloads']);
-    assert.isUndefined(MockStatusBar.wasMethodCalled['decSystemDownloads']);
-  });
 
-  test('The notification was clicked while downloading > Show download list',
-       function() {
-    notification.onClick();
-    assert.equal(mockMozActivityInstance.name, 'configure');
-    assert.equal(mockMozActivityInstance.data.target, 'device');
-    assert.equal(mockMozActivityInstance.data.section, 'downloads');
-  });
-
-  test('The download was stopped', function() {
-    assert.isFalse(NotificationScreen.addNotification.called);
-    download.state = 'stopped';
-    download.onstatechange();
-    assertUpdatedNotification(download);
-    assert.isUndefined(MockStatusBar.wasMethodCalled['incSystemDownloads']);
-    assert.ok(MockStatusBar.wasMethodCalled['decSystemDownloads']);
-  });
-
-  test('Canceled notification was clicked > Show confirmation', function() {
-    notification.onClick();
-    assert.equal(DownloadUI.methodCalled, 'show');
-  });
-
-  test('Download continues downloading', function() {
-    assert.isFalse(NotificationScreen.addNotification.called);
-    download.state = 'downloading';
-    download.onstatechange();
-    assertUpdatedNotification(download);
-
-    sinon.assert.calledWithMatch(NotificationScreen.addNotification, {
-      noNotify: true
+    teardown(function() {
+      download.error = null;
     });
-    assert.ok(MockStatusBar.wasMethodCalled['incSystemDownloads']);
-    assert.isUndefined(MockStatusBar.wasMethodCalled['decSystemDownloads']);
-  });
 
-  test('Download was stopped', function() {
-    assert.isFalse(NotificationScreen.addNotification.called);
-    download.state = 'stopped';
-    download.onstatechange();
-    assertUpdatedNotification(download);
-    assert.isUndefined(MockStatusBar.wasMethodCalled['incSystemDownloads']);
-    assert.ok(MockStatusBar.wasMethodCalled['decSystemDownloads']);
-  });
-
-  test('Paused notification was clicked > Show confirmation', function() {
-    notification.onClick();
-    assert.equal(DownloadUI.methodCalled, 'show');
-  });
-
-  test('Download continues downloading', function() {
-    assert.isFalse(NotificationScreen.addNotification.called);
-    download.state = 'downloading';
-    download.currentBytes = 300;
-    download.onstatechange();
-    assertUpdatedNotification(download);
-
-    sinon.assert.calledWithMatch(NotificationScreen.addNotification, {
-      noNotify: true
+    test('Download notification has been created', function() {
+      notification = new DownloadNotification(download);
+      assert.isTrue(NotificationScreen.addNotification.called);
+      assert.isUndefined(MockStatusBar.wasMethodCalled['incSystemDownloads']);
+      assert.isUndefined(MockStatusBar.wasMethodCalled['decSystemDownloads']);
     });
-    assert.ok(MockStatusBar.wasMethodCalled['incSystemDownloads']);
-    assert.isUndefined(MockStatusBar.wasMethodCalled['decSystemDownloads']);
+
+    test('The download starts', function() {
+      assert.isFalse(NotificationScreen.addNotification.called);
+      download.state = 'downloading';
+      download.onstatechange();
+      assertUpdatedNotification(download);
+
+      sinon.assert.calledWithMatch(NotificationScreen.addNotification, {
+        noNotify: true
+      });
+      assert.ok(MockStatusBar.wasMethodCalled['incSystemDownloads']);
+      assert.isUndefined(MockStatusBar.wasMethodCalled['decSystemDownloads']);
+    });
+
+    test('The notification was clicked while downloading > Show download list',
+         function() {
+      notification.onClick();
+      assert.equal(mockMozActivityInstance.name, 'configure');
+      assert.equal(mockMozActivityInstance.data.target, 'device');
+      assert.equal(mockMozActivityInstance.data.section, 'downloads');
+    });
+
+    test('The download failed', function() {
+      assert.isFalse(NotificationScreen.addNotification.called);
+      download.state = 'stopped';
+      download.error = {};
+      download.onstatechange();
+      assertUpdatedNotification(download, 'failed');
+      assert.isUndefined(MockStatusBar.wasMethodCalled['incSystemDownloads']);
+      assert.ok(MockStatusBar.wasMethodCalled['decSystemDownloads']);
+    });
+
+    test('Failed notification was clicked > Show confirmation', function() {
+      notification.onClick();
+      assert.equal(DownloadUI.methodCalled, 'show');
+    });
+
+    test('Download continues downloading', function() {
+      assert.isFalse(NotificationScreen.addNotification.called);
+      download.state = 'downloading';
+      download.onstatechange();
+      assertUpdatedNotification(download);
+
+      sinon.assert.calledWithMatch(NotificationScreen.addNotification, {
+        noNotify: true
+      });
+      assert.ok(MockStatusBar.wasMethodCalled['incSystemDownloads']);
+      assert.isUndefined(MockStatusBar.wasMethodCalled['decSystemDownloads']);
+    });
+
+    test('Download was stopped', function() {
+      assert.isFalse(NotificationScreen.addNotification.called);
+      download.state = 'stopped';
+      download.onstatechange();
+      assertUpdatedNotification(download);
+      assert.isUndefined(MockStatusBar.wasMethodCalled['incSystemDownloads']);
+      assert.ok(MockStatusBar.wasMethodCalled['decSystemDownloads']);
+    });
+
+    test('Paused notification was clicked > Show confirmation', function() {
+      notification.onClick();
+      assert.equal(DownloadUI.methodCalled, 'show');
+    });
+
+    test('Download continues downloading', function() {
+      assert.isFalse(NotificationScreen.addNotification.called);
+      download.state = 'downloading';
+      download.currentBytes = 300;
+      download.onstatechange();
+      assertUpdatedNotification(download);
+
+      sinon.assert.calledWithMatch(NotificationScreen.addNotification, {
+        noNotify: true
+      });
+      assert.ok(MockStatusBar.wasMethodCalled['incSystemDownloads']);
+      assert.isUndefined(MockStatusBar.wasMethodCalled['decSystemDownloads']);
+    });
+
+    test('Download finishes', function() {
+      assert.isFalse(NotificationScreen.addNotification.called);
+      download.state = 'succeeded';
+      download.onstatechange();
+      assertUpdatedNotification(download);
+      assert.ok(DownloadStore.add.calledOnce);
+      assert.isUndefined(MockStatusBar.wasMethodCalled['incSystemDownloads']);
+      assert.ok(MockStatusBar.wasMethodCalled['decSystemDownloads']);
+    });
+
+    test('Finished notification was clicked > Open file', function() {
+      notification.onClick(function() {});
+      assert.equal(DownloadHelper.methodCalled, 'open');
+
+      assert.isNull(notification.id);
+      assert.isNull(notification.download);
+      assert.isNull(notification.state);
+    });
   });
 
-  test('Download finishes', function() {
-    assert.isFalse(NotificationScreen.addNotification.called);
-    download.state = 'succeeded';
-    download.onstatechange();
-    assertUpdatedNotification(download);
-    assert.ok(DownloadStore.add.calledOnce);
-    assert.isUndefined(MockStatusBar.wasMethodCalled['incSystemDownloads']);
-    assert.ok(MockStatusBar.wasMethodCalled['decSystemDownloads']);
-  });
+  suite('Download removed from download list', function() {
 
-  test('Finished notification was clicked > Open file', function() {
-    notification.onClick(function() {});
-    assert.equal(DownloadHelper.methodCalled, 'launch');
+    setup(function() {
+      this.sinon.stub(NotificationScreen, 'addNotification');
+      this.sinon.stub(NotificationScreen, 'removeNotification');
+    });
 
-    assert.isNull(notification.id);
-    assert.isNull(notification.download);
-    assert.isNull(notification.state);
+    test('Download notification has been created ', function() {
+      notification = new DownloadNotification(download);
+      sinon.assert.called(NotificationScreen.addNotification);
+      assert.isUndefined(MockStatusBar.wasMethodCalled['incSystemDownloads']);
+      assert.isUndefined(MockStatusBar.wasMethodCalled['decSystemDownloads']);
+    });
+
+    test('The download finalizes (download object is dead on the gecko side) ',
+      function() {
+      download.state = 'finalized';
+      download.onstatechange();
+
+      sinon.assert.called(NotificationScreen.removeNotification);
+
+      var args = NotificationScreen.removeNotification.args[0];
+      var id = DownloadFormatter.getUUID(download);
+      assert.isTrue(args.indexOf(id) !== -1);
+
+      assert.isNull(notification.id);
+      assert.isNull(notification.download);
+      assert.isNull(notification.state);
+    });
+
   });
 
 });

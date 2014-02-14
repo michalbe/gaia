@@ -1,3 +1,5 @@
+/* global eme, Provider, Search */
+
 (function() {
 
   'use strict';
@@ -6,54 +8,49 @@
 
   WebResults.prototype = {
 
-    __proto__: AppProvider.prototype,
+    __proto__: Provider.prototype,
 
     name: 'WebResults',
 
     init: function() {
-      AppProvider.prototype.init.apply(this, arguments);
-      eme.openPort();
+      Provider.prototype.init.apply(this, arguments);
+      eme.init();
     },
 
     click: function(e) {
       var url = e.target && e.target.dataset.url;
       if (url) {
-        Search.browse(url);
+        Search.navigate(url);
       }
     },
 
-    search: function(input, type) {
+    search: function(input) {
       this.clear();
-
-      setTimeout(function nextTick() {
-        eme.port.postMessage({
-          method: eme.API.SEARCH,
-          input: input,
-          type: type
-        });
-      }.bind(this));
-    },
-
-    onmessage: function(msg) {
-      var data = msg.data;
-      if (!data) {
+      if (!eme.api.Apps) {
         return;
       }
 
-      var results = data.results;
-      if (results) {
-        var formatted = [];
-        results.forEach(function render(searchResult) {
-          formatted.push({
-            title: searchResult.title,
-            icon: searchResult.icon,
-            dataset: {
-              url: searchResult.url
-            }
+      this.request = eme.api.Apps.search({
+        'query': input
+      });
+
+      this.request.then((function resolve(data) {
+        var response = data.response;
+        if (response && response.apps && response.apps.length) {
+          var results = response.apps.map(function each(app) {
+            return {
+              title: app.name,
+              icon: app.icon,
+              dataset: {
+                url: app.appUrl
+              }
+            };
           });
-        }, this);
-        this.render(formatted);
-      }
+          this.render(results);
+        }
+      }).bind(this), function reject(reason) {
+        // handle errors
+      });
     }
 
   };

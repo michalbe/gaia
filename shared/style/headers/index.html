@@ -26,6 +26,14 @@
   </style>
 </head>
 <body role="application">
+  <p dir="ltr">
+    <label>
+      <input type="checkbox"
+        onchange="document.documentElement.dir = this.checked ? 'rtl' : 'ltr'">
+      RTL mode
+    </label>
+  </p>
+
   <section role="region">
     <header>
       <menu type="toolbar">
@@ -106,6 +114,10 @@
   <section role="region" class="skin-organic">
     <header>
       <a href="#"><span class="icon icon-back">back</span></a>
+      <menu type="toolbar">
+        <button><span class="icon icon-edit">edit</span></button>
+        <button><span class="icon icon-add">add</span></button>
+      </menu>
       <h1>Settings</h1>
     </header>
     <header>

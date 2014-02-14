@@ -39,9 +39,11 @@ Search.Selectors = {
   searchResults: 'iframe[mozapptype="mozsearch"]',
   statusBar: '#statusbar',
   firstAppContainer: '#localapps',
-  firstApp: '#localapps .result',
-  firstContact: '#contacts .result',
-  firstContactContainer: '#contacts'
+  firstApp: '#localapps div',
+  firstContact: '#contacts div',
+  firstContactContainer: '#contacts',
+  firstPlace: '#places div .title',
+  firstPlaceContainer: '#places'
 };
 
 Search.prototype = {
@@ -75,6 +77,7 @@ Search.prototype = {
    * Opens the rocketbar and enters text
    */
   doSearch: function(input) {
+    this.client.switchToFrame();
     this.openRocketbar();
     this.client.helper
       .waitForElement(Search.Selectors.searchInput)
@@ -117,16 +120,39 @@ Search.prototype = {
     var selectors = Search.Selectors;
 
     this.client.helper.waitForElement(selectors.homescreen);
-    var statusbar = this.client.helper.waitForElement(
-      selectors.statusBar);
+    this.client.executeScript(function() {
+      window.wrappedJSObject.Rocketbar.render();
+    });
 
-    this.actions.flick(statusbar, 1, 1, 20, 200).perform();
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=960098
+    // Renable and write a dedicated test for opening the rocketbar
+    // be swiping from the statusbar down, this is currently broken.
+    //
+    // this.client.helper.waitForElement(selectors.homescreen);
+    // var statusbar = this.client.helper.waitForElement(
+    //  selectors.statusBar);
+    // this.actions.flick(statusbar, 1, 1, 20, 200).perform();
 
     this.client.waitFor(function() {
       var location = this.client
         .findElement(Search.Selectors.searchInput).location();
       return location.y >= 20;
     }.bind(this));
+  },
+
+  /**
+   * Wait for an opened browser frame to complete showing, then
+   * return to the homescreen
+   */
+  waitForBrowserFrame: function() {
+    this.client.switchToFrame();
+    this.client.waitFor((function() {
+      var size = this.client.findElement('.appWindow.active').size();
+      return size.width === 320 && size.height === 460;
+    }).bind(this));
+    return this.client.executeScript(function() {
+      window.wrappedJSObject.dispatchEvent(new CustomEvent('home'));
+    });
   },
 
   /**

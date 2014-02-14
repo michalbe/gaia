@@ -8,6 +8,7 @@ from gaiatest.apps.base import Base
 from gaiatest.apps.base import PageRegion
 from gaiatest.apps.homescreen.app import Homescreen
 from gaiatest.apps.camera.app import Camera
+from gaiatest.apps.lockscreen.regions.passcode_pad import PasscodePad
 
 
 class LockScreen(Base):
@@ -15,7 +16,9 @@ class LockScreen(Base):
     _lockscreen_locator = (By.ID, 'lockscreen')
     _lockscreen_handle_locator = (By.ID, 'lockscreen-area-slide')
 
-    _passcode_pad_locator = (By.ID, 'lockscreen-passcode-pad')
+    _unlock_button_locator = (By.ID, 'lockscreen-area-unlock')
+    _camera_button_locator = (By.ID, 'lockscreen-area-camera')
+
     _notification_locator = (By.CSS_SELECTOR, '#notifications-lockscreen-container > div.notification')
 
     def unlock(self):
@@ -27,6 +30,10 @@ class LockScreen(Base):
 
         self._slide_to_unlock('camera')
         return Camera(self.marionette)
+
+    def unlock_to_passcode_pad(self):
+        self._slide_to_unlock('homescreen')
+        return PasscodePad(self.marionette)
 
     def _slide_to_unlock(self, destination):
 
@@ -51,12 +58,13 @@ class LockScreen(Base):
     def wait_for_notification(self):
         self.wait_for_element_displayed(*self._notification_locator)
 
-    @property
-    def passcode_pad(self):
-        self.wait_for_element_displayed(*self._passcode_pad_locator)
-        passcode_pad = self.marionette.find_element(*self._passcode_pad_locator)
-        from gaiatest.apps.lockscreen.regions.passcode_pad import PasscodePad
-        return PasscodePad(self.marionette, passcode_pad)
+    def a11y_click_unlock_button(self):
+        self.accessibility.click(self.marionette.find_element(*self._unlock_button_locator))
+        return Homescreen(self.marionette)
+
+    def a11y_click_camera_button(self):
+        self.accessibility.click(self.marionette.find_element(*self._camera_button_locator))
+        return Camera(self.marionette)
 
     @property
     def notifications(self):

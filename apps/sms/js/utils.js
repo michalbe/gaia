@@ -1,6 +1,8 @@
 /* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- /
 /* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
 
+/* globals ContactPhotoHelper */
+
 (function(exports) {
   'use strict';
   var rdashes = /-(.)/g;
@@ -104,8 +106,9 @@
 
         // Add photo
         if (include.photoURL) {
-          if (contact.photo && contact.photo[0]) {
-            details.photoURL = window.URL.createObjectURL(contact.photo[0]);
+          var photo = ContactPhotoHelper.getThumbnail(contact);
+          if (photo) {
+            details.photoURL = window.URL.createObjectURL(photo);
           }
         }
 
@@ -351,7 +354,7 @@
         var canvas = document.createElement('canvas');
         canvas.width = targetWidth;
         canvas.height = targetHeight;
-        var context = canvas.getContext('2d');
+        var context = canvas.getContext('2d', { willReadFrequently: true });
 
         context.drawImage(img, 0, 0, targetWidth, targetHeight);
         // Bug 889765: Since we couldn't know the quality of the original jpg

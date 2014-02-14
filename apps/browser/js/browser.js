@@ -272,19 +272,37 @@ var Browser = {
         return;
       }
       var data = JSON.parse(xhr.responseText);
-      var mccCode = NumberHelper.zfill(variant.mcc, 3);
-      var mncCode = NumberHelper.zfill(variant.mnc, 3);
 
-      if (data[mccCode + mncCode]) {
-        callback(data[mccCode + mncCode]);
-      } else if (data[mccCode + DEFAULT_MNC]) {
-        callback(data[mccCode + DEFAULT_MNC]);
-      } else if (data[DEFAULT_MCC + DEFAULT_MNC]) {
-        callback(data[DEFAULT_MCC + DEFAULT_MNC]);
-      } else {
-        callback(null);
-        console.error('No configuration data found.');
+      var mccCodes = variant.mcc;
+      var mncCodes = variant.mnc;
+      if (!Array.isArray(variant.mcc)) {
+        mccCodes = [variant.mcc];
       }
+      if (!Array.isArray(variant.mnc)) {
+        mncCodes = [variant.mnc];
+      }
+
+      for (var i = 0; i < mccCodes.length; i++) {
+        var mccCode = NumberHelper.zfill(mccCodes[i], 3);
+        var mncCode = DEFAULT_MNC;
+        if (i < mncCodes.length) {
+          mncCode = mncCodes[i];
+        }
+        mncCode = NumberHelper.zfill(mncCode, 3);
+
+        if (data[mccCode + mncCode]) {
+          callback(data[mccCode + mncCode]);
+            return;
+        }
+      }
+
+      if (data[DEFAULT_MCC + DEFAULT_MNC]) {
+        callback(data[DEFAULT_MCC + DEFAULT_MNC]);
+        return;
+      }
+
+      callback(null);
+      console.error('No configuration data found.');
 
     }).bind(this), false);
 
@@ -532,7 +550,8 @@ var Browser = {
   },
 
   showAddressBar: function browser_showAddressBar() {
-    if (this.addressBarState === this.VISIBLE ||
+    if (this.addressBarState === null ||
+        this.addressBarState === this.VISIBLE ||
         this.addressBarState === this.TRANSITIONING) {
       return;
     }
@@ -614,10 +633,12 @@ var Browser = {
 
   reviveCrashedTab: function browser_reviveCrashedTab(tab) {
     this.createTab(null, null, tab);
+    tab.crashed = false;
+    if (!tab.url)
+      return;
     this.setTabVisibility(tab, true);
     Toolbar.refreshButtons();
     this.navigate(tab.url);
-    tab.crashed = false;
     this.hideCrashScreen();
   },
 
@@ -738,8 +759,10 @@ var Browser = {
 
   addBookmark: function browser_addBookmark(e) {
     e.preventDefault();
-    if (!this.currentTab.url)
+    if (!this.currentTab.url || UrlHelper.isNotURL(this.currentTab.url)) {
+      // TODO: don't silently fail here
       return;
+    }
     BrowserDB.addBookmark(this.currentTab.url, this.currentTab.title,
       Toolbar.refreshBookmarkButton.bind(Toolbar));
     this.hideBookmarkMenu();
@@ -826,6 +849,14 @@ var Browser = {
       this.bookmarkTitle.value = bookmark.title;
       this.bookmarkUrl.value = bookmark.uri;
       this.bookmarkPreviousUrl.value = bookmark.uri;
+
+      this.bookmarkUrl.addEventListener('keydown', (function() {
+        if (UrlHelper.isURL(this.bookmarkUrl.value)) {
+          this.bookmarkEntrySheetDone.disabled = 'disabled';
+        } else {
+          this.bookmarkEntrySheetDone.disabled = '';
+        }
+      }).bind(this), false);
     }).bind(this));
   },
 
@@ -851,8 +882,10 @@ var Browser = {
   },
 
   addLinkToHome: function browser_addLinkToHome() {
-    if (!this.currentTab.url)
+    if (!this.currentTab.url || UrlHelper.isNotURL(this.currentTab.url)) {
+      // TODO: don't silently fail here
       return;
+    }
 
     BrowserDB.getPlace(this.currentTab.url, (function(place) {
       new MozActivity({
@@ -863,6 +896,10 @@ var Browser = {
           name: this.currentTab.title,
           icon: place.iconUri,
           useAsyncPanZoom: true
+        },
+        onerror: function(e) {
+          console.warn('Unhandled error from save-bookmark activity: ' +
+                       e.target.error.message + '\n');
         }
       });
     }).bind(this));
@@ -1122,7 +1159,7 @@ var Browser = {
 
     var cancel = document.createElement('li');
     cancel.id = 'cancel';
-    cancel.appendChild(this.createButton('Cancel'));
+    cancel.appendChild(this.createButton(_('cancel')));
     list.appendChild(cancel);
 
     cancel.addEventListener('click', function(e) {
@@ -1316,6 +1353,7 @@ var Browser = {
     this.setUrlBar(this.currentTab.title);
     this.updateSecurityIcon();
     Toolbar.refreshButtons();
+    this.showAddressBar();
     // Show start screen if the tab hasn't been navigated
     if (this.currentTab.url == null) {
       this.showStartscreen();

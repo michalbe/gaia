@@ -8,6 +8,7 @@ requireApp('communications/dialer/test/unit/mock_keypad.js');
 requireApp('communications/dialer/test/unit/mock_utils.js');
 requireApp('communications/dialer/test/unit/mock_l10n.js');
 requireApp('communications/dialer/test/unit/mock_call.js');
+require('/shared/test/unit/mocks/mock_contact_photo_helper.js');
 
 requireApp('communications/dialer/js/handled_call.js');
 requireApp('communications/dialer/js/voicemail.js');
@@ -19,7 +20,8 @@ var mocksHelperForHandledCall = new MocksHelper([
   'CallsHandler',
   'KeypadManager',
   'Utils',
-  'LazyL10n'
+  'LazyL10n',
+  'ContactPhotoHelper'
 ]).init();
 
 suite('dialer/handled_call', function() {
@@ -32,6 +34,8 @@ suite('dialer/handled_call', function() {
   var templates;
 
   var phoneNumber;
+  var photoFullResolution;
+  var photoThumbnail;
 
   mocksHelperForHandledCall.attachTestHelpers();
 
@@ -75,7 +79,14 @@ suite('dialer/handled_call', function() {
   });
 
   setup(function() {
+    photoFullResolution = new Blob();
+    photoThumbnail = new Blob();
+    this.sinon.stub(MockContactPhotoHelper,
+                    'getFullResolution').returns(photoFullResolution);
+    this.sinon.stub(MockContactPhotoHelper,
+                    'getThumbnail').returns(photoThumbnail);
     this.sinon.useFakeTimers(Date.now());
+
     mockCall = new MockCall(String(phoneNumber), 'dialing');
     subject = new HandledCall(mockCall);
 
@@ -90,8 +101,8 @@ suite('dialer/handled_call', function() {
   });
 
   suite('initialization', function() {
-    test('photo', function() {
-      assert.equal(subject.photo, MockContacts.mPhoto);
+    test('full resolution photo', function() {
+      assert.equal(subject.photo, photoFullResolution);
     });
 
     test('should set caller image by contact photo', function() {
@@ -343,7 +354,7 @@ suite('dialer/handled_call', function() {
 
       mockCall._connect();
       MockCallScreen.mute();
-      MockCallScreen.turnSpeakerOn();
+      MockCallScreen.switchToSpeaker();
     });
 
     suite('from a regular call', function() {
@@ -600,7 +611,7 @@ suite('dialer/handled_call', function() {
         assert.ok(contactInfo.contact);
         var contact = contactInfo.contact;
         assert.equal(contact.name, MockContacts.mName);
-        assert.equal(contact.photo, MockContacts.mPhoto);
+        assert.deepEqual(contact.photo, [photoThumbnail]);
         assert.equal(contact.tel.length, 1);
         assert.equal(contact.tel[0].value, MockContacts.mCalledWith);
         assert.equal(contact.tel[0].carrier, MockContacts.mCarrier);
@@ -642,7 +653,7 @@ suite('dialer/handled_call', function() {
         assert.ok(contactInfo.contact);
         var contact = contactInfo.contact;
         assert.equal(contact.name, MockContacts.mName);
-        assert.equal(contact.photo, MockContacts.mPhoto);
+        assert.deepEqual(contact.photo, [photoThumbnail]);
         assert.equal(contact.tel.length, 1);
         assert.equal(contact.tel[0].value, MockContacts.mCalledWith);
         assert.equal(contact.tel[0].carrier, MockContacts.mCarrier);
@@ -704,12 +715,32 @@ suite('dialer/handled_call', function() {
     assert.equal(subject.numberNode.textContent, 'switch-calls');
   });
 
-  test('should display emergency number label', function() {
-    mockCall = new MockCall('112', 'dialing');
-    mockCall.emergency = true;
-    subject = new HandledCall(mockCall);
+  suite('Emergency Call layout', function() {
+    setup(function() {
+      MockCallScreen.mSetEmergencyWallpaperCalled = false;
+    });
 
-    assert.equal(subject.numberNode.textContent, 'emergencyNumber');
+    test('should display emergency number label', function() {
+      mockCall = new MockCall('112', 'dialing');
+      mockCall.emergency = true;
+      subject = new HandledCall(mockCall);
+
+      assert.equal(subject.numberNode.textContent, 'emergencyNumber');
+    });
+
+    test('should display emergency Wallpaper', function() {
+      mockCall = new MockCall('112', 'dialing');
+      subject = new HandledCall(mockCall);
+
+      assert.isTrue(MockCallScreen.mSetEmergencyWallpaperCalled);
+    });
+
+    test('should not display emergency wallpaper for normal calls', function() {
+      mockCall = new MockCall('111', 'dialing');
+      subject = new HandledCall(mockCall);
+
+      assert.isFalse(MockCallScreen.mSetEmergencyWallpaperCalled);
+    });
   });
 
   test('should display voicemail label', function() {

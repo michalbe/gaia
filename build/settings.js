@@ -108,30 +108,47 @@ function execute(config) {
   settings['rocketbar.searchAppURL'] = utils.gaiaOriginURL('search',
     config.GAIA_SCHEME, config.GAIA_DOMAIN, config.GAIA_PORT) + '/index.html';
 
+  if (config.ROCKETBAR && config.ROCKETBAR !== 'none') {
+    settings['rocketbar.enabled'] = true;
+  }
+
+  settings['debugger.remote-mode'] = config.REMOTE_DEBUGGER ? 'adb-only'
+                                                            : 'disabled';
+
   if (config.PRODUCTION === '1') {
     settings['feedback.url'] = 'https://input.mozilla.org/api/v1/feedback/';
+    settings['debugger.remote-mode'] = 'disabled';
   }
 
   settings['language.current'] = config.GAIA_DEFAULT_LOCALE;
-  settings['devtools.debugger.remote-enabled'] = config.REMOTE_DEBUGGER == true;
 
   if (config.DEVICE_DEBUG) {
-    settings['devtools.debugger.remote-enabled'] = true;
+    settings['debugger.remote-mode'] = 'adb-devtools';
+  }
+
+  if (config.NO_LOCK_SCREEN) {
     settings['screen.timeout'] = 0;
     settings['lockscreen.enabled'] = false;
     settings['lockscreen.locked'] = false;
   }
 
-  // Run all asynchronous code before overwriting and writing settings file
-  setWallpaper(settings, config);
-  setRingtone(settings, config);
-  setNotification(settings, config);
-  overrideSettings(settings, config);
-  writeSettings(settings, config);
-
   // Ensure not quitting xpcshell before all asynchronous code is done
   utils.processEvents(function(){return {wait : false}});
-  return settings
+  var queue = utils.Q.defer();
+  queue.resolve();
+
+  return queue.promise.then(function() {
+    setWallpaper(settings, config);
+  }).then(function() {
+    setRingtone(settings, config);
+  }).then(function() {
+    setNotification(settings, config);
+  }).then(function() {
+    overrideSettings(settings, config);
+  }).then(function() {
+    writeSettings(settings, config);
+    return settings;
+  });
 }
 exports.execute = execute;
 exports.setWallpaper = setWallpaper;

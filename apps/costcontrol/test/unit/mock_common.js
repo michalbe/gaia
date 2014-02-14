@@ -31,7 +31,7 @@ var MockCommon = function(config) {
     waitForDOMAndMessageHandler: function(window, callback) {
       callback();
     },
-    checkSIMChange: function(callback) {
+    checkSIM: function(callback) {
       callback();
     },
     startFTE: function(mode) {
@@ -73,7 +73,7 @@ var MockCommon = function(config) {
       setTimeout(function() {
         self.dataSimIccId = fakeAllInterfaces[1].id;
         if (typeof onsuccess === 'function') {
-          onsuccess();
+          onsuccess(self.dataSimIccId);
         }
       }, 0);
     }

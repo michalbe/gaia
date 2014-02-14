@@ -2,15 +2,15 @@
 /* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
 
 /*global ThreadListUI, ThreadUI, Threads, SMIL, MozSmsFilter, Compose,
-         Utils, LinkActionHandler, Contacts, Attachment, GroupView,
-         ReportView, Utils, LinkActionHandler, Contacts, Attachment, Drafts */
+         Utils, LinkActionHandler, Contacts, GroupView,
+         ReportView, Utils, LinkActionHandler, Contacts, Drafts,
+         Notification */
 
 /*exported MessageManager */
 
 'use strict';
 
 var MessageManager = {
-  draft: null,
   activity: null,
   forward: null,
   init: function mm_init(callback) {
@@ -102,51 +102,35 @@ var MessageManager = {
 
   onVisibilityChange: function mm_onVisibilityChange(e) {
     LinkActionHandler.reset();
-    // If we leave the app and are in a thread or compose window
-    // save a message draft if necessary
-    if (document.hidden) {
-      var hash = window.location.hash;
-      if (hash === '#new' || hash.startsWith('#thread=')) {
-        ThreadUI.saveDraft({preserve: true});
-      }
-    }
-
-    Drafts.store();
   },
 
   slide: function mm_slide(direction, callback) {
+    var wrapper = this.mainWrapper;
+
     // If no sliding is necessary, schedule the callback to be invoked as soon
     // as possible (maintaining the asynchronous API of this method)
-    if (this.mainWrapper.dataset.position === direction) {
+    if (wrapper.dataset.position === direction) {
       setTimeout(callback);
       return;
     }
+    wrapper.dataset.position = direction;
 
-    this.mainWrapper.classList.add('peek');
-    this.mainWrapper.dataset.position = direction;
-    var self = this;
     // We have 2 panels, so we get 2 transitionend for each step
     var trEndCount = 0;
-    this.mainWrapper.addEventListener('transitionend', function trWait() {
+    wrapper.addEventListener('transitionend', function trWait(e) {
       trEndCount++;
-
-      switch (trEndCount) {
-        case 2:
-          self.mainWrapper.classList.remove('peek');
-          break;
-        case 4:
-          self.mainWrapper.removeEventListener('transitionend', trWait);
-          if (callback) {
-            callback();
-          }
-          break;
+      if (trEndCount != 2) {
+        return;
       }
+
+      wrapper.removeEventListener(e.type, trWait);
+      callback && callback();
     });
   },
 
   launchComposer: function mm_launchComposer(callback) {
     ThreadUI.cleanFields(true);
-    var draft = MessageManager.draft || Drafts.get(Threads.currentId);
+    var draft = ThreadUI.draft || Drafts.get(Threads.currentId);
     // Draft recipients are added as the composer launches
     if (draft) {
       // Recipients will exist for draft messages in threads
@@ -186,26 +170,8 @@ var MessageManager = {
     var request = MessageManager.getMessage(+forward.messageId);
 
     request.onsuccess = (function() {
-      var message = request.result;
-      if (message.type === 'sms') {
-        ThreadUI.setMessageBody(message.body);
-      } else {
+      Compose.fromMessage(request.result);
 
-        SMIL.parse(message, function(parsedArray) {
-          parsedArray.forEach(function(mmsElement) {
-            if (mmsElement.blob) {
-              var attachment = new Attachment(mmsElement.blob, {
-                name: mmsElement.name,
-                isDraft: true
-              });
-              Compose.append(attachment);
-            }
-            if (mmsElement.text) {
-              Compose.append(mmsElement.text);
-            }
-          });
-        });
-      }
       // Focus en recipients
       ThreadUI.recipients.focus();
     }).bind(this);
@@ -243,7 +209,7 @@ var MessageManager = {
         findByPhoneNumber, number, function onData(data) {
           data.source = 'contacts';
           ThreadUI.recipients.add(data);
-          ThreadUI.setMessageBody(activity.body);
+          Compose.fromMessage(activity);
         }
       );
     } else {
@@ -255,7 +221,7 @@ var MessageManager = {
           source: 'manual'
         });
       }
-      ThreadUI.setMessageBody(activity.body);
+      Compose.fromMessage(activity);
     }
 
     // Clean activity object
@@ -284,6 +250,9 @@ var MessageManager = {
         MessageManager.launchComposer(function() {
           this.handleActivity(this.activity);
           this.handleForward(this.forward);
+          if (ThreadUI.draft) {
+            ThreadUI.draft.isEdited = false;
+          }
         }.bind(this));
         break;
       case '#thread-list':
@@ -323,27 +292,28 @@ var MessageManager = {
         var threadId = Threads.currentId;
         var willSlide = true;
 
-        var finishTransition = function finishTransition() {
+        var finishTransition = (function finishTransition() {
           // hashchanges from #group-view back to #thread=n
           // are considered "in thread" and should not
           // trigger a complete re-rendering of the messages
-          // in the thread.
+          // or draft in the thread.
           if (!ThreadUI.inThread) {
             ThreadUI.inThread = true;
+
+            // Render messages
             ThreadUI.renderMessages(threadId);
-          }
-          // Ensures fromDraft is always called after
-          // ThreadUI.cleanFields as MessageManager.slide is async
-          var draft = MessageManager.draft;
-          var thread = Threads.get(threadId);
 
-          if (!draft && thread.hasDrafts) {
-            draft = thread.drafts.latest;
-            MessageManager.draft = draft;
+            // Populate draft if there is one
+            var thread = Threads.get(threadId);
+            if (thread.hasDrafts) {
+              ThreadUI.draft = thread.drafts.latest;
+              Compose.fromDraft(ThreadUI.draft);
+              ThreadUI.draft.isEdited = false;
+            } else {
+              ThreadUI.draft = null;
+            }
           }
-
-          Compose.fromDraft(draft);
-        };
+        }).bind(this);
 
         // if we were previously composing a message - remove the class
         // and skip the "slide" animation
@@ -353,6 +323,20 @@ var MessageManager = {
         }
 
         ThreadListUI.mark(threadId, 'read');
+
+        var targetTag = 'threadId:' + threadId;
+        Notification.get({tag: targetTag})
+          .then(
+            function onSuccess(notifications) {
+              for (var i = 0; i < notifications.length; i++) {
+                notifications[i].close();
+              }
+            },
+            function onError(reason) {
+              console.error('Notification.get(tag: ' + targetTag + '): ' +
+                reason);
+            }
+          );
 
         // Update Header
         ThreadUI.updateHeaderData(function headerUpdated() {
@@ -370,14 +354,25 @@ var MessageManager = {
   },
   // TODO: Optimize this method. Tracked:
   // https://bugzilla.mozilla.org/show_bug.cgi?id=929919
-  getThreads: function mm_getThreads(callback, extraArg) {
-    var cursor = this._mozMobileMessage.getThreads(),
-        threads = [];
+  getThreads: function mm_getThreads(options) {
+    /*
+    options {
+      each: callback function invoked for each message
+      end: callback function invoked when cursor is "done"
+      done: callback function invoked when we stopped iterating, either because
+            it's the end or because it was stopped. It's invoked after the "end"
+            callback.
+    }
+    */
+
+    var cursor = this._mozMobileMessage.getThreads();
+
+    var each = options.each;
+    var end = options.end;
+    var done = options.done;
 
     cursor.onsuccess = function onsuccess() {
       if (this.result) {
-        threads.push(this.result);
-
         // Register all threads to the Threads object.
         Threads.set(this.result.id, this.result);
 
@@ -387,17 +382,19 @@ var MessageManager = {
           ThreadUI.updateHeaderData();
         }
 
+        each && each(this.result);
+
         this.continue();
         return;
       }
-      if (callback) {
-        callback(threads, extraArg);
-      }
+
+      end && end();
+      done && done();
     };
 
     cursor.onerror = function onerror() {
-      var msg = 'Reading the database. Error: ' + this.error.name;
-      console.log(msg);
+      console.error('Reading the database. Error: ' + this.error.name);
+      done && done();
     };
   },
 

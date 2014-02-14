@@ -78,11 +78,8 @@ marionette('search', function() {
       } finally {
         // now we can test the about:neterror page
 
-        // verify we have the propery body
-        frame.client.helper.waitForElement('body#net-error');
-
         // verify error message was set (using l10n)
-        var errorMsg = frame.client.findElement('#error-message')
+        var errorMsg = frame.client.helper.waitForElement('#error-message')
                        .getAttribute('innerHTML');
         assert.ok(errorMsg, 'Localization library populated error message');
 

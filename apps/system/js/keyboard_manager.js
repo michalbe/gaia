@@ -136,6 +136,7 @@ var KeyboardManager = {
     window.addEventListener('attentionscreenshow', this);
     window.addEventListener('mozbrowsererror', this);
     window.addEventListener('applicationsetupdialogshow', this);
+    window.addEventListener('mozmemorypressure', this);
 
     // To handle keyboard layout switching
     window.addEventListener('mozChromeEvent', function(evt) {
@@ -235,17 +236,23 @@ var KeyboardManager = {
       }
     }, this);
 
-    var SETTING_START_ON_BOOT_KEY = 'keyboard.start-on-boot';
-    var req = navigator.mozSettings.createLock().get(SETTING_START_ON_BOOT_KEY);
+    if (Object.keys(this.runningLayouts).length) {
+      // There are already keyboard(s) being launched. We don't really care
+      // if a default keyboard should be launch-on-boot.
+      return;
+    }
+
+    var LAUNCH_ON_BOOT_KEY = 'keyboard.launch-on-boot';
+    var req = navigator.mozSettings.createLock().get(LAUNCH_ON_BOOT_KEY);
     req.onsuccess = req.onerror = (function() {
       // If the value is not set or it is set to true,
       // launch the keyboad in background
-      var launchOnBoot = req.results && req.results[SETTING_START_ON_BOOT_KEY];
+      var launchOnBoot = req.result && req.result[LAUNCH_ON_BOOT_KEY];
       if (typeof launchOnBoot !== 'boolean')
           launchOnBoot = true;
 
-      // if there are no keyboards running at this point - set text to show,
-      // but don't bring it to the foreground.
+      // if there are still no keyboards running at this point -
+      // set text to show, but don't bring it to the foreground.
       if (launchOnBoot && !Object.keys(this.runningLayouts).length) {
         this.setKeyboardToShow('text', undefined, true);
       }
@@ -437,6 +444,16 @@ var KeyboardManager = {
       case 'mozbrowsererror': // OOM
         this.removeKeyboard(evt.target.dataset.frameManifestURL, true);
         break;
+      case 'mozmemorypressure':
+        // Memory pressure event. If a keyboard is loaded but not opened,
+        // get rid of it.
+        // We only do that when we don't run keyboards OOP.
+        this._debug('mozmemorypressure event');
+        if (!this.isOutOfProcessEnabled && this.keyboardHeight == 0) {
+          Object.keys(this.runningLayouts).forEach(this.removeKeyboard, this);
+          this.runningLayouts = {};
+        }
+        break;
     }
   },
 
@@ -455,7 +472,7 @@ var KeyboardManager = {
     for (var id in this.runningLayouts[manifestURL]) {
       var frame = this.runningLayouts[manifestURL][id];
       try {
-        windows.removeChild(frame);
+        frame.parentNode.removeChild(frame);
       } catch (e) {
         // if it doesn't work, noone cares
       }
@@ -590,6 +607,7 @@ var KeyboardManager = {
   hideKeyboard: function km_hideKeyboard() {
     // prevent hidekeyboard trigger again while 'appwillclose' is fired.
     if (this.keyboardFrameContainer.classList.contains('hide')) {
+      this.resetShowingKeyboard();
       return;
     }
 
@@ -626,6 +644,10 @@ var KeyboardManager = {
   },
 
   hideKeyboardImmediately: function km_hideImmediately() {
+    // Don't need to trigger keyboardhide event if we're already hidden.
+    if (this.keyboardFrameContainer.classList.contains('hide')) {
+      return;
+    }
     this.keyboardHeight = 0;
     // TODO: Transfer to keyboardclosing
     window.dispatchEvent(new CustomEvent('keyboardhide'));

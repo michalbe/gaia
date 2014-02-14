@@ -137,6 +137,10 @@ ol > li.active > div > img {
   animation: rotate 2.25s linear infinite;
 }
 
+.apps .loading:after {
+  margin-top: 0.4rem;
+}
+
 /* the panels are panning */
 body[data-transitioning] .loading:after {
   animation-name: none;
@@ -194,6 +198,7 @@ body[data-transitioning] .loading:after {
 
   .labelWrapper {
     margin-top: 0.2rem;
+    height: 1.9rem;
   }
 
   .apps ol > li:nth-child(17) {

@@ -730,6 +730,8 @@ var CallSettings = (function(window, document, undefined) {
       return;
     }
 
+    // XXX: Take care of voicemail settings for multi ICC card devices. See bug
+    // 960387 please.
     var transaction = _settings.createLock();
     var request = transaction.get('ril.iccInfo.mbdn');
     request.onsuccess = function() {
@@ -741,13 +743,14 @@ var CallSettings = (function(window, document, undefined) {
        }
        var voicemail = navigator.mozVoicemail;
        if (voicemail) {
-         // TODO: remove this backward compatibility check
-         // after bug-814634 is landed
-         var number = voicemail.number ||
+         number = voicemail.number ||
            voicemail.getNumber && voicemail.getNumber();
 
          if (number) {
            element.textContent = number;
+           cs_setToSettingsDB('ril.iccInfo.mbdn', number, null);
+         } else {
+           element.textContent = _('voiceMail-number-notSet');
          }
          return;
        }
@@ -792,12 +795,17 @@ var CallSettings = (function(window, document, undefined) {
    */
   function cs_initVoicePrivacyMode() {
     // get network type
-    getSupportedNetworkInfo(function(result) {
+    getSupportedNetworkInfo(_mobileConnection, function(result) {
       if (!result.cdma) {
         return;
       }
 
-      var voicePrivacyHelper = VoicePrivacySettingsHelper();
+      var defaultVoicePrivacySettings =
+        Array.prototype.map.call(_mobileConnections,
+          function() { return false; });
+      var voicePrivacyHelper =
+        SettingsHelper('ril.voicePrivacy.enabled', defaultVoicePrivacySettings);
+
       var privacyModeItem =
         document.getElementById('menuItem-voicePrivacyMode');
       var privacyModeInput =
@@ -818,16 +826,20 @@ var CallSettings = (function(window, document, undefined) {
 
       privacyModeInput.addEventListener('change',
         function vpm_inputChanged() {
-          var originalValue = !this.checked;
-          var setReq = _mobileConnection.setVoicePrivacyMode(this.checked);
-          setReq.onsuccess = function set_vpm_success() {
-            var targetIndex = DsdsSettings.getIccCardIndexForCallSettings();
-            voicePrivacyHelper.setEnabled(targetIndex, !originalValue);
-          };
-          setReq.onerror = function get_vpm_error() {
-            // restore the value if failed.
-            privacyModeInput.checked = originalValue;
-          };
+          var checked = this.checked;
+          voicePrivacyHelper.get(function gotVP(values) {
+            var originalValue = !checked;
+            var setReq = _mobileConnection.setVoicePrivacyMode(checked);
+            setReq.onsuccess = function set_vpm_success() {
+              var targetIndex = DsdsSettings.getIccCardIndexForCallSettings();
+              values[targetIndex] = !originalValue;
+              voicePrivacyHelper.set(values);
+            };
+            setReq.onerror = function get_vpm_error() {
+              // restore the value if failed.
+              privacyModeInput.checked = originalValue;
+            };
+          });
       });
     });
   }

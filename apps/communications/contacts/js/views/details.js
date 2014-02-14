@@ -5,6 +5,11 @@ var contacts = window.contacts || {};
 contacts.Details = (function() {
   var photoPos = 7;
   var initMargin = 8;
+  var DEFAULT_TEL_TYPE = 'other';
+  var DEFAULT_EMAIL_TYPE = 'other';
+  var PHONE_TYPE_MAP = {
+  'cell' : 'mobile'
+  };
   var contactData,
       contactDetails,
       listContainer,
@@ -35,10 +40,6 @@ contacts.Details = (function() {
     '#wall_button',
     '#msg_button'
   ];
-
-  function getContact(contact) {
-    return (contact instanceof mozContact) ? contact : new mozContact(contact);
-  }
 
   var init = function cd_init(currentDom) {
     _ = navigator.mozL10n.get;
@@ -182,8 +183,6 @@ contacts.Details = (function() {
     }
   };
 
-
-
   //
   // Method that generates HTML markup for the contact
   //
@@ -250,7 +249,7 @@ contacts.Details = (function() {
     // Disabling button while saving the contact
     favoriteMessage.style.pointerEvents = 'none';
 
-    var request = navigator.mozContacts.save(getContact(contact));
+    var request = navigator.mozContacts.save(utils.misc.toMozContact(contact));
     request.onsuccess = function onsuccess() {
       var cList = contacts.List;
       /*
@@ -396,11 +395,13 @@ contacts.Details = (function() {
     var telLength = Contacts.getLength(contact.tel);
     for (var tel = 0; tel < telLength; tel++) {
       var currentTel = contact.tel[tel];
-      var escapedType = Normalizer.escapeHTML(currentTel.type, true);
+      var escapedType = Normalizer.escapeHTML(currentTel.type, true).trim();
+      escapedType =
+            _(PHONE_TYPE_MAP[escapedType] || escapedType || DEFAULT_TEL_TYPE) ||
+            escapedType;
       var telField = {
         value: Normalizer.escapeHTML(currentTel.value, true) || '',
-        type: _(escapedType) || escapedType ||
-                                        TAG_OPTIONS['phone-type'][0].value,
+        type: escapedType,
         'type_l10n_id': currentTel.type,
         carrier: Normalizer.escapeHTML(currentTel.carrier || '', true) || '',
         i: tel
@@ -440,8 +441,7 @@ contacts.Details = (function() {
       var escapedType = Normalizer.escapeHTML(currentEmail['type'], true);
       var emailField = {
         value: Normalizer.escapeHTML(currentEmail['value'], true) || '',
-        type: _(escapedType) || escapedType ||
-                                          TAG_OPTIONS['email-type'][0].value,
+        type: _(escapedType) || escapedType || DEFAULT_EMAIL_TYPE,
         'type_l10n_id': currentEmail['type'],
         i: email
       };
@@ -567,8 +567,9 @@ contacts.Details = (function() {
     if (isFbContact) {
       contactDetails.classList.add('fb-contact');
     }
-    if (Array.isArray(contact.photo) && contact.photo[0]) {
-      var photo = contact.photo[0];
+
+    var photo = ContactPhotoHelper.getFullResolution(contact);
+    if (photo) {
       var currentHash = cover.dataset.imgHash;
       if (!currentHash) {
         Contacts.updatePhoto(photo, cover);
@@ -627,6 +628,7 @@ contacts.Details = (function() {
     'toggleFavorite': toggleFavorite,
     'render': render,
     'onLineChanged': checkOnline,
-    'reMark': reMark
+    'reMark': reMark,
+    'defaultTelType' : DEFAULT_TEL_TYPE
   };
 })();

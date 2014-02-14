@@ -99,7 +99,7 @@ body {
 
 /*
  * spinner animation styles copied from
- * shared/style_unstable/progress_activity.css
+ * shared/style/progress_activity.css
  */
 #spinner {
   position: absolute;
@@ -323,6 +323,16 @@ body.picker-mode #title-player {
   min-height: 100%;
 }
 
+/*
+ * Bug 968456 - Ensure background
+ * scrolls w/ the content
+ */
+#views-tiles-anchor,
+#views-list-anchor,
+#views-sublist-anchor {
+  background-color: #0E1214;
+}
+
 #views-sublist-header,
 #views-sublist-anchor {
   position: relative;
@@ -331,14 +341,19 @@ body.picker-mode #title-player {
 }
 
 #views-sublist-header {
-  height: 8rem;
+  height: 8.1rem;
+}
+
+#views-scrollable-sublist-anchor {
+  overflow-x: hidden;
+  overflow-y: auto;
+  width: 100%;
+  height: calc(100% - 8rem);
 }
 
 #views-sublist-anchor {
   width: 100%;
   height: calc(100% - 8rem);
-  overflow-x: hidden;
-  overflow-y: auto;
   will-change: scroll-position;
 }
 
@@ -462,7 +477,7 @@ body.picker-mode #title-player {
 
 .main-tile:last-child,
 .sub-tile:last-child {
-  margin-bottom: 4rem;
+  margin-bottom: 4.5rem;
 }
 
 .tile-container {
@@ -721,6 +736,11 @@ button::-moz-focus-inner {
   background-color: rgba(0,0,0, 0.85);
 }
 
+#player-seek.disabled {
+  pointer-events: none;
+  opacity: 0.3;
+}
+
 #player-seek-elapsed,
 #player-seek-bar,
 #player-seek-remaining {
@@ -749,7 +769,7 @@ button::-moz-focus-inner {
 
 #player-seek-bar {
   display: inline-block;
-  width: 18.4rem;
+  width: calc(100% - 13.6rem);
   height: 100%;
   z-index: 1;
 }
@@ -826,21 +846,14 @@ button::-moz-focus-inner {
   background-size: 3rem;
 }
 
-#player-controls-previous,
-#player-controls-next {
-  width: 10.7rem;
-}
-
-#player-controls-play {
-  width: 10.6rem;
-}
-
 #player-controls-previous {
   background-image: url("./images/IconAction_Media_SkipBackwards_30x30.png");
+  width: 33%;
 }
 
 #player-controls-play {
   background-image: url("./images/IconAction_Media_Pause_30x30.png");
+  width: 34%;
 }
 
 #player-controls-play.is-pause {
@@ -849,6 +862,7 @@ button::-moz-focus-inner {
 
 #player-controls-next {
   background-image: url("./images/IconAction_Media_SkipForward_30x30.png");
+  width: 33%;
 }
 
 .player-controls-button {
@@ -875,36 +889,30 @@ button::-moz-focus-inner {
   position: absolute;
   bottom: 0;
   width: 100%;
-  height: 4rem;
   z-index: 20;
-}
-
-/* Overwrite BB tabs background transparency */
-[role="tablist"] > [role="tab"] > a {
-  background-color: rgba(0, 0, 0, 0.75);
 }
 
 #tabs a {
   outline: none;
 }
 
-#mix[role="tab"] a:after {
+#mix[role="tab"] a {
   background-image: url("./images/iconaction_media_gridview.png");
 }
 
-#playlists[role="tab"] a:after {
+#playlists[role="tab"] a {
   background-image: url("./images/iconaction_media_playlistfilter.png");
 }
 
-#artists[role="tab"] a:after {
+#artists[role="tab"] a {
   background-image: url("./images/iconaction_media_artistfilter.png");
 }
 
-#albums[role="tab"] a:after {
+#albums[role="tab"] a {
   background-image: url("./images/iconaction_media_albumfilter.png");
 }
 
-#songs[role="tab"] a:after {
+#songs[role="tab"] a {
   background-image: url("./images/iconaction_media_songsfilter.png");
 }
 
@@ -1097,4 +1105,16 @@ form[role="search"] button {
 form p input + button[type="reset"] {
   width: 4rem;
   padding: 1rem;
+}
+
+#info-banner {
+  z-index: -1;
+  opacity: 0;
+  transition: all 600ms ease;
+}
+
+#info-banner.visible {
+  z-index: 100;
+  opacity: 1;
+  transition: all 600ms ease;
 }

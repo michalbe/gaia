@@ -1,11 +1,6 @@
 (function(exports) {
   'use strict';
 
-  // This is the margin between keys.
-  // It must match the CSS file, which makes it brittle
-  // XXX: get rid of it somehow
-  const MARGIN = 2;
-
   // Look up the HTML templates we'll use for building the keyboard page
   var templates = {
     page: document.getElementById('keyboard-page-template'),
@@ -88,6 +83,16 @@
 
   // Compute the sizes of all the keys and lay them out
   KeyboardPageView.prototype.resize = function resize() {
+    // If we are already laid out at the current window size, then
+    // we don't need to be resized again
+    if (this.windowWidth === window.innerWidth &&
+        this.windowHeight === window.innerHeight)
+      return;
+
+    // Remember the new size.
+    this.windowWidth = window.innerWidth;
+    this.windowHeight = window.innerHeight;
+
     var page = this.page;
     var view = this;
 
@@ -142,7 +147,7 @@
         else
           size = key.size || 1;
 
-        var width = size * unitWidth - MARGIN;
+        var width = size * unitWidth;
         view.keyelts[keyname].style.width = width + 'px';
       });
     }
@@ -188,6 +193,7 @@
   };
 
   KeyboardPageView.prototype.showAlternatives = function(keyname) {
+    var altrow = this.alternativesMenu;
     var page = this.page;
     var key = page.keys[keyname];
     var keyelt = this.keyelts[keyname];
@@ -201,8 +207,10 @@
       return;
     }
 
+    var numalternatives = key.alternatives.length;
+
     // Populate the element with the alternatives
-    for (var i = 0; i < key.alternatives.length; i++) {
+    for (var i = 0; i < numalternatives; i++) {
       var altkeyname = key.alternatives[i];
       var altkey = page.keys[altkeyname];
       if (!altkey) {
@@ -219,39 +227,93 @@
       while (innermost.firstElementChild)
         innermost = innermost.firstElementChild;
       innermost.textContent = altkey.keycap;
-      this.alternativesMenu.appendChild(altelt);
+      altrow.appendChild(altelt);
     }
 
-    // Now set the position of the alternatives row
-    var altrow = this.alternativesMenu;
+    // Now set the position of the alternatives row. In order to do this
+    // we need to know the width of the first alternative in the row, so
+    // we need to make the row visible in order to measure its kids and
+    // then position it.
+
+    // Make the alternatives visible
+    altrow.hidden = false;
+    keyelt.classList.add('altshown');
+
+    // Figure out how wide the first alternative is and get some other
+    // information we need to compute the position.
+    var firstwidth = altrow.firstElementChild.clientWidth;
     var keyrect = this.getKeyRect(keyname);
     var keyOnLeft = ((keyrect.left + keyrect.right) < window.innerWidth);
-    altrow.style.bottom = (window.innerHeight - keyrect.bottom) + 'px';
+
+    // Position the bottom of the menu above the top of the key
+    altrow.style.bottom = (window.innerHeight - keyrect.top) + 'px';
+
+    // If the alternatives menu runs left to right, position the menu
+    // so that the right edge of the first alternative lines up with
+    // the right edge of the key it is an alternative for.
+    // If the menu runs right to left, then position the menu so that the
+    // left edge of the first key lines up with the left edge of the
+    // key that it is an alternative for.
+    // In either case, however, if there is only one alternative in the
+    // menu, just center it over the key.
+    var x;
     if (keyOnLeft) { // key is on left so alternatives run to the right
-      altrow.style.left = keyrect.left + 'px';
-      altrow.style.right = 'auto';
       altrow.dir = 'ltr';  // left to right
+      altrow.style.right = 'auto';
+      if (numalternatives === 1)
+        x = (keyrect.left + keyrect.right) / 2 - firstwidth / 2;
+      else
+        x = keyrect.right - firstwidth;
+      altrow.style.left = Math.max(x, 0) + 'px';
     }
     else {           // key is on right so alternatives run to the left
-      altrow.style.left = 'auto';
-      altrow.style.right = (window.innerWidth - keyrect.right) + 'px';
       altrow.dir = 'rtl';  // right to left
+      altrow.style.left = 'auto';
+      if (numalternatives === 1)
+        x = (keyrect.left + keyrect.right) / 2 + firstwidth / 2;
+      else
+        x = keyrect.left + firstwidth;
+      altrow.style.right = Math.max(window.innerWidth - x, 0) + 'px';
     }
 
-    // The first alternative should always be at least as wide as the
-    // key that it is an alternative for.
-    altrow.firstElementChild.style.minWidth =
-      (keyrect.right - keyrect.left) + 'px';
+    // And record the size and position of the menu and each of its keys
+    // for use by the KeyboardTouchHandler module. But increase the height
+    // of the boxes so that they extend from the top of the alternative menu
+    // to the bottom of the key from which they popped up. This way the user
+    // will be able to slide her finger to the right or left to select
+    // alternatives without covering up the alternatives.
+    this.alternativesShowing = true;
+    var box = altrow.getBoundingClientRect();
+    this.alternativesMenuBox = {
+      left: box.left,
+      right: box.right,
+      top: box.top,
+      bottom: keyrect.bottom  // extend the menu box down
+    };
 
-    // And make it visible
-    keyelt.classList.add('altshown');
-    altrow.hidden = false;
+    // Now compute a box for each individual alternative
+    this.alternativeKeyBoxes = [];
+    var e = altrow.firstElementChild;
+    while (e) {
+      box = e.getBoundingClientRect();
+      this.alternativeKeyBoxes.push({
+        key: e,
+        left: box.left,
+        right: box.right,
+        top: box.top,
+        bottom: keyrect.bottom
+      });
+      e = e.nextElementSibling;
+    }
   };
 
   KeyboardPageView.prototype.hideAlternatives = function(keyname) {
     this.alternativesMenu.hidden = true;
     this.alternativesMenu.textContent = '';
     this.keyelts[keyname].classList.remove('altshown');
+    this.alternativesShowing = false;
+    this.alternativesMenuBox = null;
+    this.alternativeKeyBoxes = null;
   };
 
   KeyboardPageView.prototype.hide = function() {
@@ -282,4 +344,3 @@
 
   exports.KeyboardPageView = KeyboardPageView;
 }(window));
-
