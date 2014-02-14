@@ -24,8 +24,16 @@ contacts.NFC = (function() {
     mozNfcPeer = null;
   };
 
+  var createBuffer = function nu_fromUTF8(str) {
+    var buf = new Uint8Array(str.length);
+    for (var i = 0; i < str.length; i++) {
+      buf[i] = str.charCodeAt(i);
+    }
+    return new Uint8Array(buf);
+  }
+  
   var handlePeerReady = function(event) {
-    console.log('elo!!!!!');
+    console.log('elo!!!!!', event.detail);
     mozNfcPeer = mozNfc.getNFCPeer(event.detail);
         LazyLoader.load('/shared/js/contact2vcard.js', function() {
           console.log('------- vcard module loaded');
@@ -46,9 +54,9 @@ contacts.NFC = (function() {
   var sendContacts = function() {
      var NDEFRecord = new MozNDEFRecord(
        0x02,
-       'text/x-vCard',
-       'contact',
-       vCardContact
+       createBuffer('text/x-vCard'),
+       createBuffer(''),
+       createBuffer(vCardContact)
      );
 
      var res = mozNfcPeer.sendNDEF([NDEFRecord]);
