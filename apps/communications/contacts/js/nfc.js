@@ -3,7 +3,6 @@
 var contacts = window.contacts || {};
 
 contacts.NFC = (function() {
-  console.log('NFC ready');
   var mozNfc = window.navigator.mozNfc;
   var currentContact;
   var vCardContact;
@@ -11,13 +10,10 @@ contacts.NFC = (function() {
 
   var startListening = function(contact) {
     currentContact = contact;
-
-    console.log('start listessning!');
     mozNfc.onpeerready = handlePeerReady;
   };
 
   var stopListening = function() {
-    console.log('stop listening!');
     mozNfc.onpeerready = null;
     currentContact = null;
     vCardContact = null;
@@ -33,18 +29,14 @@ contacts.NFC = (function() {
   };
 
   var handlePeerReady = function(event) {
-    console.log('elo!!!!!', event.detail);
     mozNfcPeer = mozNfc.getNFCPeer(event.detail);
         LazyLoader.load('/shared/js/contact2vcard.js', function() {
-          console.log('------- vcard module loaded');
           ContactToVcard(
             [currentContact],
             function append(vcard) {
-              console.log('------------ vcard ready!');
               vCardContact = vcard;
             },
             function success() {
-              console.log('------------ start sending!');
               sendContacts();
             }
           );
@@ -61,11 +53,11 @@ contacts.NFC = (function() {
 
      var res = mozNfcPeer.sendNDEF([NDEFRecord]);
      res.onsuccess = function() {
-       console.log('------------------------- successssss');
+       console.log('Contact succesfuly sent');
      };
 
      res.onerror = function() {
-       console.log('------------------------- errorrrrrrr');
+       console.log('Something goes wrong');
      };
 
    };
