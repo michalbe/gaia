@@ -25,7 +25,7 @@ contacts.NFC = (function() {
     for (var i = 0; i < str.length; i++) {
       buf[i] = str.charCodeAt(i);
     }
-    return new Uint8Array(buf);
+    return buf;
   };
 
   var handlePeerReady = function(event) {
@@ -51,7 +51,7 @@ contacts.NFC = (function() {
        createBuffer(vCardContact)
      );
 
-     var res = mozNfcPeer.sendNDEF(NDEFRecord);
+     var res = mozNfcPeer.sendNDEF([NDEFRecord]);
      res.onsuccess = function() {
        console.log('Contact succesfuly sent');
      };
