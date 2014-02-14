@@ -51,7 +51,7 @@ contacts.NFC = (function() {
        createBuffer(vCardContact)
      );
 
-     var res = mozNfcPeer.sendNDEF([NDEFRecord]);
+     var res = mozNfcPeer.sendNDEF(NDEFRecord);
      res.onsuccess = function() {
        console.log('Contact succesfuly sent');
      };
@@ -59,7 +59,6 @@ contacts.NFC = (function() {
      res.onerror = function() {
        console.log('Something goes wrong');
      };
-
    };
 
   return {
