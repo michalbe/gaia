@@ -30,8 +30,8 @@ contacts.NFC = (function() {
       buf[i] = str.charCodeAt(i);
     }
     return new Uint8Array(buf);
-  }
-  
+  };
+
   var handlePeerReady = function(event) {
     console.log('elo!!!!!', event.detail);
     mozNfcPeer = mozNfc.getNFCPeer(event.detail);
