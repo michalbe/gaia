@@ -787,7 +787,6 @@ var Contacts = (function() {
     window.setTimeout(Contacts.onLocalized);
     window.removeEventListener('localized', initContacts);
     if (window.navigator.mozSetMessageHandler && window.self == window.top) {
-      console.log('-------, wywolano.');
       var actHandler = ActivityHandler.handle.bind(ActivityHandler);
       window.navigator.mozSetMessageHandler('activity', actHandler);
     }
