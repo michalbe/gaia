@@ -786,7 +786,7 @@ var Contacts = (function() {
   var initContacts = function initContacts(evt) {
     window.setTimeout(Contacts.onLocalized);
     window.removeEventListener('localized', initContacts);
-    if (window.navigator.mozSetMessageHandler && window.self == window.top) { 
+    if (window.navigator.mozSetMessageHandler && window.self == window.top) {
       var actHandler = ActivityHandler.handle.bind(ActivityHandler);
       window.navigator.mozSetMessageHandler('activity', actHandler);
     }

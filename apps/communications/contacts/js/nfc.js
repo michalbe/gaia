@@ -1,5 +1,7 @@
 'use strict';
 
+/* global LazyLoader, ContactToVcard, MozNDEFRecord */
+
 var contacts = window.contacts || {};
 
 contacts.NFC = (function() {
