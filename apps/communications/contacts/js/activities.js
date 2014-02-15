@@ -49,7 +49,7 @@ var ActivityHandler = {
     document.location.hash = hash;
   },
   handle: function ah_handle(activity) {
-
+    console.log('------- ACTIVITY!', activity.source.name);
     switch (activity.source.name) {
       case 'new':
         this.launch_activity(activity, 'view-contact-form');
@@ -69,6 +69,10 @@ var ActivityHandler = {
         break;
       case 'import':
         this.importContactsFromFile(activity);
+        break;
+      case 'nfc-ndef-discovered':
+
+        console.log('------- SESION TOKEN', activity.source.data, '-', JSON.stringify(activity.source.data.type));
         break;
     }
     Contacts.checkCancelableActivity();

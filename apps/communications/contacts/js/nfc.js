@@ -46,7 +46,7 @@ contacts.NFC = (function() {
   var sendContacts = function() {
      var NDEFRecord = new MozNDEFRecord(
        0x02,
-       createBuffer('text/x-vCard'),
+       createBuffer('text/vcard'),
        createBuffer(''),
        createBuffer(vCardContact)
      );
