@@ -1,7 +1,7 @@
 'use strict';
 
 /* global Contacts, MockContactsListObj, MockCookie, MockMozL10n,
-          MockNavigationStack, MocksHelper, MockUtils MockContactsNFC*/
+          MockNavigationStack, MocksHelper, MockUtils */
 
 requireApp('communications/contacts/test/unit/mock_l10n.js');
 requireApp('communications/contacts/test/unit/mock_contacts_list_obj.js');
@@ -9,7 +9,6 @@ requireApp('communications/contacts/test/unit/mock_cookie.js');
 requireApp('communications/contacts/test/unit/mock_datastore_migrator.js');
 requireApp('communications/contacts/test/unit/mock_event_listeners.js');
 requireApp('communications/contacts/test/unit/mock_navigation.js');
-requireApp('communications/contacts/test/unit/mock_nfc.js');
 
 require('/shared/test/unit/mocks/mock_lazy_loader.js');
 
@@ -55,8 +54,6 @@ suite('Contacts', function() {
     realUtils = window.utils;
     window.utils = MockUtils;
     window.utils.cookie = MockCookie;
-
-    window.contacts.NFC = MockContactsNFC;
 
     realNavigationStack = window.navigationStack;
     window.navigationStack = MockNavigationStack;
