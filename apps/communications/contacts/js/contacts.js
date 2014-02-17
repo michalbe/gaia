@@ -193,11 +193,6 @@ var Contacts = (function() {
   };
 
   var init = function init() {
-    // Disable NFC listeners on app startup
-    // Otherwise the contact list will trigger
-    // shrinking_ui transformation
-    contacts.NFC.stopListening();
-
     _ = navigator.mozL10n.get;
     initLanguages();
     initContainers();
@@ -684,7 +679,8 @@ var Contacts = (function() {
       '/contacts/js/utilities/sdcard.js',
       '/contacts/js/utilities/vcard_parser.js',
       '/contacts/js/utilities/status.js',
-      '/contacts/js/utilities/dom.js'
+      '/contacts/js/utilities/dom.js',
+      '/contacts/js/nfc.js'
     ];
 
     LazyLoader.load(lazyLoadFiles, function() {
