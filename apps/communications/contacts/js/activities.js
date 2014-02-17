@@ -49,6 +49,7 @@ var ActivityHandler = {
     document.location.hash = hash;
   },
   handle: function ah_handle(activity) {
+
     switch (activity.source.name) {
       case 'new':
         this.launch_activity(activity, 'view-contact-form');
