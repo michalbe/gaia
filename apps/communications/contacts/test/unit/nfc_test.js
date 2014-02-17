@@ -28,7 +28,7 @@ suite('NFC', function() {
   
   test('onpeerready set when startListening() fire', function() {
     contacts.NFC.startListening();
-    assert.ok(typeof navigator.mozNfc.onpeerready === 'function');
+    assert.equal(typeof navigator.mozNfc.onpeerready, 'function');
   });
 
   test('onpeerready is null when stopLIstening() fire', function() {
