@@ -1,5 +1,7 @@
 'use strict';
 
+/* global MockMozNfc, contacts */
+
 requireApp('communications/contacts/test/unit/mock_mozNfc.js');
 
 if (!window.contacts) {
@@ -7,7 +9,6 @@ if (!window.contacts) {
 }
 
 suite('NFC', function() {
-  var realContacts;
   var realMozNfc;
   
   suiteSetup(function(done) {
@@ -21,16 +22,16 @@ suite('NFC', function() {
     window.navigator.mozNfc = realMozNfc;
   });
 
-  test('onpeerready is null on start', function() { 
+  test('onpeerready is null on start', function() {
     assert.isNull(navigator.mozNfc.onpeerready);
   });
   
-  test('onpeerready set when startListening() fire', function() { 
+  test('onpeerready set when startListening() fire', function() {
     contacts.NFC.startListening();
     assert.ok(typeof navigator.mozNfc.onpeerready === 'function');
   });
 
-  test('onpeerready is null when stopLIstening() fire', function() { 
+  test('onpeerready is null when stopLIstening() fire', function() {
     contacts.NFC.stopListening();
     assert.isNull(navigator.mozNfc.onpeerready);
   });
