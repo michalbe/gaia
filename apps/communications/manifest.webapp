@@ -126,9 +126,6 @@
       "href": "/contacts/index.html?new",
       "returnValue": true
     },
-    "nfc-ndef-discovered": {
-      "href": "/contacts/index.html?new"
-    },
     "update": {
       "filters": {
         "type": "webcontacts/contact"
