@@ -58,7 +58,7 @@ var CostControl = (function() {
     }
 
     if ('mozNetworkStats' in window.navigator) {
-      statistics = NetworkstatsProxy;
+      statistics = window.navigator.mozNetworkStats;
     }
 
     debug('APIs loaded!');
@@ -364,15 +364,16 @@ var CostControl = (function() {
   function requestDataStatistics(configuration, settings, callback, result) {
     debug('Statistics out of date. Requesting fresh data...');
 
-    var maxAge = statistics.sampleRate * 1000 * statistics.maxStorageSamples;
+    var maxAge = 1000 * statistics.maxStorageAge;
     var minimumStart = new Date(Date.now() - maxAge);
     debug('The max age for samples is ' + minimumStart);
 
-    // If settings.lastDataReset is not set let's use the past week. This is
-    // only for not breaking dogfooders build and this can be remove at some
-    // point in the future (and since this sentence has been said multiple times
-    // this code will probably stay here for a while).
-    var start = new Date(settings.lastDataReset || Date.now() - 7 * DAY);
+    // If settings.lastCompleteDataReset is not set let's use the past week.
+    // This is only for not breaking dogfooders build and this can be remove at
+    // some point in the future (and since this sentence has been said multiple
+    // times this code will probably stay here for a while).
+    var start = new Date(settings.lastCompleteDataReset ||
+                         Date.now() - 7 * DAY);
     if (start < minimumStart) {
       console.warn('Start date is surpassing the maximum age for the ' +
                    'samples. Setting to ' + minimumStart);
@@ -396,53 +397,72 @@ var CostControl = (function() {
     }
 
     var wifiInterface = Common.getWifiInterface();
-    if (wifiInterface) {
-      var wifiRequest = statistics.getSamples(wifiInterface, start, end);
+    var currentSimcardNetwork = Common.getDataSIMInterface();
 
-      wifiRequest.onsuccess = function _WifiData() {
+    var simRequest, wifiRequest;
+    var pendingRequests = 0;
 
-        //Recover current Simcard info
-        var currentSimcardNetwork = Common.getCurrentSIMInterface();
-        if (currentSimcardNetwork) {
-          var mobileRequest = statistics
-                                .getSamples(currentSimcardNetwork, start, end);
+    function checkForCompletion() {
+      pendingRequests--;
+      if (pendingRequests === 0) {
+        updateDataUsage();
+      }
+    };
 
-          mobileRequest.onsuccess = function _MobileData() {
+    function updateDataUsage() {
+      var fakeEmptyResult = {data: []};
+      var wifiData = adaptData(wifiRequest ? wifiRequest.result :
+                                             fakeEmptyResult);
+      var mobileData = adaptData(simRequest ? simRequest.result :
+                                              fakeEmptyResult);
 
-            var wifiData = adaptData(wifiRequest.result);
-            var mobileData = adaptData(mobileRequest.result);
-
-            var lastDataUsage = {
-              timestamp: new Date(),
-              start: start,
-              end: end,
-              today: today,
-              wifi: {
-                total: wifiData[1]
-              },
-              mobile: {
-                total: mobileData[1]
-              }
-            };
-            ConfigManager.setOption({ 'lastDataUsage': lastDataUsage },
-              function _onSetItem() {
-                debug('Statistics up to date and stored.');
-              }
-            );
-            // XXX: Enrich with the samples because I can not store them
-            lastDataUsage.wifi.samples = wifiData[0];
-            lastDataUsage.mobile.samples = mobileData[0];
-            result.status = 'success';
-            result.data = lastDataUsage;
-            debug('Returning up to date statistics.');
-            if (callback) {
-              callback(result);
-            }
-
-          };
+      var lastDataUsage = {
+        timestamp: new Date(),
+        start: start,
+        end: end,
+        today: today,
+        wifi: {
+          total: wifiData[1]
+        },
+        mobile: {
+          total: mobileData[1]
         }
       };
+
+      ConfigManager.setOption({ 'lastDataUsage': lastDataUsage },
+        function _onSetItem() {
+          debug('Statistics up to date and stored.');
+        }
+      );
+
+      // XXX: Enrich with the samples because I can not store them
+      lastDataUsage.wifi.samples = wifiData[0];
+      lastDataUsage.mobile.samples = mobileData[0];
+      result.status = 'success';
+      result.data = lastDataUsage;
+      debug('Returning up to date statistics.');
+      if (callback) {
+        callback(result);
+      }
     }
+
+    //Recover current Simcard info
+    if (currentSimcardNetwork) {
+      pendingRequests++;
+      simRequest = statistics.getSamples(currentSimcardNetwork, start, end);
+      simRequest.onsuccess = checkForCompletion;
+    }
+
+    if (wifiInterface) {
+      pendingRequests++;
+      wifiRequest = statistics.getSamples(wifiInterface, start, end);
+      wifiRequest.onsuccess = checkForCompletion;
+    }
+
+    if (pendingRequests === 0) {
+      updateDataUsage();
+    }
+
   }
 
   // Transform data usage to the model accepted by the render
@@ -481,7 +501,6 @@ var CostControl = (function() {
         airplaneMode = value;
       }
     );
-    Common.loadNetworkInterfaces();
   }
 
   return {

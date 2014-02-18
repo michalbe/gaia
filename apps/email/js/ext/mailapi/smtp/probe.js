@@ -1,8 +1,44 @@
 
 /**
- * Make our TCPSocket implementation look like node's net library.
+ * Remoted network API that tries to look like node.js's "net" API.  We are
+ * expected/required to run in a worker thread where we don't have direct
+ * access to mozTCPSocket so everything has to get remitted to the main thread.
+ * Our counterpart is mailapi/worker-support/net-main.js
  *
- * We make sure to support:
+ *
+ * ## Sending lots of data: flow control, Blobs ##
+ *
+ * mozTCPSocket provides a flow-control mechanism (the return value to send
+ * indicates whether we've crossed a buffering boundary and 'ondrain' tells us
+ * when all buffered data has been sent), but does not yet support enqueueing
+ * Blobs for processing (which is part of the proposed standard at
+ * http://www.w3.org/2012/sysapps/raw-sockets/).  Also, the raw-sockets spec
+ * calls for generating the 'drain' event once our buffered amount goes back
+ * under the internal buffer target rather than waiting for it to hit zero like
+ * mozTCPSocket.
+ *
+ * Our main desire right now for flow-control is to avoid using a lot of memory
+ * and getting killed by the OOM-killer.  As such, flow control is not important
+ * to us if we're just sending something that we're already keeping in memory.
+ * The things that will kill us are giant things like attachments (or message
+ * bodies we are quoting/repeating, potentially) that we are keeping as Blobs.
+ *
+ * As such, rather than echoing the flow-control mechanisms over to this worker
+ * context, we just allow ourselves to write() a Blob and have the net-main.js
+ * side take care of streaming the Blobs over the network.
+ *
+ * Note that successfully sending a lot of data may entail holding a wake-lock
+ * to avoid having the network device we are using turned off in the middle of
+ * our sending.  The network-connection abstraction is not currently directly
+ * involved with the wake-lock management, but I could see it needing to beef up
+ * its error inference in terms of timeouts/detecting disconnections so we can
+ * avoid grabbing a wi-fi wake-lock, having our connection quietly die, and then
+ * we keep holding the wi-fi wake-lock for much longer than we should.
+ *
+ * ## Supported API Surface ##
+ *
+ * We make sure to expose the following subset of the node.js API because we
+ * have consumers that get upset if these do not exist:
  *
  * Attributes:
  * - encrypted (false, this is not the tls byproduct)
@@ -64,8 +100,40 @@ NetSocket.prototype.setTimeout = function() {
 };
 NetSocket.prototype.setKeepAlive = function(shouldKeepAlive) {
 };
-NetSocket.prototype.write = function(buffer) {
-  this._sendMessage('write', [buffer.buffer, buffer.byteOffset, buffer.length]);
+// The semantics of node.js's socket.write does not take ownership and that's
+// how our code uses it, so we can't use transferrables by default.  However,
+// there is an optimization we want to perform related to Uint8Array.subarray().
+//
+// All the subarray does is create a view on the underlying buffer.  This is
+// important and notable because the structured clone implementation for typed
+// arrays and array buffers is *not* clever; it just serializes the entire
+// underlying buffer and the typed array as a view on that.  (This does have
+// the upside that you can transfer a whole bunch of typed arrays and only one
+// copy of the buffer.)  The good news is that ArrayBuffer.slice() does create
+// an entirely new copy of the buffer, so that works with our semantics and we
+// can use that to transfer only what needs to be transferred.
+NetSocket.prototype.write = function(u8array) {
+  if (u8array instanceof Blob) {
+    // We always send blobs in their entirety; you should slice the blob and
+    // give us that if that's what you want.
+    this._sendMessage('write', [u8array]);
+    return;
+  }
+
+  var sendArgs;
+  // Slice the underlying buffer and transfer it if the array is a subarray
+  if (u8array.byteOffset !== 0 ||
+      u8array.length !== u8array.buffer.byteLength) {
+    var buf = u8array.buffer.slice(u8array.byteOffset,
+                                   u8array.byteOffset + u8array.length);
+    this._sendMessage('write',
+                      [buf, 0, buf.byteLength],
+                      [buf]);
+  }
+  else {
+    this._sendMessage('write',
+                      [u8array.buffer, u8array.byteOffset, u8array.length]);
+  }
 };
 NetSocket.prototype.upgradeToSecure = function() {
   this._sendMessage('upgradeToSecure', []);
@@ -1044,9 +1112,20 @@ exports.CONNECT_TIMEOUT_MS = 30000;
  * Validate that we find an SMTP server using the connection info and that it
  * seems to like our credentials.
  *
- * Because the SMTP client has no connection timeout support, use our own timer
- * to decide when to give up on the SMTP connection.  We use the timer for the
- * whole process, including even after the connection is established.
+ * Because the SMTP client has no connection timeout support, use our
+ * own timer to decide when to give up on the SMTP connection. We use
+ * the timer for the whole process, including even after the
+ * connection is established and we probe for a valid address.
+ *
+ * The process here is in two steps: First, connect to the server and
+ * make sure that we can authenticate properly. Then, if that
+ * succeeds, we send a "MAIL FROM:<our address>" line to see if the
+ * server will reject the e-mail address, followed by "RCPT TO" for
+ * the same purpose. This could fail if the user uses manual setup and
+ * gets everything right except for their e-mail address. We want to
+ * catch this error before they complete account setup; if we don't,
+ * they'll be left with an account that can't send e-mail, and we
+ * currently don't allow them to change their address after setup.
  */
 function SmtpProber(credentials, connInfo) {
   console.log("PROBE:SMTP attempting to connect to", connInfo.hostname);
@@ -1057,56 +1136,123 @@ function SmtpProber(credentials, connInfo) {
       auth: { user: credentials.username, pass: credentials.password },
       debug: exports.TEST_USE_DEBUG_MODE,
     });
-  // onIdle happens after successful login, and so is what our probing uses.
-  this._conn.on('idle', this.onResult.bind(this, null));
-  this._conn.on('error', this.onResult.bind(this));
-  this._conn.on('end', this.onResult.bind(this, 'unknown'));
 
-  this.timeoutId = setTimeoutFunc(
-                     this.onResult.bind(this, 'unresponsive-server'),
-                     exports.CONNECT_TIMEOUT_MS);
+  // For the first step (connection/authentication), handle callbacks
+  // in this.onConnectionResult.
+  this.setConnectionListenerCallback(this.onConnectionResult);
 
+  this.timeoutId = setTimeoutFunc(function() {
+    // Emit a fake error from the connection so that we can send the
+    // error to the proper callback handler depending on what state
+    // the connection is in.
+    this._conn.emit('error', 'unresponsive-server');
+  }.bind(this), exports.CONNECT_TIMEOUT_MS);
+
+  this.emailAddress = connInfo.emailAddress;
   this.onresult = null;
   this.error = null;
   this.errorDetails = { server: connInfo.hostname };
 }
 exports.SmtpProber = SmtpProber;
 SmtpProber.prototype = {
-  onResult: function(err) {
+
+  /**
+   * Unsubscribe any existing listeners, and resubscribe to all
+   * relevant events for the given fn handler.
+   */
+  setConnectionListenerCallback: function(fn) {
+    this._conn.removeAllListeners();
+    // onIdle happens after successful login, and so is what our probing uses.
+    this._conn.on('idle', fn.bind(this, null));
+    this._conn.on('error', fn.bind(this));
+    this._conn.on('end', fn.bind(this, 'unknown'));
+  },
+
+  /**
+   * Callback for initial connection, before we check for address
+   * validity. Connection and security errors will happen here.
+   */
+  onConnectionResult: function(err) {
     if (!this.onresult)
-      return;
+      return; // We already handled the result.
+
+    // XXX just map all security errors as indicated by name
     if (err && typeof(err) === 'object') {
-      // XXX just map all security errors as indicated by name
       if (err.name && /^Security/.test(err.name)) {
         err = 'bad-security';
-      }
-      else {
+      } else {
         switch (err.name) {
-          case 'AuthError':
-            err = 'bad-user-or-pass';
-            break;
-          case 'UnknownAuthError':
-          default:
-            err = 'server-problem';
-            break;
+        case 'AuthError':
+          err = 'bad-user-or-pass';
+          break;
+        case 'UnknownAuthError':
+        default:
+          err = 'server-problem';
+          break;
         }
       }
     }
 
-    this.error = err;
-    if (err)
-      console.warn('PROBE:SMTP sad. error: | ' + (err && err.name || err) +
-                   ' | '  + (err && err.message || '') + ' |');
-    else
-      console.log('PROBE:SMTP happy');
+    if (err) {
+      this.cleanup(err);
+    } else {
+      console.log('PROBE:SMTP connected, checking address validity');
+      // For clarity, send callbacks to onAddressValidityResult.
+      this.setConnectionListenerCallback(this.onAddressValidityResult);
+      this._conn.useEnvelope({
+        from: this.emailAddress,
+        to: [this.emailAddress]
+      });
+      this._conn.on('message', function() {
+        // Success! Our recipient was valid.
+        this.onAddressValidityResult(null);
+      }.bind(this));
+    }
+  },
 
+  /**
+   * The server will respond to a "MAIL FROM" probe, indicating
+   * whether or not the e-mail address is invalid. We try to succeed
+   * unless we're positive that the server actually rejected the
+   * address (in other words, any error other than "SenderError" is
+   * ignored).
+   */
+  onAddressValidityResult: function(err) {
+    if (!this.onresult)
+      return; // We already handled the result.
+
+    if (err && (err.name === 'SenderError' ||
+                err.name === 'RecipientError')) {
+      err = 'bad-address';
+    } else if (err && err.name) {
+      // This error wasn't normalized (so it's not
+      // "unresponsive-server"); we don't expect any auth or
+      // connection failures here, so treat it as an unknown error.
+      err = 'server-problem';
+    }
+    this.cleanup(err);
+  },
+
+  /**
+   * Send the final probe result (with error or not) and close the
+   * SMTP connection.
+   */
+  cleanup: function(err) {
     clearTimeoutFunc(this.timeoutId);
 
+    if (err) {
+      console.warn('PROBE:SMTP sad. error: | ' + (err && err.name || err) +
+                   ' | '  + (err && err.message || '') + ' |');
+    } else {
+      console.log('PROBE:SMTP happy');
+    }
+
+    this.error = err;
     this.onresult(this.error, this.errorDetails);
     this.onresult = null;
 
     this._conn.close();
-  },
+  }
 };
 
 }); // end define

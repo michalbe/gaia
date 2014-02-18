@@ -8,8 +8,16 @@ requireApp('communications/contacts/js/views/form.js');
 requireApp('communications/contacts/js/utilities/templates.js');
 requireApp('communications/contacts/js/utilities/dom.js');
 requireApp('communications/contacts/js/utilities/event_listeners.js');
+requireApp('communications/contacts/js/utilities/misc.js');
+requireApp('communications/contacts/test/unit/mock_navigation.js');
 requireApp('communications/contacts/test/unit/mock_contacts.js');
+requireApp('communications/contacts/test/unit/mock_mozContacts.js');
 requireApp('communications/contacts/test/unit/mock_fb.js');
+requireApp('communications/contacts/test/unit/mock_contacts_search.js');
+requireApp('communications/contacts/test/unit/mock_confirm_dialog.js');
+requireApp('communications/contacts/test/unit/mock_image_thumbnail.js');
+
+require('/shared/test/unit/mocks/mock_contact_photo_helper.js');
 
 var subject,
     realL10n,
@@ -18,9 +26,17 @@ var subject,
     Contacts,
     realContacts,
     realFb,
+    realThumbnailImage,
     mozL10n,
     mockContact,
-    footer;
+    footer,
+    SimplePhoneMatcher,
+    ActivityHandler;
+
+var mocksForm = new MocksHelper([
+  'ConfirmDialog',
+  'ContactPhotoHelper'
+]).init();
 
 suite('Render contact form', function() {
 
@@ -36,20 +52,34 @@ suite('Render contact form', function() {
         };
       }
     };
+
+    mocksForm.suiteSetup();
+
     realContacts = window.Contacts;
     window.Contacts = MockContacts;
     realFb = window.fb;
     window.fb = Mockfb;
+    realThumbnailImage = utils.thumbnailImage;
+    utils.thumbnailImage = MockThumbnailImage;
     document.body.innerHTML = MockFormDom;
     footer = document.querySelector('footer');
     subject = contacts.Form;
+
+    ActivityHandler = {
+      currentlyHandling: false
+    };
+
+
     subject.init(Contacts.getTags());
   });
 
   suiteTeardown(function() {
     window.Contacts = realContacts;
     window.fb = realFb;
+    utils.thumbnailImage = realThumbnailImage;
     window.mozL10n = realL10n;
+
+    mocksForm.suiteTeardown();
 
     document.body.innerHTML = '';
   });
@@ -423,6 +453,70 @@ suite('Render contact form', function() {
       subject.saveContact();
       assert.equal(deviceContact.name[0],
         deviceContact.givenName + ' ' + deviceContact.familyName);
+    });
+  });
+
+  suite('Delete Contact', function() {
+    var deleteButton;
+    var realSearch;
+    var realMozContacts;
+    setup(function() {
+      subject.render(mockContact);
+    });
+
+    suiteSetup(function() {
+      deleteButton = document.querySelector('#delete-contact');
+
+      realSearch = contacts.Search;
+      contacts.Search = MockContactsSearch;
+
+      realMozContacts = navigator.mozContacts;
+      navigator.mozContacts = new MockMozContactsObj([]);
+    });
+
+    suiteTeardown(function() {
+      contacts.Search = realSearch;
+      navigator.mozContacts = realMozContacts;
+    });
+
+    test('show confirm', function() {
+      deleteButton.click();
+      assert.isTrue(ConfirmDialog.showing);
+      assert.equal(ConfirmDialog.text, 'deleteConfirmMsg');
+      ConfirmDialog.hide();
+    });
+
+    test('cancel delete', function() {
+      deleteButton.click();
+      ConfirmDialog.executeNo();
+
+      assert.isFalse(ConfirmDialog.showing);
+    });
+
+    test('delete contact while in search mode', function(done) {
+      deleteButton.click();
+
+      var inSearchModeStub = sinon.stub(contacts.Search,
+        'isInSearchMode', function() {
+        return true;
+      });
+      var exitSearchModeStub = sinon.stub(contacts.Search,
+        'exitSearchMode', function() {
+        assert.isTrue(true);
+        contactsStub.restore();
+        exitSearchModeStub.restore();
+        done();
+      });
+      var contactsStub = sinon.stub(window.navigator.mozContacts,
+        'remove', function() {
+        return {
+          set onsuccess(cb) {
+            cb();
+          }
+        };
+      });
+
+      ConfirmDialog.executeYes();
     });
   });
 

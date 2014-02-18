@@ -3,7 +3,6 @@ requireLib('provider/abstract.js');
 requireLib('provider/local.js');
 
 suiteGroup('Views.ModifyAccount', function() {
-
   var subject;
   var account;
   var triggerEvent;

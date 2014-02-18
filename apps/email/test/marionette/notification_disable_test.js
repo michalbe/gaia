@@ -55,8 +55,7 @@ marionette('email notifications, disable', function() {
     app.launch();
   });
 
-  test('disable notification, but still sync',
-  function() {
+  test('disable notification, but still sync', function() {
     configureAndSend(1);
 
     // Open the prefs and turn off getting notifications.

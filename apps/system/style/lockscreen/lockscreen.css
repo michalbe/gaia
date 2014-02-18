@@ -4,14 +4,13 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: #000;
   -moz-user-select: none;
   opacity: 1;
   /* Utilzing a cubic bezier timing function to hide the fact
      that we might be slow at the beginning of the transition. */
   transition:
     transform 0.5s cubic-bezier(0.7, 0.0, 1.0, 1.0),
-    opacity 0.5s cubic-bezier(0.7, 0.0, 1.0, 1.0),
+    opacity 0.5s cubic-bezier(0.7, 0.0, 1.0, 1.0);
 }
 
 #screen.active-statusbar > #lockscreen {
@@ -20,9 +19,39 @@
 }
 
 #lockscreen.unlocked {
-  transform: scale(2);
+  /* Workaround specifically targetting Gecko:
+     The transform here is equal to scale(2),
+     however this will stop Gecko from creating a 2x big layer (4x the memory),
+     resulting super-smooth transition. */
+  transform: perspective(1000px) translateZ(500px);
   opacity: 0;
   pointer-events: none;
+}
+
+/**
+ * Because of performance issue, we need to use an individual
+ * background element instead of setting the background inside the container.
+ *
+ * This would be a step toward removing the overhead while a large container
+ * contains children and do the opacity animation, which would cost lot on
+ * temporary surfaces.
+ **/
+#lockscreen-background {
+  position: absolute;
+  top: 0;
+  overflow: hidden;
+
+  /* Must match the CSS background rule of #screen in system.css */
+  width: 100%;
+  height: 100%;
+  background-color: #000;
+  background-size: cover; /* Possible memory over-consumption with huge images, it should be removed for improving stability*/
+  background-repeat: no-repeat;
+  background-position: 50% 2rem;
+
+  -moz-user-select: none;
+  opacity: 1;
+  z-index: 1;
 }
 
 #screen.screenoff > #lockscreen,
@@ -89,7 +118,6 @@
   position: absolute;
   width: 100%;
   height: 100%;
-  background-color: #000;
   background-size: cover;
   background-repeat: no-repeat;
   background-position: 50% 50%;
@@ -97,7 +125,7 @@
   transition: visibility 0.5s ease, transform 0.5s ease;
 }
 
-.lockscreen-panel::before {
+.lockscreen-background::before {
   content: '';
   display: block;
   width: 100%;
@@ -108,6 +136,16 @@
   /* Replace this with radical gradient */
   background: transparent url('./images/mask.png') 50% 50% no-repeat;
   background-size: cover;
+}
+
+/**
+ * Because of the individual background element, the slide would appear
+ * after the passcode pad got invoked, so we need to hide it here.
+ */
+[data-panel="passcode"] #notifications-lockscreen-container,
+[data-panel="passcode"] #lockscreen-media-container,
+[data-panel="passcode"] #lockscreen-icon-container {
+  visibility: hidden;
 }
 
 [data-panel="main"] #lockscreen-panel-main,
@@ -153,35 +191,36 @@
   transition: none;
 }
 
-#lockscreen-connstate {
+#lockscreen-conn-states {
   width: 100%;
   display: inline-block;
   font-weight: 400;
   font-size: calc(6 * 0.226rem);
   text-shadow: 0.1rem 0.1rem 0.3rem #000000;
+  padding-bottom: 1rem;
+  border-bottom: solid 0.1rem rgba(256,256,256,.4);
 
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-#lockscreen-connstate > span {
-  display: block;
-  padding-bottom: 1rem;
-  border-bottom: solid 0.1rem rgba(256,256,256,.4);
-}
-
-#lockscreen-connstate > span:empty {
+#lockscreen-conn-states span:empty {
   display: none;
 }
 
-#lockscreen-connstate.twolines > span:first-child {
-  border-bottom: none;
-  padding-bottom: 0;
+#lockscreen-conn-states span:first-child {
+  display: inline-block;
+  width: 4rem;
+}
+
+#lockscreen-conn-states span:last-child {
+  display: block;
 }
 
 /* For some reason display: inline-block disregards hidden attribute */
-#lockscreen-connstate[hidden] {
+#lockscreen-conn-states span[hidden],
+#lockscreen-conn-states[hidden] {
   display: none;
 }
 
@@ -214,6 +253,7 @@
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 4;
 }
 
 .lockscreen-icon-area {
@@ -221,10 +261,6 @@
   position: absolute;
   border-style: none;
   transition: opacity 0.5s ease;
-}
-
-.lockscreen-icothis.n-area:active {
-  background: none;
 }
 
 .lockscreen-icon {
@@ -239,164 +275,22 @@
   opacity: 0.65;
 }
 
-/* Some icons in new design still need border */
-.lockscreen-icon-border {
-  border-radius: 3rem;
-}
-
 #lockscreen-area-slide {
   text-align: center;
   width: calc(100%);
-}
-
-#lockscreen-slide-handle {
-  position: relative;
-  top: -8.1rem;
-}
-
-#lockscreen-area-slide #lockscreen-slide-track .lockscreen-slide-center {
-  width: 22rem;
-}
-
-@media (min-width: 768px) {
-  #lockscreen-area-slide #lockscreen-slide-track .lockscreen-slide-center {
-    width: 35rem;
-  }
-}
-
-#lockscreen-area-slide #lockscreen-slide-track .lockscreen-icon {
-  border-color: rgba(255, 255, 255, 0.4) !important;
-}
-
-#lockscreen-area-slide .lockscreen-icon {
-  background-color: rgba(0, 0, 0, 0.3);
-  -moz-box-sizing: border-box;
-  border: 0.2rem solid rgba(255, 255, 255, 0.8);
-}
-
-#lockscreen-slide-track .lockscreen-slide-left.lockscreen-icon {
-  /* half-circle toward left */
-  border-radius: 6rem 0 0 6rem;
-  border-right: none;
-  display: inline-block;
-
-  /* to move it while sliding */
-  position: relative;
-  height: 6rem;
-  width: 3rem;
-}
-
-#lockscreen-slide-handle .lockscreen-slide-left.lockscreen-icon {
-  /* half-circle toward left */
-  border-radius:5.6rem 0 0 5.6rem;
-  border-right: none;
-  display: inline-block;
-
-  /* to move it while sliding */
-  position: relative;
-  height: 5.6rem;
-  width: 2.8rem;
-}
-
-.lockscreen-slide-left.lockscreen-icon > span {
-  background: url(/style/lockscreen/images/larrow.png) no-repeat top left;
-  background-size: 1rem 2rem;
-
-  /* float to prevent its parent got wrong place */
-  float: left;
-  font-size: 28pt;
-  margin-left: 1.1rem;
-  margin-top: 1.7rem;
-}
-
-.lockscreen-slide-left.touched > span {
-  display: none;
-}
-
-.lockscreen-slide-right.touched> span {
-  display: none;
-}
-
-#lockscreen-area-slide .lockscreen-slide-center.lockscreen-icon {
-  display: inline-block;
-  border-left: none;
-  border-right: none;
-  border-radius: 0rem;
-
-  /* workaround for splitting circle */
-  margin-left: -0.3rem;
-  margin-right: -0.3rem;
-
-  /* to move and scale it while sliding */
-  position: relative;
-  width: 1px; /* for the default circle */
-}
-
-#lockscreen-slide-handle .lockscreen-slide-center.lockscreen-icon {
-  height: 5.6rem;
-}
-
-#lockscreen-area-slide .touched {
-  border-color: #00aacc;
-  background-color:  #00aacc;
-}
-
-#lockscreen-slide-track .lockscreen-slide-right.lockscreen-icon {
-  border-left: none;
-
-  /* half-circle toward right */
-  border-radius: 0 6rem 6rem 0;
-  display: inline-block;
-  height: 6rem;
-
-  /* to move it while sliding */
-  position: relative;
-  width: 3rem;
-}
-
-#lockscreen-slide-handle .lockscreen-slide-right.lockscreen-icon {
-  border-left: none;
-
-  /* half-circle toward right */
-  border-radius: 0 5.6rem 5.6rem 0;
-  display: inline-block;
-  height: 5.6rem;
-
-  /* to move it while sliding */
-  position: relative;
-  width: 2.8rem;
-}
-
-.lockscreen-slide-right.lockscreen-icon > span {
-  background: url(/style/lockscreen/images/larrow.png) no-repeat top left;
-  background-size: 1rem 2rem;
-
-  /* float to prevent its parent got wrong place */
-  float: right;
-  font-size: 28pt;
-  margin-right: 1.1rem;
-  margin-top: 1.7rem;
-
-  /* flip it to toward right. */
-  transform: scaleX(-1);
 }
 
 .touched .lockscreen-icon {
   transition: none;
 }
 
-.lockscreen-icon.triggered {
-  background-color: #52b6cc !important;
-  border-color: #52b6cc;
+.lockscreen-icon-right {
+  right: calc(50% - 14rem);
 }
 
-  .lockscreen-icon-right {
-    right: calc(50% - 14rem);
-  }
-
-  .lockscreen-icon-left {
-    left: calc(50% - 14rem);
-  }
+.lockscreen-icon-left {
+  left: calc(50% - 14rem);
+}
 
 @media (min-width:768px) {
   .lockscreen-icon-right {
@@ -431,7 +325,7 @@ button::-moz-focus-inner {
   border: 0;
 }
 
-:-moz-any(.touched, .triggered, #screen:not(.locked), #screen.attention, #lockscreen:not([data-panel="main"]))
+:-moz-any(.touched, #screen:not(.locked), #screen.attention, #lockscreen:not([data-panel="main"]))
 :-moz-any(#lockscreen-left-arrow, #lockscreen-right-arrow) {
   display: none;
   animation: none;
@@ -444,34 +338,22 @@ button::-moz-focus-inner {
   background-size: 3rem;
 }
 
-#lockscreen-area-unlock {
-  /* Otherwise it will be overlayed by the track. */
-  z-index: 1;
+.lockscreen-icon-left, .lockscreen-icon-right {
+  z-index: 16;
   pointer-events: auto;
 }
 
 /* Compensation for the effects after enabling the pointer-event attribute. */
-#lockscreen-area-unlock:active {
+.lockscreen-icon-left:active, .lockscreen-icon-right:active {
   background: none;
 }
 
-#lockscreen-alt-camera,
+#lockscreen-alt-camera-button,
 #lockscreen-area-camera > div {
   background-image: url('./images/icon-camera.png');
   background-position: center;
   background-repeat: no-repeat;
   background-size: 2.4rem;
-}
-
-#lockscreen-area-camera {
-  /* Otherwise it will be overlayed by the track. */
-  z-index: 1;
-  pointer-events: auto;
-}
-
-/* Compensation for the effects after enabling the pointer-event attribute. */
-#lockscreen-area-camera:active {
-  background: none;
 }
 
 #lockscreen-alt-camera {
@@ -486,16 +368,27 @@ button::-moz-focus-inner {
   transition: opacity 0.5s ease;
 }
 
+#lockscreen-alt-camera-button {
+  width: 100%;
+  height: 100%;
+
+  border-radius: 50%;
+
+  pointer-events: auto;
+}
+
 [data-panel="emergency-call"] #lockscreen-panel-passcode {
   transform: translateX(-100%);
 }
 
 #lockscreen-panel-passcode {
-  z-index: 2;
+  /* > camera, unlock icons > canvas */
+  z-index: 32;
 }
 
 #lockscreen-panel-emergency-call {
-  z-index: 2;
+  /* > camera, unlock icons > canvas */
+  z-index: 32;
 }
 
 #lockscreen-passcode-code {
@@ -723,13 +616,10 @@ button::-moz-focus-inner {
   pointer-events: none;
   border-top: 0.1rem solid #989898;
   background-image: linear-gradient(to bottom, rgba(0,0,0,0.8), rgba(0,0,0,0.2) 20%);
+  z-index: 2;
 }
 
 .touched #lockscreen-icon-container {
-  transition: none;
-}
-
-.touched #lockscreen-area-handle {
   transition: none;
 }
 
@@ -737,63 +627,9 @@ button::-moz-focus-inner {
   transition: none;
 }
 
-.triggered #lockscreen-icon-container {
-  transform: translateY(-8rem);
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.triggered #lockscreen-area-handle {
-  transform: translateY(-1rem);
-  opacity: 0;
-}
-
-.triggered .lockscreen-icon-area {
-  opacity: 1;
-}
-
-@keyframes lockscreen-elastic {
-  0%, 40%, 75%, 97% {
-    transform: translateY(0);
-    animation-timing-function: ease-out;
-  }
-  20% {
-    transform: translateY(-5rem);
-    animation-timing-function: ease-in;
-  }
-  55% {
-    transform: translateY(-2.3rem);
-    animation-timing-function: ease-in;
-  }
-  85% {
-    transform: translateY(-0.5rem);
-    animation-timing-function: ease-in;
-  }
-}
-
-@keyframes lockscreen-elastic-icon {
-  0%, 40%, 75%, 97% {
-    opacity: 0.1;
-    animation-timing-function: ease-out;
-  }
-  20% {
-    opacity: 0.5;
-    animation-timing-function: ease-in;
-  }
-  55% {
-    opacity: 0.4;
-    animation-timing-function: ease-in;
-  }
-  85% {
-    opacity: 0.3;
-    animation-timing-function: ease-in;
-  }
-}
-
-.elastic .lockscreen-icon-area {
-  animation: lockscreen-elastic-icon 2.5s 1;
-}
-
-.elastic #lockscreen-icon-container {
-  animation: lockscreen-elastic 2.5s 1;
+#lockscreen-canvas-wrapper {
+  position: absolute;
+  bottom: 0.75rem;
+  z-index: 8;
+  width: 100%;
 }

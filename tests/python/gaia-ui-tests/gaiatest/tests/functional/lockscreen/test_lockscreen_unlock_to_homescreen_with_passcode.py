@@ -5,7 +5,6 @@
 from gaiatest import GaiaTestCase
 from gaiatest.apps.lockscreen.app import LockScreen
 
-
 class TestLockScreen(GaiaTestCase):
 
     _input_passcode = '7931'
@@ -18,15 +17,11 @@ class TestLockScreen(GaiaTestCase):
         self.data_layer.set_setting('lockscreen.passcode-lock.enabled', True)
 
         # this time we need it locked!
-        self.lockscreen.lock()
-        self.lock_screen = LockScreen(self.marionette)
+        self.device.lock()
 
     def test_unlock_to_homescreen_with_passcode(self):
-        """Unlock device to homescreen when a passcode is set
+        lock_screen = LockScreen(self.marionette)
+        passcode_pad = lock_screen.unlock_to_passcode_pad()
+        homescreen = passcode_pad.type_passcode(self._input_passcode)
 
-        https://github.com/mozilla/gaia-ui-tests/issues/478
-        """
-        homescreen = self.lock_screen.unlock()
-        self.lock_screen.passcode_pad.type_passcode(self._input_passcode)
-
-        homescreen.switch_to_homescreen_frame()
+        self.wait_for_condition(lambda m: self.apps.displayed_app.name == homescreen.name)

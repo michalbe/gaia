@@ -12,23 +12,25 @@ from gaiatest.apps.clock.app import Clock
 
 class NewAlarm(Clock):
 
-    _edit_alarm_fields_locator = (By.ID, 'edit-alarm')
-    _alarm_name_locator = (By.XPATH, "//input[@placeholder='Alarm name']")
+    _alarm_name_locator = (By.ID, 'alarm-name')
     _repeat_menu_locator = (By.ID, 'repeat-menu')
     _sound_menu_locator = (By.ID, 'sound-menu')
     _snooze_menu_locator = (By.ID, 'snooze-menu')
     _done_locator = (By.ID, 'alarm-done')
-    _close_locator = (By.ID, 'alarm-close')
-    _time_button_locator = (By.ID, 'time-menu')
+    _time_button_locator = (By.XPATH, "//li[input[@id='time-select']]")
 
     _hour_picker_locator = (By.CSS_SELECTOR, '#value-picker-hours div')
     _minutes_picker_locator = (By.CSS_SELECTOR, '#value-picker-minutes div')
     _hour24_picker_locator = (By.CSS_SELECTOR, '#value-picker-hour24-state div')
 
+    def __init__(self, marionette):
+        Clock.__init__(self, marionette)
+        view = self.marionette.find_element(*self._alarm_view_locator)
+        self.wait_for_condition(lambda m: view.location['x'] == 0)
+
     def type_alarm_label(self, value):
-        label = self.marionette.find_element(*self._alarm_name_locator)
-        label.clear()
-        label.send_keys(value)
+        self.marionette.find_element(*self._alarm_name_locator).tap()
+        self.keyboard.send(value)
         self.keyboard.dismiss()
 
     @property
@@ -59,17 +61,11 @@ class NewAlarm(Clock):
         self.marionette.find_element(*self._sound_menu_locator).tap()
         self.select(value)
 
-    def wait_for_panel_to_load(self):
-        self.wait_for_condition(lambda m: m.find_element(*self._close_locator).location['x'] == 0)
-        self.wait_for_element_displayed(*self._edit_alarm_fields_locator)
-
     def tap_done(self):
-        self.wait_for_element_displayed(*self._done_locator)
         self.marionette.find_element(*self._done_locator).tap()
-
-        clock = Clock(self.marionette)
-        clock.wait_for_banner_displayed()
-        return clock
+        view = self.marionette.find_element(*self._alarm_view_locator)
+        self.wait_for_condition(lambda m: view.location['x'] == view.size['width'])
+        return Clock(self.marionette)
 
     @property
     def hour(self):
@@ -152,8 +148,9 @@ class EditAlarm(NewAlarm):
 
     def __init__(self, marionette):
         NewAlarm.__init__(self, marionette)
-        self.wait_for_element_displayed(*self._alarm_delete_button_locator)
 
     def tap_delete(self):
         self.marionette.find_element(*self._alarm_delete_button_locator).tap()
+        view = self.marionette.find_element(*self._alarm_view_locator)
+        self.wait_for_condition(lambda m: view.location['x'] == view.size['width'])
         return Clock(self.marionette)

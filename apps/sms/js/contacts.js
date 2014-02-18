@@ -2,12 +2,13 @@
 /* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
 (function(exports) {
   'use strict';
+  /*global fb */
 
   var filterFns = {
-    startsWith: function(a, b) {
+    contains: function(a, b) {
       a = a.toLowerCase();
       b = b.toLowerCase();
-      return a.startsWith(b);
+      return a.contains(b);
     },
     equality: function(a, b) {
       a = a.toLowerCase();
@@ -54,10 +55,18 @@
       var term = criteria.terms[i];
       for (var j = 0, jlen = criteria.fields.length; j < jlen; j++) {
         var field = criteria.fields[j];
-        for (var k = 0, klen = contact[field].length; k < klen; k++) {
-          var value = contact[field][k].trim();
 
-          if ((found[term] = filterFn(value, term))) {
+        if (!contact[field]) {
+          continue;
+        }
+
+        for (var k = 0, klen = contact[field].length; k < klen; k++) {
+          var value = contact[field][k];
+          if (typeof value.value !== 'undefined') {
+            value = value.value;
+          }
+
+          if ((found[term] = filterFn(value.trim(), term))) {
             continue outer;
           }
         }
@@ -71,7 +80,7 @@
     // for (var term of criteria.terms) {
     //   for (var field of criteria.fields) {
     //     for (var value of contact[field]) {
-    //       if (found[term] = value.toLowerCase().startsWith(term)) {
+    //       if (found[term] = value.toLowerCase().contains(term)) {
     //         continue outer;
     //       }
     //     }
@@ -133,10 +142,13 @@
        *
        * 5. Remove the length predominate term from the list of validation terms
        *
-       * 6. Make a mozContact.find request with the length predominate term
+       * 6. Add back the original search value, this is needed for matching
+       *     multi-word queries
+       *
+       * 7. Make a mozContact.find request with the length predominate term
        *     as the filter.filterValue.
        *
-       * 7. In the mozContacts.find request success handler, filter the
+       * 8. In the mozContacts.find request success handler, filter the
        *     results by evaluating each contact record against
        *     the list of validation terms.
        */
@@ -166,19 +178,23 @@
       lower.splice(lower.indexOf(filter.filterValue.toLowerCase()), 1);
 
       // Step 6
+      // This would be much nicer using spread operator
+      lower.push.apply(lower, terms);
+
+      // Step 7
       request = navigator.mozContacts.find(filter);
 
       request.onsuccess = function onsuccess() {
         var contacts = this.result.slice();
-        var fields = ['givenName', 'familyName'];
+        var fields = ['tel', 'givenName', 'familyName'];
         var criteria = { fields: fields, terms: lower };
         var results = [];
         var contact;
 
-        // Step 7
+        // Step 8
         if (terms.length > 1) {
           while ((contact = contacts.pop())) {
-            if (isMatch(contact, criteria, filterFns.startsWith)) {
+            if (isMatch(contact, criteria, filterFns.contains)) {
               results.push(contact);
             }
           }
@@ -227,12 +243,29 @@
         callback(isExact ? [contact] : []);
       });
     },
+
     findByPhoneNumber: function contacts_findByPhone(filterValue, callback) {
       return this.findBy({
         filterBy: ['tel'],
         filterOp: 'match',
         filterValue: filterValue.replace(/\s+/g, '')
-      }, callback);
+      },
+      function(results) {
+        if (results && results.length) {
+          callback(results);
+          return;
+        }
+
+        fb.getContactByNumber(filterValue, function fbByPhone(contact) {
+          callback(contact ? [contact] : []);
+        }, function error_fbByPhone(err) {
+          if (err.name !== 'DatastoreNotFound') {
+            console.error('Error while retrieving fb by phone: ', err.name);
+          }
+
+          callback(results);
+        });
+      });
     }
   };
 

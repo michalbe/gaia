@@ -14,10 +14,9 @@ class TestEverythingMeInstallApp(GaiaTestCase):
         self.connect_to_network()
 
     def test_installing_everything_me_app(self):
-        # https://github.com/mozilla/gaia-ui-tests/issues/67
-
         homescreen = Homescreen(self.marionette)
-        homescreen.switch_to_homescreen_frame()
+        self.apps.switch_to_displayed_app()
+        homescreen.wait_for_homescreen_to_load()
 
         self.assertGreater(homescreen.collections_count, 0)
         collection = homescreen.tap_collection('Social')
@@ -32,10 +31,6 @@ class TestEverythingMeInstallApp(GaiaTestCase):
         self.assertEqual(notification_message, '%s added to Home Screen' % app_name)
 
         homescreen = collection.tap_exit()
-
-        # return to home screen
-        self.marionette.execute_script("window.wrappedJSObject.dispatchEvent(new Event('home'));")
-        homescreen.switch_to_homescreen_frame()
 
         self.assertTrue(homescreen.is_app_installed(app_name),
                         'The app %s was not found to be installed on the home screen.' % app_name)

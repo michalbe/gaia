@@ -21,7 +21,6 @@ suite('db', function() {
   });
 
   suiteSetup(function(done) {
-    this.timeout(10000);
     var db = new Calendar.Db(dbName);
     db.deleteDatabase(function(err, success) {
       assert.ok(!err, 'should not have an error when deleting db');

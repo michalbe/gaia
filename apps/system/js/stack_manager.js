@@ -4,7 +4,6 @@ var StackManager = {
   init: function sm_init() {
     window.addEventListener('appcreated', this);
     window.addEventListener('launchapp', this);
-    window.addEventListener('launchwrapper', this);
     window.addEventListener('appterminated', this);
     window.addEventListener('home', this);
   },
@@ -21,22 +20,30 @@ var StackManager = {
 
   goPrev: function sm_goPrev() {
     var newApp = this.getPrev();
-    if (!newApp) {
+    var oldApp = this.getCurrent();
+    if (!newApp || !oldApp) {
       return;
     }
 
-    WindowManager.setActiveApp(newApp);
+    newApp.broadcast('swipein');
+    oldApp.broadcast('swipeout');
+
     this._current--;
+    this._stackChanged();
   },
 
   goNext: function sm_goNext() {
     var newApp = this.getNext();
-    if (!newApp) {
+    var oldApp = this.getCurrent();
+    if (!newApp || !oldApp) {
       return;
     }
 
-    WindowManager.setActiveApp(newApp);
+    newApp.broadcast('swipein');
+    oldApp.broadcast('swipeout');
+
     this._current++;
+    this._stackChanged();
   },
 
   get length() {
@@ -53,13 +60,15 @@ var StackManager = {
         if (app.stayBackground) {
           this._insertBelow(app);
         } else {
+          this._moveToTop(this._current);
           this._insertOnTop(app);
         }
         break;
       case 'launchapp':
-      case 'launchwrapper':
         var config = e.detail;
         if (!config.stayBackground) {
+          this._moveToTop(this._current);
+
           var idx = this._indexOfURL(config.url);
           if (idx !== undefined) {
             this._moveToTop(idx);
@@ -67,15 +76,15 @@ var StackManager = {
         }
         break;
       case 'home':
-        if (this._stack.length > 1) {
-          this._moveToTop(this._current);
-        }
+        this._moveToTop(this._current);
+        this._current = -1;
         break;
       case 'appterminated':
         var manifestURL = e.detail.manifestURL;
         this._remove(manifestURL);
         break;
     }
+    this._stackChanged();
   },
 
   _insertBelow: function sm_insertBelow(app) {
@@ -92,6 +101,10 @@ var StackManager = {
   },
 
   _moveToTop: function sm_moveToTop(index) {
+    if (index === -1 || index >= this._stack.length) {
+      return;
+    }
+
     var sheet = this._stack.splice(index, 1)[0];
     this._current = this._stack.push(sheet) - 1;
   },
@@ -121,6 +134,17 @@ var StackManager = {
         return;
       }
     }
+  },
+
+  _stackChanged: function sm_stackChanged() {
+    var details = {
+      position: this._current,
+      sheets: this._stack
+    };
+
+    var evt = new CustomEvent('stackchanged', { detail: details });
+
+    window.dispatchEvent(evt);
   },
 
   /* Debug */

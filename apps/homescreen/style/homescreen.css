@@ -6,10 +6,6 @@ html, body {
   border: none;
   font-size: 10px;
   overflow: hidden;
-  background-color: #000;
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-position: 50% 50%;
 }
 
 * {
@@ -65,7 +61,8 @@ button {
    outline: none;
 }
 
-html[dir=rtl] .apps ol > li {
+html[dir=rtl] .apps ol > li,
+html[dir=rtl] #footer li {
   float: right;
 }
 
@@ -90,7 +87,7 @@ li:active {
   height: 1px;
 
   pointer-events: none;
-  position: absolute;
+  position: fixed;
   bottom: 0;
   left: 0;
 }
@@ -119,7 +116,6 @@ li:active {
   -moz-box-sizing: border-box;
   background-clip: content-box;
   transform: scale(1);
-  transition: transform 150ms ease-in-out;
 }
 
 body[data-mode = 'normal'] ol > li span.options {
@@ -159,4 +155,11 @@ body[data-mode = 'normal'] ol > li span.options {
   footer { display: none !important; }
   .apps > div { height: 100% !important; }
   #bg-overlay { height: 100%;}
+}
+
+/* Default state for the dialogs.
+ * Will be overwritten when their respective CSS is lazy loaded.
+ */
+#contextmenu-dialog, #confirm-dialog {
+  display: none;
 }

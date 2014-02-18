@@ -1,16 +1,50 @@
 'use strict';
 
-mocha.globals(['UtilityTray']);
+requireApp('system/test/unit/mock_rocketbar.js');
+requireApp('system/shared/test/unit/mocks/mock_lazy_loader.js');
+mocha.globals(['UtilityTray', 'Rocketbar', 'lockScreen']);
 
-var LockScreen = { locked: false };
+requireApp('system/test/unit/mock_lock_screen.js');
 
+var mocksHelperForUtilityTray = new MocksHelper([
+  'Rocketbar',
+  'LazyLoader'
+]);
+mocksHelperForUtilityTray.init();
 
 suite('system/UtilityTray', function() {
   var stubById;
   var fakeEvt;
   var fakeElement;
+  var originalLocked;
+  mocksHelperForUtilityTray.attachTestHelpers();
+
+  var FakeEvent = function(y) {
+    this.pageY = y;
+    this.preventDefault = function() {};
+  };
+
+  function fakeTouches(start, end) {
+    UtilityTray.onTouchStart(new FakeEvent(start));
+    UtilityTray.screenHeight = 480;
+
+    var y = start;
+    while (y != end) {
+      UtilityTray.onTouchMove(new FakeEvent(y));
+
+      if (y < end) {
+        y++;
+      } else {
+        y--;
+      }
+    }
+    UtilityTray.onTouchEnd(new FakeEvent());
+  }
 
   setup(function(done) {
+    window.lockScreen = window.MockLockScreen;
+    originalLocked = window.lockScreen.locked;
+    window.lockScreen.locked = false;
     fakeElement = document.createElement('div');
     fakeElement.style.cssText = 'height: 100px; display: block;';
     stubById = this.sinon.stub(document, 'getElementById')
@@ -20,6 +54,7 @@ suite('system/UtilityTray', function() {
 
   teardown(function() {
     stubById.restore();
+    window.lockScreen.locked = originalLocked;
   });
 
 
@@ -60,23 +95,6 @@ suite('system/UtilityTray', function() {
 
 
   suite('onTouch', function() {
-    function fakeTouches(start, end) {
-      UtilityTray.onTouchStart({ pageY: start });
-      UtilityTray.screenHeight = 480;
-
-      var y = start;
-      while (y != end) {
-        UtilityTray.onTouchMove({ pageY: y });
-
-        if (y < end) {
-          y++;
-        } else {
-          y--;
-        }
-      }
-      UtilityTray.onTouchEnd();
-    }
-
     suite('showing', function() {
       test('should not be shown by a tap', function() {
         fakeTouches(0, 5);
@@ -161,13 +179,22 @@ suite('system/UtilityTray', function() {
 
 
   suite('handleEvent: touchstart', function() {
+    mocksHelperForUtilityTray.attachTestHelpers();
     setup(function() {
       fakeEvt = {
         type: 'touchstart',
         target: UtilityTray.overlay,
-        touches: [0]
+        touches: [0],
+        defaultPrevented: false,
+        preventDefault: function() {
+          this.defaultPrevented = true;
+        }
       };
+    });
+
+    test('preventDefault() should have been called on touchstart', function() {
       UtilityTray.handleEvent(fakeEvt);
+      assert.isTrue(fakeEvt.defaultPrevented);
     });
 
     test('Test UtilityTray.active, should be true', function() {
@@ -181,17 +208,25 @@ suite('system/UtilityTray', function() {
     setup(function() {
       fakeEvt = {
         type: 'touchend',
-        changedTouches: [0]
+        changedTouches: [0],
+        stopImmediatePropagation: function() {},
+        defaultPrevented: false,
+        preventDefault: function() {
+          this.defaultPrevented = true;
+        }
       };
       UtilityTray.active = true;
       UtilityTray.handleEvent(fakeEvt);
+    });
+
+    test('preventDefault() should have been called on touchend', function() {
+      assert.isTrue(fakeEvt.defaultPrevented);
     });
 
     test('Test UtilityTray.active, should be false', function() {
       assert.equal(UtilityTray.active, false);
     });
   });
-
 
   suite('handleEvent: transitionend', function() {
     setup(function() {
@@ -203,6 +238,82 @@ suite('system/UtilityTray', function() {
     test('Test utilitytrayhide is correcly dispatched', function() {
       assert.equal(UtilityTray.screen.
         classList.contains('utility-tray'), false);
+    });
+  });
+
+  suite('onTouchStart: rocketbar logic', function() {
+
+    var overlayStub, uHideStub, rBarRenderStub;
+
+    setup(function() {
+      overlayStub = this.sinon
+        .stub(UtilityTray.overlay, 'getBoundingClientRect')
+        .returns({width: 100, height: 100});
+      rBarRenderStub = this.sinon.stub(Rocketbar, 'render');
+      uHideStub = this.sinon.stub(UtilityTray, 'hide');
+      Rocketbar.enabled = true;
+    });
+
+    teardown(function() {
+      overlayStub.restore();
+      rBarRenderStub.restore();
+      uHideStub.restore();
+    });
+
+    test('should display for drag on left half of statusbar', function() {
+      fakeEvt = {
+        stopImmediatePropagation: function() {},
+        preventDefault: function() {},
+        type: 'touchend',
+        changedTouches: [{
+          pageX: 0
+        }]
+      };
+      UtilityTray.onTouchStart(fakeEvt);
+      UtilityTray.shown = false;
+      UtilityTray.active = false;
+      UtilityTray.handleEvent(fakeEvt);
+      assert.isTrue(rBarRenderStub.calledOnce);
+    });
+
+    test('does not render if utility tray not active', function() {
+      fakeEvt = {
+        stopImmediatePropagation: function() {},
+        preventDefault: function() {},
+        type: 'touchend',
+        changedTouches: [{
+          pageX: 0
+        }]
+      };
+      UtilityTray.onTouchStart(fakeEvt);
+      UtilityTray.shown = false;
+      UtilityTray.active = true;
+      UtilityTray.handleEvent(fakeEvt);
+      assert.isTrue(rBarRenderStub.notCalled);
+    });
+
+    test('should not show if we touch to the right', function() {
+      fakeEvt = {
+        type: 'touchstart',
+        preventDefault: function() {},
+        pageX: 70
+      };
+      UtilityTray.onTouchStart(fakeEvt);
+      assert.isTrue(rBarRenderStub.notCalled);
+      assert.isTrue(uHideStub.notCalled);
+    });
+
+
+    test('should not show if we touch the open statusbar', function() {
+      fakeTouches(0, 100);
+      assert.equal(UtilityTray.shown, true);
+      fakeEvt = {
+        type: 'touchstart',
+        preventDefault: function() {},
+        pageX: 0
+      };
+      UtilityTray.onTouchStart(fakeEvt);
+      assert.isTrue(rBarRenderStub.notCalled);
     });
   });
 

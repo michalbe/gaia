@@ -15,12 +15,20 @@ var CallScreen = {
   groupCallsList: document.getElementById('group-call-details-list'),
 
   mainContainer: document.getElementById('main-container'),
+  contactBackground: document.getElementById('contact-background'),
   callToolbar: document.getElementById('co-advanced'),
 
   muteButton: document.getElementById('mute'),
   speakerButton: document.getElementById('speaker'),
+  bluetoothButton: document.getElementById('bt'),
   keypadButton: document.getElementById('keypad-visibility'),
   placeNewCallButton: document.getElementById('place-new-call'),
+
+  bluetoothMenu: document.getElementById('bluetooth-menu'),
+  switchToDeviceButton: document.getElementById('btmenu-btdevice'),
+  switchToReceiverButton: document.getElementById('btmenu-receiver'),
+  switchToSpeakerButton: document.getElementById('btmenu-speaker'),
+  bluetoothMenuCancel: document.getElementById('btmenu-cancel'),
 
   answerButton: document.getElementById('callbar-answer'),
   rejectButton: document.getElementById('callbar-hang-up'),
@@ -31,15 +39,19 @@ var CallScreen = {
 
   incomingContainer: document.getElementById('incoming-container'),
   incomingNumber: document.getElementById('incoming-number'),
+  incomingNumberAdditionalInfo:
+    document.getElementById('incoming-number-additional-info'),
   incomingAnswer: document.getElementById('incoming-answer'),
   incomingEnd: document.getElementById('incoming-end'),
   incomingIgnore: document.getElementById('incoming-ignore'),
-  lockedContactPhoto: document.getElementById('locked-contact-photo'),
   lockedClockNumbers: document.getElementById('lockscreen-clock-numbers'),
   lockedClockMeridiem: document.getElementById('lockscreen-clock-meridiem'),
   lockedDate: document.getElementById('lockscreen-date'),
 
   statusMessage: document.getElementById('statusMsg'),
+  configs: {
+    lockMode: 'incoming-call'
+  },
   showStatusMessage: function cs_showStatusMesssage(text) {
     var STATUS_TIME = 2000;
     var self = this;
@@ -92,6 +104,8 @@ var CallScreen = {
                                              this.placeNewCall.bind(this));
     this.speakerButton.addEventListener('click',
                                     this.toggleSpeaker.bind(this));
+    this.bluetoothButton.addEventListener('click',
+                                    this.toggleBluetoothMenu.bind(this));
     this.answerButton.addEventListener('click',
                                     CallsHandler.answer);
     this.rejectButton.addEventListener('click',
@@ -99,10 +113,19 @@ var CallScreen = {
     this.holdButton.addEventListener('mouseup', CallsHandler.toggleCalls);
 
     this.showGroupButton.addEventListener('click',
-                                    CallScreen.showGroupDetails.bind(this));
+                                    this.showGroupDetails.bind(this));
 
     this.hideGroupButton.addEventListener('click',
-                                    CallScreen.hideGroupDetails.bind(this));
+                                    this.hideGroupDetails.bind(this));
+
+    this.switchToDeviceButton.addEventListener('click',
+                                    this.switchToDefaultOut.bind(this));
+    this.switchToReceiverButton.addEventListener('click',
+                                    this.switchToReceiver.bind(this));
+    this.switchToSpeakerButton.addEventListener('click',
+                                    this.switchToSpeaker.bind(this));
+    this.bluetoothMenuCancel.addEventListener('click',
+                                    this.toggleBluetoothMenu.bind(this));
 
     this.incomingAnswer.addEventListener('click',
                               CallsHandler.holdAndAnswer);
@@ -113,13 +136,16 @@ var CallScreen = {
 
     this.calls.addEventListener('click', CallsHandler.toggleCalls.bind(this));
 
-    var callScreenHasLayout = !!this.screen.dataset.layout;
-    if ((window.location.hash === '#locked') && !callScreenHasLayout) {
-      CallScreen.render('incoming-locked');
-    }
-    CallScreen.showClock(new Date());
+    if (window.location.hash === '#locked') {
+      this.showClock(new Date());
+      this.initLockScreenSlide();
 
-    this.setDefaultContactImage({force: false});
+      if (!this.screen.dataset.layout) {
+        this.render('incoming-locked');
+      }
+    }
+
+    this.setWallpaper();
 
     // Handle resize events
     window.addEventListener('resize', this.resizeHandler.bind(this));
@@ -127,17 +153,103 @@ var CallScreen = {
     this.syncSpeakerEnabled();
   },
 
-  toggle: function cs_toggle(callback) {
-    var screen = this.screen;
-    screen.classList.toggle('displayed');
+  initLockScreenSlide: function cs_initLockScreenSlide() {
+    // Setup incoming call screen slider
+    this.hangUpIcon = document.getElementById('lockscreen-area-hangup');
+    this.pickUpIcon = document.getElementById('lockscreen-area-pickup');
+    this.initUnlockerEvents();
+    new LockScreenSlide(
+      // Options
+      {
+        IDs: {
+          overlay: 'main-container',
+          areas: {
+            left: 'lockscreen-area-hangup',
+            right: 'lockscreen-area-pickup'
+          }
+        },
 
-    if (!callback || typeof(callback) !== 'function') {
+        colors: {
+          left: {
+            touchedColor: '255, 0, 0',
+            touchedColorStop: '255, 178, 178'
+          },
+
+          right: {
+            touchedColor: '132, 200, 44',
+            touchedColorStop: '218, 238, 191'
+          }
+        },
+
+        resources: {
+          larrow: '/dialer/style/images/larrow.png',
+          rarrow: '/dialer/style/images/rarrow.png'
+        },
+        handle: {
+          autoExpand: {
+            sentinelOffset: 80
+          }
+        }
+      }
+    );
+  },
+
+  _wallpaperReady: false,
+  _toggleWaiting: false,
+  _toggleCallback: null,
+
+  setWallpaper: function cs_setWallpaper() {
+    if (!navigator.mozSettings) {
+      this._onWallpaperReady();
       return;
     }
 
+    var self = this;
+    var req = navigator.mozSettings.createLock().get('wallpaper.image');
+    req.onsuccess = function cs_wi_onsuccess() {
+      var wallpaperImage = req.result['wallpaper.image'];
+      var isString = (typeof wallpaperImage == 'string');
+      var image =
+        isString ? wallpaperImage : URL.createObjectURL(wallpaperImage);
+      self.mainContainer.style.backgroundImage = 'url(' + image + ')';
+      setTimeout(self._onWallpaperReady.bind(self));
+    };
+
+    req.onerror = this._onWallpaperReady.bind(this);
+  },
+
+  _onWallpaperReady: function cs_onWallpaperReady() {
+    this._wallpaperReady = true;
+    if (this._toggleWaiting) {
+      this.toggle(this._toggleCallback);
+      this._toggleCallback = null;
+      this._toggleWaiting = false;
+    }
+  },
+
+  _transitionDone: false,
+  _contactBackgroundWaiting: false,
+  _contactImage: null,
+
+  toggle: function cs_toggle(callback) {
+    // Waiting for the wallpaper to be set before toggling the screen in
+    if (!this._wallpaperReady) {
+      this._toggleWaiting = true;
+      this._toggleCallback = callback;
+      return;
+    }
+
+    var screen = this.screen;
+    screen.classList.toggle('displayed');
+
+    var self = this;
+
     // We have no opening transition for incoming locked
     if (this.screen.dataset.layout === 'incoming-locked') {
-      setTimeout(callback);
+      if (callback && typeof(callback) == 'function') {
+        setTimeout(callback);
+      }
+      self._onTransitionDone();
       return;
     }
 
@@ -147,8 +259,44 @@ var CallScreen = {
         return;
       }
       screen.removeEventListener('transitionend', trWait);
-      callback();
+      if (callback && typeof(callback) == 'function') {
+        callback();
+      }
+      self._onTransitionDone();
     });
+  },
+
+  _onTransitionDone: function cs_onTransitionDone() {
+    this._transitionDone = true;
+    if (this._contactBackgroundWaiting) {
+      this.setCallerContactImage(this._contactImage);
+      this._contactBackgroundWaiting = false;
+    }
+  },
+
+  setCallerContactImage: function cs_setContactImage(blob, force) {
+    // Waiting for the call screen transition to end before updating
+    // the contact image
+    if (!this._transitionDone) {
+      this._contactImage = blob;
+      this._contactBackgroundWaiting = true;
+      return;
+    }
+
+    if (this._contactImage == blob && !this._contactBackgroundWaiting) {
+      return;
+    }
+
+    this._contactImage = blob;
+
+    this.contactBackground.classList.remove('ready');
+    var background = blob ? 'url(' + URL.createObjectURL(blob) + ')' : '';
+    this.contactBackground.style.backgroundImage = background;
+    this.contactBackground.classList.add('ready');
+  },
+
+  setEmergencyWallpaper: function cs_setEmergencyWallpaper() {
+    this.mainContainer.classList.add('emergency-active');
   },
 
   insertCall: function cs_insertCall(node) {
@@ -181,29 +329,6 @@ var CallScreen = {
     }
   },
 
-  setCallerContactImage: function cs_setContactImage(image_url, opt) {
-    var isString = (typeof image_url == 'string');
-    var isLocked = (this.screen.dataset.layout === 'incoming-locked');
-    var target = isLocked ? this.lockedContactPhoto : this.mainContainer;
-    var photoURL = isString ? image_url : URL.createObjectURL(image_url);
-
-    if (!target.style.backgroundImage || (opt && opt.force)) {
-      target.style.backgroundImage = 'url(' + photoURL + ')';
-    }
-  },
-
-
-  setDefaultContactImage: function cs_setDefaultContactImage(opt) {
-    if (!navigator.mozSettings) {
-      return;
-    }
-
-    var req = navigator.mozSettings.createLock().get('wallpaper.image');
-    req.onsuccess = function cs_wi_onsuccess() {
-      CallScreen.setCallerContactImage(req.result['wallpaper.image'], opt);
-    };
-  },
-
   toggleMute: function cs_toggleMute() {
     this.muteButton.classList.toggle('active-state');
     this.calls.classList.toggle('muted');
@@ -221,14 +346,45 @@ var CallScreen = {
     CallsHandler.toggleSpeaker();
   },
 
-  turnSpeakerOn: function cs_turnSpeakerOn() {
-    this.speakerButton.classList.add('active-state');
-    CallsHandler.turnSpeakerOn();
+  toggleBluetoothMenu: function cs_toggleBluetoothMenu(value) {
+    if (typeof value != 'boolean') {
+      this.bluetoothMenu.classList.toggle('display');
+    } else {
+      this.bluetoothMenu.classList.toggle('display', value);
+    }
   },
 
-  turnSpeakerOff: function cs_turnSpeakerOff() {
+  switchToSpeaker: function cs_switchToReceiver() {
+    this.speakerButton.classList.add('active-state');
+    this.bluetoothButton.classList.add('active-state');
+    CallsHandler.switchToSpeaker();
+    this.toggleBluetoothMenu(false);
+  },
+
+  switchToReceiver: function cs_switchToReceiver() {
     this.speakerButton.classList.remove('active-state');
-    CallsHandler.turnSpeakerOff();
+    this.bluetoothButton.classList.remove('active-state');
+    CallsHandler.switchToReceiver();
+    this.toggleBluetoothMenu(false);
+  },
+
+  // when BT device available: switch to BT
+  // when BT device unavailable: switch to receiver
+  switchToDefaultOut: function cs_switchToDefaultOut() {
+    this.speakerButton.classList.remove('active-state');
+    this.bluetoothButton.classList.add('active-state');
+    CallsHandler.switchToDefaultOut();
+    this.toggleBluetoothMenu(false);
+  },
+
+  setBTReceiverIcon: function cs_setBTReceiverIcon(enabled) {
+    if (enabled) {
+      this.speakerButton.classList.add('hide');
+      this.bluetoothButton.classList.remove('hide');
+    } else {
+      this.speakerButton.classList.remove('hide');
+      this.bluetoothButton.classList.add('hide');
+    }
   },
 
   showKeypad: function cs_showKeypad() {
@@ -254,7 +410,7 @@ var CallScreen = {
   render: function cs_render(layout_type) {
     this.screen.dataset.layout = layout_type;
     if (layout_type !== 'connected') {
-      this.keypadButton.setAttribute('disabled', 'disabled');
+      this.disableKeypad();
     }
   },
 
@@ -287,6 +443,12 @@ var CallScreen = {
     if (this._screenWakeLock) {
       this._screenWakeLock.unlock();
       this._screenWakeLock = null;
+    }
+    var hc = CallsHandler.activeCall;
+    if (hc) {
+      this.setCallerContactImage(hc.photo);
+    } else {
+      this.setCallerContactImage(null);
     }
   },
 
@@ -357,15 +519,87 @@ var CallScreen = {
     delete durationNode.dataset.tickerId;
   },
 
-  // XXX: This is a workaround before bug 936982 is fixed.
-  // the last call quitting conference changes its status with one additional
-  // connected for now, namely disconnecting-->**connected**-->disconnected
-  // so we just hide disconnecting calls to prevent it from appearing on call
-  // screen again.
-  setCallsEndedInGroup: function cs_markEndOnCallsInGroup() {
+  setEndConferenceCall: function cs_setEndConferenceCall() {
     var callElems = this.groupCallsList.getElementsByTagName('SECTION');
     for (var i = 0; i < callElems.length; i++) {
-      callElems[i].classList.add('groupended');
+      callElems[i].dataset.groupHangup = 'groupHangup';
     }
+  },
+
+  handleEvent: function cs_handleEvent(evt) {
+    var state = null, statePrev = null;
+    switch (evt.type) {
+      case 'lockscreenslide-unlocker-initializer':
+        break;
+      case 'lockscreenslide-near-left':
+        state = evt.detail.state;
+        statePrev = evt.detail.statePrev;
+        if (state === 'accelerating') {
+          CallScreen.hangUpIcon.classList.add('triggered');
+        } else {
+          CallScreen.hangUpIcon.classList.remove('triggered');
+        }
+        break;
+      case 'lockscreenslide-near-right':
+        state = evt.detail.state;
+        statePrev = evt.detail.statePrev;
+        if (state === 'accelerating') {
+          CallScreen.pickUpIcon.classList.add('triggered');
+        } else {
+          CallScreen.pickUpIcon.classList.remove('triggered');
+        }
+        break;
+      case 'lockscreenslide-unlocking-start':
+        break;
+      case 'lockscreenslide-unlocking-stop':
+        break;
+      case 'lockscreenslide-activate-left':
+        CallsHandler.end();
+        break;
+      case 'lockscreenslide-activate-right':
+        CallsHandler.answer();
+        break;
+      case 'lockscreen-mode-on':
+        this.modeSwitch(evt.detail, true);
+        break;
+      case 'lockscreen-mode-off':
+        this.modeSwitch(evt.detail, false);
+        break;
+    }
+  },
+
+  /**
+   * @param {boolean} switcher - true if mode is on, false if off.
+   */
+  modeSwitch: function cs_modeSwitch(mode, switcher) {
+    if (switcher) {
+      if (mode !== this.configs.lockMode) {
+        this.suspendUnlockerEvents();
+      }
+    } else {
+      if (mode !== this.configs.lockMode) {
+        this.initUnlockerEvents();
+      }
+    }
+  },
+
+  initUnlockerEvents: function cs_initUnlockerEvents() {
+    window.addEventListener('lockscreenslide-unlocker-initializer', this);
+    window.addEventListener('lockscreenslide-near-left', this);
+    window.addEventListener('lockscreenslide-near-right', this);
+    window.addEventListener('lockscreenslide-unlocking-start', this);
+    window.addEventListener('lockscreenslide-activate-left', this);
+    window.addEventListener('lockscreenslide-activate-right', this);
+    window.addEventListener('lockscreenslide-unlocking-stop', this);
+  },
+
+  suspendUnlockerEvents: function cs_initUnlockerEvents() {
+    window.removeEventListener('lockscreenslide-unlocker-initializer', this);
+    window.removeEventListener('lockscreenslide-near-left', this);
+    window.removeEventListener('lockscreenslide-near-right', this);
+    window.removeEventListener('lockscreenslide-unlocking-start', this);
+    window.removeEventListener('lockscreenslide-activate-left', this);
+    window.removeEventListener('lockscreenslide-activate-right', this);
+    window.removeEventListener('lockscreenslide-unlocking-stop', this);
   }
 };

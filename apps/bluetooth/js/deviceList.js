@@ -178,6 +178,9 @@ navigator.mozL10n.ready(function deviceList() {
               if (isSendingFile || pairingAddress) {
                 return;
               }
+
+              stopDiscovery();
+
               // show the description to be Connecting...
               // since we do connection and send file to the device
               var small = aItem.querySelector('small');
@@ -260,19 +263,12 @@ navigator.mozL10n.ready(function deviceList() {
         // it will show on paired list later.
         if (openList.index[workingAddress]) {
           var device = openList.index[workingAddress][0];
-          // XXX: Bug 915602 - [Bluetooth] Call sendFile api will crash
-          // the system while device is just paired.
-          // The paired device is ready to send file.
-          // Since above issue is existed, we use a setTimeout with 3 secs delay
-          var waitConnectionReadyTimeoutTime = 3000;
-          setTimeout(function() {
-            readyToSendFile(device);
-          }, waitConnectionReadyTimeoutTime);
-
           var item = openList.index[workingAddress][1];
           openList.list.removeChild(item);
           delete openList.index[workingAddress];
           connectingAddress = workingAddress;
+          // Already paired with target device. Then, it's able to send files.
+          readyToSendFile(device);
         }
       } else {
         // display failure only when active request

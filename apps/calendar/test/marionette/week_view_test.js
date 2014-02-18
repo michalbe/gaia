@@ -1,51 +1,34 @@
+'use strict';
+
 var Calendar = require('./calendar'),
-    Marionette = require('marionette-client');
-    assert = require('assert');
+    assert = require('chai').assert;
 
 marionette('week view', function() {
-  var app, actions, bodyElement, hintSwipeToNavigate;
+  var app;
   var client = marionette.client();
 
   setup(function() {
-    actions = new Marionette.Actions(client);
     app = new Calendar(client);
-
-    app.launch();
-    bodyElement = client.findElement('body');
-
-    // Hide the hint.
-    app.findElement('hintSwipeToNavigate').click();
+    app.launch({ hideSwipeHint: true });
 
     // Go to week view.
     app.findElement('weekButton').click();
   });
 
-  test('should have a space between months', function(done) {
-    var bodySize = client.executeScript(function() {
-      return {
-        height: document.body.clientHeight,
-        width: document.body.clientWidth
-      };
-    });
-
-    // (x1, y1) is swipe start.
-    // (x2, y2) is swipe end.
-    var x1 = bodySize.width * 0.2,
-        y1 = bodySize.height * 0.2,
-        x2 = 0,
-        y2 = bodySize.height * 0.2;
-
-    var header;
+  test('multiple months (eg. "Dec 2013 Jan 2014")', function() {
+    // match the header on a multi week view, we just check for 2 dates since
+    // month names will have different patterns on each locale
+    var multiMonthPattern = /\d{4}.+\d{4}$/;
+    var headerText;
     do {
-      // Swipe to next week.
-      actions
-        .flick(bodyElement, x1, y1, x2, y2)
-        .perform();
-      header = app.findElement('monthYearHeader');
-    } while (!Calendar.HEADER_PATTERN.test(header.text()));
+      app.swipe();
+      headerText = app.waitForElement('monthYearHeader').text();
+    } while (!multiMonthPattern.test(headerText));
 
-    // We've reached some week view where the header is split between
-    // two months... this is good!
-    done();
+    // we are not checking for real overflow since font is different on each
+    // environment (Travis uses a wider font) which would make test to fail
+    // https://groups.google.com/forum/#!topic/mozilla.dev.gaia/DrQzv7qexw4
+    assert.operator(headerText.length, '<', 21, 'header should not overflow');
   });
+
 });

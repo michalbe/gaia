@@ -19,6 +19,8 @@ var MockCommon = function(config) {
   return {
     COST_CONTROL_APP: 'app://costcontrol.gaiamobile.org',
     allNetworkInterfaces: {},
+    dataSimIccId: null,
+    dataSimIcc: null,
     isValidICCID: function(iccid) {
       assert.isDefined(
         config.isValidICCID,
@@ -29,7 +31,7 @@ var MockCommon = function(config) {
     waitForDOMAndMessageHandler: function(window, callback) {
       callback();
     },
-    checkSIMChange: function(callback) {
+    checkSIM: function(callback) {
       callback();
     },
     startFTE: function(mode) {
@@ -49,19 +51,30 @@ var MockCommon = function(config) {
       window.dispatchEvent(event);
       console.log('Alert: ' + msg);
     },
-    getCurrentSIMInterface: function getCurrentSIMInterface() {
-      var currentSimCard = fakeAllInterfaces[1];
-      return currentSimCard;
+    getDataSIMInterface: function getDataSIMInterface() {
+      var dataSimCard = fakeAllInterfaces[1];
+      return dataSimCard;
     },
     getWifiInterface: function() {
       var wifiInterface = fakeAllInterfaces[0];
       return wifiInterface;
     },
+    getIccInfo: function() { return;},
     loadNetworkInterfaces: function() {
       var self = this;
 
       setTimeout(function() {
         self.allNetworkInterfaces = fakeAllInterfaces;
+      }, 0);
+    },
+    loadDataSIMIccId: function(onsuccess, onerror) {
+      var self = this;
+
+      setTimeout(function() {
+        self.dataSimIccId = fakeAllInterfaces[1].id;
+        if (typeof onsuccess === 'function') {
+          onsuccess(self.dataSimIccId);
+        }
       }, 0);
     }
   };

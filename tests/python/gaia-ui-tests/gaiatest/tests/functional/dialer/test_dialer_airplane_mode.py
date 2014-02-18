@@ -10,13 +10,13 @@ from marionette.errors import JavascriptException
 class TestDialerAirplaneMode(GaiaTestCase):
 
     def test_dialer_airplane_mode(self):
-        # https://moztrap.mozilla.org/manage/case/2282/
+        """https://moztrap.mozilla.org/manage/case/2282/"""
 
         # Disable the device radio, enable Airplane mode
-        self.data_layer.set_setting('ril.radio.disabled', True)
+        self.data_layer.set_setting('airplaneMode.enabled', True)
 
         # Check that we are in Airplane mode
-        self.assertTrue(self.data_layer.get_setting('ril.radio.disabled'))
+        self.assertTrue(self.data_layer.get_setting('airplaneMode.enabled'))
 
         # Launch the device dialer
         phone = Phone(self.marionette)

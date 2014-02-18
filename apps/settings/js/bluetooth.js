@@ -97,6 +97,10 @@ navigator.mozL10n.ready(function bluetoothSettings() {
       }
       updateNameInput.value = myName;
       updateNameDialog.hidden = false;
+      // Focus the input field to trigger showing the keyboard
+      updateNameInput.focus();
+      var cursorPos = updateNameInput.value.length;
+      updateNameInput.setSelectionRange(0, cursorPos);
     };
 
     updateNameCancelButton.onclick = function updateNameCancelClicked(evt) {
@@ -294,7 +298,6 @@ navigator.mozL10n.ready(function bluetoothSettings() {
           this.disconnectOpt.style.display = 'none';
           this.connectOpt.onclick = function() {
             setDeviceConnect(self.device);
-            stopDiscovery();
           };
         }
         this.unpairOpt.onclick = function() {
@@ -722,6 +725,8 @@ navigator.mozL10n.ready(function bluetoothSettings() {
           }
         };
 
+        stopDiscovery();
+
         var req = defaultAdapter.connect(device);
         req.onsuccess = connectSuccess; // At least one profile is connected.
         req.onerror = connectError; // No available profiles are connected.
@@ -876,7 +881,15 @@ navigator.mozL10n.ready(function bluetoothSettings() {
     function setConfirmation(address, confirmed) {
       if (!bluetooth.enabled || !defaultAdapter)
         return;
+
       userCanceledPairing = !confirmed;
+      /*
+       * Only clear pairingAddress when in passive mode as pairingAddress is
+       * used in the onerror function when in active mode.
+       */
+      if (pairingMode === 'passive' && userCanceledPairing) {
+        pairingAddress = null;
+      }
       var req = defaultAdapter.setPairingConfirmation(address, confirmed);
     }
 

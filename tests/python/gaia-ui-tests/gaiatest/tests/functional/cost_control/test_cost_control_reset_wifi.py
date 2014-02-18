@@ -27,27 +27,28 @@ class TestCostControlReset(GaiaTestCase):
         cost_control.toggle_wifi_data_tracking(True)
 
         # open browser to get some data downloaded
-        # please remove this once there is a better way than launching browser app/obj to do so
         browser = Browser(self.marionette)
         browser.launch()
         browser.go_to_url('http://mozqa.com/data/firefox/layout/mozilla.html')
         browser.switch_to_content()
         self.wait_for_element_present(*self._page_title_locator)
 
+        # disable wifi and kill the browser before reset data, wait for wifi to be closed, and switch back to the app
+        self.apps.kill(browser.app)
+        self.data_layer.disable_wifi()
+        time.sleep(5)
+
         # go back to Cost Control
         cost_control.launch()
         # if we can't trigger any data usage, there must be something wrong
         self.assertNotEqual(cost_control.wifi_data_usage_figure, u'0.00 B', 'No data usage shown after browsing.')
 
-        # disable wifi before reset data, wait for wifi to be closed, and switch back to the app
-        self.data_layer.disable_wifi()
-        time.sleep(1)
-        self.apps.switch_to_displayed_app()
-
         # # go to settings section
         settings = cost_control.tap_settings()
-        settings.reset_data_usage()
+        settings.reset_wifi_usage()
         settings.tap_done()
 
         # wait for usage to be refreshed
-        self.wait_for_condition(lambda m: cost_control.wifi_data_usage_figure == u'0.00 B', message='Wifi usage did not reset back to 0.00 B')
+        self.wait_for_condition(
+            lambda m: cost_control.wifi_data_usage_figure == u'0.00 B',
+            message='Wifi usage did not reset back to 0.00 B')

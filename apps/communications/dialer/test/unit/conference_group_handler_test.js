@@ -230,14 +230,16 @@ suite('conference group handler', function() {
       MockMozTelephony.conferenceGroup.state = 'connected';
       MockMozTelephony.mTriggerGroupStateChange();
 
-      assert.isTrue(MockCallScreen.mSetDefaultContactImageCalled);
+      assert.isNull(MockCallScreen.mSetCallerContactImageArg);
+      assert.isTrue(MockCallScreen.mSetCallerContactImageCalled);
     });
 
     test('should set photo to default when resuming', function() {
       MockMozTelephony.conferenceGroup.state = 'resuming';
       MockMozTelephony.mTriggerGroupStateChange();
 
-      assert.isTrue(MockCallScreen.mSetDefaultContactImageCalled);
+      assert.isNull(MockCallScreen.mSetCallerContactImageArg);
+      assert.isTrue(MockCallScreen.mSetCallerContactImageCalled);
     });
 
     test('should stop timer when groupcall ends', function() {
@@ -298,6 +300,20 @@ suite('conference group handler', function() {
 
       this.sinon.clock.tick(2000);
       assert.isTrue(fakeGroupLine.hidden);
+    });
+  });
+
+  suite('telephony.conferenceGroup.onerror handling', function() {
+    test('error when merging calls', function() {
+      var showStatusSpy = this.sinon.spy(CallScreen, 'showStatusMessage');
+      MockMozTelephony.conferenceGroup.onerror({name: 'addError'});
+      assert.isTrue(showStatusSpy.calledWith('conferenceAddError'));
+    });
+
+    test('error when unmerging calls', function() {
+      var showStatusSpy = this.sinon.spy(CallScreen, 'showStatusMessage');
+      MockMozTelephony.conferenceGroup.onerror({name: 'removeError'});
+      assert.isTrue(showStatusSpy.calledWith('conferenceRemoveError'));
     });
   });
 

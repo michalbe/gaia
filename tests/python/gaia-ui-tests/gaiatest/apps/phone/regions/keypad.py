@@ -19,13 +19,21 @@ class Keypad(Phone):
     _phone_number_view_locator = (By.ID, 'phone-number-view')
     _call_bar_locator = (By.ID, 'keypad-callbar-call-action')
     _add_new_contact_button_locator = (By.ID, 'keypad-callbar-add-contact')
+    _search_popup_locator = (By.CSS_SELECTOR, '#suggestion-bar .suggestion-item')
+    _suggested_contact_name_locator = (By.CSS_SELECTOR, '#suggestion-bar .suggestion-item .name')
+    _suggested_contact_phone_number_locator = (By.CSS_SELECTOR, '#suggestion-bar .suggestion-item .tel')
 
     def __init__(self, marionette):
         Phone.__init__(self, marionette)
+        # TODO sometimes we may tap before the click handlers are ready
+        time.sleep(0.5)
 
     @property
     def phone_number(self):
         return self.marionette.find_element(*self._phone_number_view_locator).get_attribute('value')
+
+    def tap_phone_number(self):
+        self.marionette.find_element(*self._phone_number_view_locator).tap()
 
     def dial_phone_number(self, value):
         for i in value:
@@ -48,6 +56,26 @@ class Keypad(Phone):
     def tap_add_contact(self):
         self.marionette.find_element(*self._add_new_contact_button_locator).tap()
         return AddNewNumber(self.marionette)
+
+    def wait_for_search_popup_visible(self):
+        self.wait_for_element_displayed(*self._search_popup_locator)
+
+    @property
+    def suggested_name(self):
+        return self.marionette.find_element(*self._suggested_contact_name_locator).text
+
+    @property
+    def suggested_phone_number(self):
+        return self.marionette.find_element(*self._suggested_contact_phone_number_locator).text
+
+    def tap_search_popup(self):
+        self.marionette.find_element(*self._search_popup_locator).tap()
+        return CallScreen(self.marionette)
+
+    def wait_for_phone_number_ready(self):
+        # Entering dialer and expecting a phone number there is js that sets the phone value and enables this button
+        self.wait_for_condition(lambda m:
+            'disabled' not in m.find_element(*self._add_new_contact_button_locator).get_attribute('class'))
 
     def switch_to_keypad_frame(self):
         app = self.apps.displayed_app

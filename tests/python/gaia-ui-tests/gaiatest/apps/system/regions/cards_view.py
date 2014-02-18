@@ -2,8 +2,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import time
 from marionette.by import By
+from marionette.marionette import Actions
+
 from gaiatest.apps.base import Base
 
 
@@ -22,17 +23,6 @@ class CardsView(Base):
     def _close_button_locator(self, app):
         return (self._close_buttons_locator[0], self._close_buttons_locator[1] % app.lower())
 
-    def open_cards_view(self):
-        # Hold the home button to open cards view
-        self.marionette.execute_script("window.wrappedJSObject.dispatchEvent(new Event('holdhome'));")
-        time.sleep(1)
-        self.wait_for_cards_view()
-
-    def exit_cards_view(self):
-        # Touch the home button to exit cards view
-        self.marionette.execute_script("window.wrappedJSObject.dispatchEvent(new Event('home'));")
-        self.wait_for_cards_view_not_displayed()
-
     @property
     def is_cards_view_displayed(self):
         return self.is_element_displayed(*self._cards_view_locator)
@@ -48,9 +38,20 @@ class CardsView(Base):
 
     def close_app(self, app):
         return self.marionette.find_element(*self._close_button_locator(app)).tap()
+        self.wait_for_element_not_present(*self._close_button_locator(app))
 
     def wait_for_cards_view(self):
         self.wait_for_element_displayed(*self._cards_view_locator)
 
     def wait_for_cards_view_not_displayed(self):
         self.wait_for_element_not_displayed(*self._cards_view_locator)
+
+    def swipe_to_next_app(self):
+        current_frame = self.apps.displayed_app.frame
+
+        start_x_position = current_frame.size['width']
+        start_y_position = current_frame.size['height'] // 2
+
+        # swipe backward to get next app card
+        Actions(self.marionette).flick(
+            current_frame, start_x_position, start_y_position, 0, start_y_position).perform()

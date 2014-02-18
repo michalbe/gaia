@@ -1,7 +1,13 @@
+/* global MockLazyLoader, MockMatcher, MockMozContacts, MocksHelper,
+    mozContact, VCFReader */
+
+'use strict';
+
 require('/shared/test/unit/mocks/mock_lazy_loader.js');
 requireApp('communications/contacts/test/unit/mock_contacts_match.js');
 requireApp('communications/contacts/js/utilities/vcard_parser.js');
 requireApp('communications/contacts/test/unit/mock_mozContacts.js');
+requireApp('communications/contacts/test/unit/mock_utils.js');
 requireApp('system/shared/test/unit/mocks/mock_moz_contact.js');
 
 var vcf1 = 'BEGIN:VCARD\n' +
@@ -10,7 +16,7 @@ var vcf1 = 'BEGIN:VCARD\n' +
   'ORG;ENCODING=QUOTED-PRINTABLE;CHARSET=utf-8:B=C3=B3bba Gump Shrimp Co.\n' +
   'TITLE;ENCODING=QUOTED-PRINTABLE;CHARSET=utf-8:Shr=C3=B3mp Man\n' +
   'PHOTO;GIF:http://www.example.com/dir_photos/my_photo.gif\n' +
-  'TEL;WORK;VOICE:(111) 555-1212\n' +
+  'TEL;PREF;VOICE;WORK:(111) 555-1212\n' +
   'TEL;HOME;VOICE:(404) 555-1212\n' +
   'ADR;WORK;ENCODING=QUOTED-PRINTABLE:;;100 W=C3=A1ters Edge;Baytown;LA;' +
   '30314;United States of America\n' +
@@ -32,6 +38,7 @@ var vcf2 = 'BEGIN:VCARD\n' +
   'PHOTO;VALUE=URL;TYPE=GIF:http://www.example.com/dir_photos/my_photo.gif\n' +
   'TEL;TYPE=WORK,VOICE:(111) 555-1212\n' +
   'TEL;TYPE=HOME,VOICE:(404) 555-1212\n' +
+  'TEL;TYPE=WORK,FAX:(333) 555-1212\n' +
   'ADR;TYPE=WORK:;;100 Waters Edge;Baytown;LA;30314;' +
   'United States of America\n' +
   'LABEL;TYPE=WORK:100 Waters Edge\nBaytown, ' +
@@ -112,12 +119,26 @@ var vcf5 = 'BEGIN:VCARD\n' +
   'TEL;CELL:+72682252873\n' +
   'END:VCARD';
 
-if (!this.contacts) {
-  this.contacts = null;
+var vcardUnicodeQuotedPrintable = 'BEGIN:VCARD\n' +
+  'VERSION:2.1\n' +
+  'N:Lastname;Firstname;;;\n' +
+  'FN:Firstname Lastname\n' +
+  'TEL;WORK:+4912345678901\n' +
+  'ORG;CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:=46=72=65=75=6E=' +
+  '64=65=20=75=6E=64=20=46=C3=B6=72=64=65=72=65=72=20=54=\n' +
+  '=55=20=44=72=65=73=64=65=6E\n' +
+  'END:VCARD\n';
+
+if (!window.contacts) {
+  window.contacts = null;
 }
 
-if (!this.LazyLoader) {
-  LazyLoader = null;
+if (!window.LazyLoader) {
+  window.LazyLoader = null;
+}
+
+if (!window.utils) {
+  window.utils = null;
 }
 
 var mocksHelperForVCardParsing = new MocksHelper([
@@ -126,15 +147,17 @@ var mocksHelperForVCardParsing = new MocksHelper([
 
 suite('vCard parsing settings', function() {
   function stub(additionalCode, ret) {
-    if (additionalCode && typeof additionalCode !== 'function')
+    if (additionalCode && typeof additionalCode !== 'function') {
       ret = additionalCode;
+    }
 
     var nfn = function() {
       nfn.callCount++;
       nfn.calledWith = [].slice.call(arguments);
 
-      if (typeof additionalCode === 'function')
+      if (typeof additionalCode === 'function') {
         additionalCode.apply(this, arguments);
+      }
 
       return ret;
     };
@@ -144,12 +167,15 @@ suite('vCard parsing settings', function() {
 
   mocksHelperForVCardParsing.attachTestHelpers();
 
-  var realMozContacts, realMatcher, realLazyLoader;
+  var realMozContacts, realMatcher, realLazyLoader, realUtils;
   suite('SD Card import', function() {
     setup(function() {
+      navigator.mozContacts.contacts = [];
+    });
+
+    suiteSetup(function() {
       realMozContacts = navigator.mozContacts;
       navigator.mozContacts = MockMozContacts;
-      navigator.mozContacts.contacts = [];
       navigator.mozContacts.find = function mockMozContactsFind() {
         var self = this;
         var req = {
@@ -157,7 +183,9 @@ suite('vCard parsing settings', function() {
             req.result = self.contacts;
             cb();
           },
-          set onerror(cb) {}
+          get onsuccess() {},
+          set onerror(cb) {},
+          get onerror() {}
         };
         return req;
       };
@@ -168,12 +196,22 @@ suite('vCard parsing settings', function() {
 
       realLazyLoader = window.LazyLoader;
       window.LazyLoader = MockLazyLoader;
+
+      realUtils = window.utils;
+      window.utils = {
+        'misc' : {
+          'toMozContact': function(c) {
+            return c;
+          }
+        }
+      };
     });
 
-    teardown(function() {
+    suiteTeardown(function() {
       navigator.mozContacts = realMozContacts;
       window.contacts.Matcher = realMatcher;
       window.LazyLoader = realLazyLoader;
+      window.utils = realUtils;
     });
 
     test('- should properly decode Quoted Printable texts ', function(done) {
@@ -285,9 +323,9 @@ suite('vCard parsing settings', function() {
           assert.strictEqual('Bóbba Gump Shrimp Co.', contact.org[0]);
           assert.strictEqual('Shrómp Man', contact.jobTitle[0]);
 
-          assert.strictEqual('WORK', contact.tel[0].type[0]);
+          assert.strictEqual('work', contact.tel[0].type[0]);
           assert.strictEqual('(111) 555-1212', contact.tel[0].value);
-          assert.strictEqual('HOME', contact.tel[1].type[0]);
+          assert.strictEqual('home', contact.tel[1].type[0]);
           assert.strictEqual('(404) 555-1212', contact.tel[1].value);
           assert.strictEqual('WORK', contact.adr[0].type[0]);
 
@@ -307,7 +345,7 @@ suite('vCard parsing settings', function() {
             contact.adr[1].countryName);
 
           assert.strictEqual('forrestgump@example.com', contact.email[0].value);
-          assert.strictEqual('PREF', contact.email[0].type[0]);
+          assert.strictEqual('internet', contact.email[0].type[0]);
 
           done();
         };
@@ -335,9 +373,9 @@ suite('vCard parsing settings', function() {
           assert.strictEqual('Bubba Gump Shrimp Co.', contact.org[0]);
           assert.strictEqual('Shrimp Man', contact.jobTitle[0]);
 
-          assert.strictEqual('WORK', contact.tel[0].type[0]);
+          assert.strictEqual('work', contact.tel[0].type[0]);
           assert.strictEqual('(111) 555-1212', contact.tel[0].value);
-          assert.strictEqual('HOME', contact.tel[1].type[0]);
+          assert.strictEqual('home', contact.tel[1].type[0]);
           assert.strictEqual('(404) 555-1212', contact.tel[1].value);
 
           assert.strictEqual('WORK', contact.adr[0].type[0]);
@@ -357,7 +395,7 @@ suite('vCard parsing settings', function() {
             contact.adr[1].countryName);
 
           assert.strictEqual('forrestgump@example.com', contact.email[0].value);
-          assert.strictEqual('PREF', contact.email[0].type[0]);
+          assert.strictEqual('internet', contact.email[0].type[0]);
           done();
         };
       });
@@ -434,13 +472,13 @@ suite('vCard parsing settings', function() {
 
           assert.strictEqual('Tanja Tanzbein', contact.name[0]);
           assert.strictEqual('Tanja', contact.givenName[0]);
-          assert.strictEqual('WORK', contact.tel[0].type[0]);
+          assert.strictEqual('work', contact.tel[0].type[0]);
           assert.strictEqual('+3434269362248', contact.tel[0].value);
 
           var contact2 = req.result[1];
           assert.strictEqual('Thomas Rücker', contact2.name[0]);
           assert.strictEqual('Thomas', contact2.givenName[0]);
-          assert.strictEqual('CELL', contact2.tel[0].type[0]);
+          assert.strictEqual('mobile', contact2.tel[0].type[0]);
           assert.strictEqual('+72682252873', contact2.tel[0].value);
 
           done();
@@ -472,17 +510,70 @@ suite('vCard parsing settings', function() {
           var contact = req.result[0];
           assert.strictEqual('Foo Bar', contact.name[0]);
           assert.strictEqual('Foo', contact.givenName[0]);
-          assert.ok(contact.tel[0].type.indexOf('CELL') > -1);
-          assert.ok(contact.tel[1].type.indexOf('WORK') > -1);
+          assert.ok(contact.tel[0].type.indexOf('mobile') > -1);
+          assert.ok(contact.tel[1].type.indexOf('work') > -1);
           assert.strictEqual(true, contact.tel[0].pref);
           assert.strictEqual('(123) 456-7890', contact.tel[0].value);
           assert.strictEqual('(123) 666-7890', contact.tel[1].value);
           assert.ok(!contact.org[0]);
           //assert.ok(contact.tel[1].type.indexOf('WORK') > -1)
-          assert.strictEqual('HOME', contact.email[0].type[0]);
+          assert.strictEqual('home', contact.email[0].type[0]);
           assert.strictEqual('example@example.org', contact.email[0].value);
           done();
         };
+      });
+    });
+
+    test('- Multiline quoted string', function(done) {
+      var reader = new VCFReader(vcardUnicodeQuotedPrintable);
+      reader.onread = stub();
+      reader.onimported = stub();
+      reader.onerror = stub();
+
+      reader.process(function import_finish(total) {
+        assert.equal(1, total);
+        var req = navigator.mozContacts.find();
+        req.onsuccess = function(contacts) {
+          var contact = req.result[0];
+          assert.strictEqual('Freunde und Förderer TU Dresden', contact.org[0]);
+          done();
+        };
+      });
+    });
+
+    test('- vcards with more than 5 elements', function(done) {
+      var superVcard = '';
+      var CARDS = 6;
+      for (var i = 0; i < CARDS; i++) {
+        superVcard += vcf1 + '\n';
+      }
+
+      var reader = new VCFReader(superVcard);
+      reader.onread = stub();
+      reader.onimported = stub();
+      reader.onerror = stub();
+
+      reader.process(function import_finish(total) {
+        assert.equal(CARDS, total);
+        done();
+      });
+    });
+
+    test('- vcards with more than 25 elements', function(done) {
+      var superVcard = '';
+      var CARDS = 26;
+      for (var i = 0; i < CARDS; i++) {
+        superVcard += vcf1 + '\n';
+      }
+
+      var reader = new VCFReader(superVcard);
+      reader.onread = stub();
+      reader.onimported = stub();
+      reader.onerror = stub();
+
+      reader.process(function import_finish(total) {
+        assert.equal(CARDS, total);
+        done();
       });
     });
   });

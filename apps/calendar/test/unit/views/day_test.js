@@ -9,7 +9,6 @@ suiteGroup('Views.Day', function() {
       busytimes,
       triggerEvent;
 
-
   suiteSetup(function() {
     triggerEvent = testSupport.calendar.triggerEvent;
   });

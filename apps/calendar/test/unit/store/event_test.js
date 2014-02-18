@@ -5,7 +5,6 @@ requireLib('calc.js');
 requireLib('store/event.js');
 
 suite('store/event', function() {
-
   testSupport.calendar.loadObjects(
     'Models.Account',
     'Model.Calendar',
@@ -28,7 +27,6 @@ suite('store/event', function() {
   }
 
   setup(function(done) {
-    this.timeout(5000);
     id = 0;
     app = testSupport.calendar.app();
     db = app.db;

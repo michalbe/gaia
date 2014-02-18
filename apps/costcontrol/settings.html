@@ -19,7 +19,7 @@
     <!-- Building blocks -->
     <link rel="stylesheet" type="text/css" href="shared/style/headers.css">
     <link rel="stylesheet" type="text/css" href="shared/style/switches.css">
-    <link rel="stylesheet" type="text/css" href="shared/style_unstable/lists.css">
+    <link rel="stylesheet" type="text/css" href="shared/style/lists.css">
 
     <!-- App and Views -->
     <link rel="stylesheet" type="text/css" href="style/app.css">
@@ -32,18 +32,13 @@
     <link rel="resource" type="application/l10n" href="shared/locales/date.ini">
     <script type="text/javascript" defer src="shared/js/l10n.js"></script>
     <script type="text/javascript" defer src="shared/js/l10n_date.js"></script>
+    <script type="text/javascript" defer src="shared/js/lazy_loader.js"></script>
 
     <!-- Specific scripts -->
-    <script type="text/javascript" async src="js/validators.js"></script>
-    <script type="text/javascript" async src="js/views/BalanceLowLimitView.js"></script>
-    <script type="text/javascript" async src="js/settings/limitdialog.js"></script>
-    <script type="text/javascript" async src="js/settings/autosettings.js"></script>
-    <script type="text/javascript" async src="js/view_manager.js"></script>
-    <script type="text/javascript" defer src="js/views/BalanceView.js"></script>
     <script type="text/javascript" defer src="js/settings/settings.js"></script>
   </head>
   <body role="application">
-    <section role="region" class="window skin-organic" id="settings-view">
+    <section role="region" class="window skin-organic">
       <!-- Settings view -->
       <section role="region" id="settings-view" class="view">
         <header data-theme="organic">
@@ -55,7 +50,7 @@
 
         <!-- Plantype -->
         <section class="view-scroll" role="region">
-          <ul id="plantype-settings" class="settings">
+          <ul id="plantype-settings" class="settings" aria-hidden="true">
            <li>
             <span class="button icon icon-dialog fake-select">
               <select id="widget-plantype" class="settings-option" data-option="plantype">
@@ -83,10 +78,10 @@
           </ul>
 
           <!-- Balance alerts -->
-          <header id="balance-settings">
+          <header id="balance-settings" aria-hidden="true">
             <h2 data-l10n-id="balance">Balance</h2>
           </header>
-          <ul class="settings">
+          <ul class="settings" aria-hidden="true">
             <li>
                 <p id="balance"></p>
                 <p class="meta"></p>
@@ -114,10 +109,10 @@
           <ul class="settings">
             <li>
               <p id="mobile-data-usage">
-                <span class="usage"></span> <span data-l10n-id="mobile-usage">Mobile usage</span>
+                <span class="usage"></span> <span data-l10n-id="mobile-usage-settings">Mobile usage</span>
               </p>
               <p id="wifi-data-usage">
-                <span class="usage"></span> <span data-l10n-id="wifi-usage">Wi-Fi usage</span>
+                <span class="usage"></span> <span data-l10n-id="wifi-usage-settings">Wi-Fi usage</span>
               </p>
               <p class="meta"></p>
               <button data-l10n-id="reset" id="reset-data-usage">Reset</button>
@@ -245,8 +240,8 @@
               <header data-l10n-id="reset-data-usage">Reset Data usage</header>
               <menu>
                 <br/><button id="reset-data-mobile-usage" data-l10n-id="reset-mobile">Reset mobile data</button>
-                <br/><button id="reset-data-wifi-usage" data-l10n-id="reset-wifi">Reset wifi data</button>
-                <br/><button id="reset-all-data-usage" data-l10n-id="reset-all">Reset mobile & wifi data</button>
+                <br/><button id="reset-data-wifi-usage" data-l10n-id="reset-wifi">Reset Wi-Fi data</button>
+                <br/><button id="reset-all-data-usage" data-l10n-id="reset-all-data-usage">Reset mobile & Wi-Fi data</button>
 
                 <button type="button" data-l10n-id="cancel" class="close-reset-dialog">Cancel</button>
 

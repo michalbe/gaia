@@ -2,7 +2,7 @@
 
 var CarrierInfoNotifier = {
 
-  _sound: 'style/notifications/ringtones/notifier_exclamation.ogg',
+  _sound: 'style/notifications/ringtones/notifier_exclamation.opus',
   // A random starting point that is unlikely to be used by other notifications
   _notificationId: 6000 + Math.floor(Math.random() * 999),
   init: function cin_init() {
@@ -36,7 +36,7 @@ var CarrierInfoNotifier = {
 
     // If we are not inside the lockscreen, show the dialog
     // immediately, dispatch an event to hide
-    if (!LockScreen.locked) {
+    if (!window.lockScreen || !window.lockScreen.locked) {
       this.dispatchEvent('emergencyalert');
       this.playNotification();
       showDialog();

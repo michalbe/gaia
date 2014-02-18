@@ -1,23 +1,21 @@
-requireApp('clock/js/database.js');
-
+'use strict';
 requireApp('clock/test/unit/mocks/mock_shared/js/lazy_loader.js');
-
-// database.js has a dependency on utils.js. Since database.js is planned to
-// be shared across Gaia, it is not defined as a AMD module, and the `Utils`
-// object must be available in the global scope.
-mocha.setup({ globals: ['Utils'] });
+/*jshint sub: true */
+/* global IDBTransaction */
 
 suite('Database Test', function() {
 
   var ll = window.LazyLoader;
-  var hadUtils = 'Utils' in window;
-  var _Utils = window.Utils;
+  var Utils;
+  var Database, SchemaVersion;
   window.LazyLoader = window.LazyLoader || {};
 
   suiteSetup(function(done) {
-    LazyLoader = MockLazyLoader;
-    testRequire(['utils'], function(Utils) {
-      window.Utils = Utils;
+    window.LazyLoader = window.MockLazyLoader;
+    testRequire(['utils', 'database'], function(rUtils, db) {
+      Utils = rUtils;
+      Database = db.Database;
+      SchemaVersion = db.SchemaVersion;
       done();
     });
   });
@@ -26,19 +24,13 @@ suite('Database Test', function() {
     if (typeof ll === 'undefined') {
       delete window.LazyLoader;
     } else {
-      LazyLoader = ll;
-    }
-    if (hadUtils) {
-      window.Utils = _Utils;
-    } else {
-      delete window.Utils;
+      window.LazyLoader = ll;
     }
   });
 
   suite('Database creation', function() {
 
     this.slow(750);
-    this.timeout(5000);
 
     var db = null;
 
@@ -167,7 +159,6 @@ suite('Database Test', function() {
             // Version 2 changes:
             // All objA.a data even -> odd
             // All objB data -> objC
-            var curreq;
             var db = trans.db;
             var finalizer = Utils.async.namedParallel([
               'aUp', 'bUp'], function(err) {
@@ -270,7 +261,6 @@ suite('Database Test', function() {
             // Version 1 back-changes:
             // All objA.a data odd -> even
             // All objC data -> objB
-            var curreq;
             var db = trans.db;
             var finalizer = Utils.async.namedParallel([
               'aDown', 'bDown'], function(err) {
@@ -426,6 +416,7 @@ suite('Database Test', function() {
     });
 
     var extractValues = function(conn, callback) {
+      /* jshint loopfunc:true */
       var ret = {};
       var gen = Utils.async.generator(function(err) {
         callback(err, ret);
@@ -505,7 +496,7 @@ suite('Database Test', function() {
           assert.deepEqual(Array.prototype.slice.call(conn.objectStoreNames)
             .sort(),
             [db.effectiveVersionName, 'objA', 'objC'].sort());
-          var extract = extractValues(conn, function(err, value) {
+          extractValues(conn, function(err, value) {
             assert.ok(!err);
             assert.deepEqual(value[db.effectiveVersionName].get(0), {
               number: 2
@@ -554,7 +545,7 @@ suite('Database Test', function() {
           assert.deepEqual(Array.prototype.slice.call(conn.objectStoreNames)
             .sort(),
             [db.effectiveVersionName, 'objA', 'objC'].sort());
-          var extract = extractValues(conn, function(err, value) {
+          extractValues(conn, function(err, value) {
             assert.ok(!err);
             assert.deepEqual(value[db.effectiveVersionName].get(0), {
               number: 3
@@ -596,7 +587,7 @@ suite('Database Test', function() {
           assert.deepEqual(Array.prototype.slice.call(conn.objectStoreNames)
             .sort(),
             [db.effectiveVersionName, 'objA', 'objB'].sort());
-          var extract = extractValues(conn, function(err, value) {
+          extractValues(conn, function(err, value) {
             assert.ok(!err);
             assert.deepEqual(value[db.effectiveVersionName].get(0), {
               number: 1
@@ -653,7 +644,7 @@ suite('Database Test', function() {
             assert.deepEqual(Array.prototype.slice.call(conn.objectStoreNames)
               .sort(),
               [db.effectiveVersionName, 'objA', 'objB'].sort());
-            var extract = extractValues(conn, function(err, value) {
+            extractValues(conn, function(err, value) {
               assert.ok(!err);
               assert.deepEqual(value[db.effectiveVersionName].get(0), {
                 number: 1

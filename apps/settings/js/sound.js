@@ -1,3 +1,5 @@
+/* global getSupportedNetworkInfo, SettingsListener, ForwardLock, URL,
+          MozActivity */
 /* -*- Mode: js; js-indent-level: 2; indent-tabs-mode: nil -*- */
 /* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
 
@@ -5,13 +7,16 @@
   'use strict';
 
   var _ = navigator.mozL10n.get;
-
-  // Show the touch tone selector if and only if we're on a CDMA network
-  getSupportedNetworkInfo(function(result) {
+  (function() {
+    var mobileConnections = window.navigator.mozMobileConnections;
+    // Show the touch tone selector if and only if we're on a CDMA network
     var toneSelector = document.getElementById('touch-tone-selector');
-    toneSelector.hidden = !result.cdma;
-  });
-
+    Array.prototype.forEach.call(mobileConnections, function(mobileConnection) {
+      getSupportedNetworkInfo(mobileConnection, function(result) {
+        toneSelector.hidden = toneSelector.hidden && !result.cdma;
+      });
+    });
+  })();
   // Now initialize the ring tone and alert tone menus.
 
   // This array has one element for each selectable tone that appears in the
@@ -20,6 +25,7 @@
     {
       pickType: 'alerttone',
       settingsKey: 'notification.ringtone',
+      allowNone: true,  // Allow "None" as a choice for alert tones.
       button: document.getElementById('alert-tone-selection')
     }
   ];
@@ -27,8 +33,9 @@
   // If we're a telephone, then show the section for ringtones, too.
   if (navigator.mozTelephony) {
     tones.push({
-      pickType: ['ringtone', 'audio/*'],
+      pickType: 'ringtone',
       settingsKey: 'dialer.ringtone',
+      allowNone: false, // The ringer must always have an actual sound.
       button: document.getElementById('ring-tone-selection')
     });
     document.getElementById('ringer').hidden = false;
@@ -61,6 +68,7 @@
           name: 'pick',
           data: {
             type: tone.pickType,
+            allowNone: tone.allowNone,
             // If we have a secret then there is locked content on the phone
             // so include it as a choice for the user
             includeLocked: (secret !== null)
@@ -72,7 +80,16 @@
           var name = activity.result.name;  // The name of this ringtone
 
           if (!blob) {
-            console.warn('pick activity empty result');
+            if (tone.allowNone) {
+              // If we allow a null blob, then everything is okay
+              setRingtone(blob, name);
+            }
+            else {
+              // Otherwise this is an error and we should not change the
+              // current setting. (The ringtones app should never return
+              // a null blob if allowNone is false, but other apps might.)
+              alert(_('unplayable-ringtone'));
+            }
             return;
           }
 

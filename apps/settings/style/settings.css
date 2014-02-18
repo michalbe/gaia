@@ -25,14 +25,8 @@ section[role="region"] {
   width: 100%;
   height: 100%;
   border: 0;
-  /*
-    we need the background pattern when the app content is less then viewport
-    (see Bug 938785)
-  */
-  background: url(images/document_bg.png);
   overflow: hidden;
 }
-
 
 /**
  * Panel targets -- transitions
@@ -68,37 +62,56 @@ section[role="region"] > div {
   width: 100%;
   height: calc(100% - 5rem);
   overflow-y: scroll;
+  will-change: scroll-position;
 }
 
+/*
+ * Need this for scrollable background layer
+ * optimization in gecko. See Bug 950250
+ */
+section[role="region"],
+section[role="region"] > div > ul {
+  background-color: #f4f4f4;
+}
 
 /******************************************************************************
  * Explanation texts
  */
 
 .explanation {
-  padding: 0.5rem 1.5rem;
+  padding: 0.5rem 3rem;
   font-style: italic;
   font-size: 1.4rem;
   color: #505859;
 }
 
 .description {
-  padding: 1rem 1.5rem;
   font-size: 1.7rem;
   line-height: 2.3rem;
   white-space: normal;
   -moz-hyphens: auto;
 }
 
-.description p {
-  padding: 0 0 1rem;
+.description p,
+.description a,
+.description label {
   font-size: 1.7rem;
   line-height: 2.3rem;
   white-space: normal;
 }
 
-.description a {
+.description label {
+    padding: 0;
+}
+
+.description label span {
+  height: auto;
+  min-height: 6rem;
+  padding-top: 1.2rem;
+  padding-bottom: 1.2rem;
   font-size: 1.7rem;
+  line-height: 2.3rem;
+  white-space: normal;
 }
 
 .description small {
@@ -163,7 +176,9 @@ ul[data-state="ready"] li > a {
 section li.password,
 section li.password[hidden],
 section li.eap,
-section li.simpin,
+section li.auth-phase2,
+section li.server-certificate,
+section li.server-certificate-description,
 section li.identity {
   display: none;
 }
@@ -171,7 +186,9 @@ section li.identity {
 section[data-security*="WEP"] li.password,
 section[data-security*="WPA"] li.password,
 section[data-security*="EAP"] li.eap,
-section[data-security*="EAP"] li.simpin,
+section[data-security*="EAP"] li.auth-phase2,
+section[data-security*="EAP"] li.server-certificate,
+section[data-security*="EAP"] li.server-certificate-description,
 section[data-security*="EAP"] li.identity {
   display: block;
 }
@@ -215,6 +232,22 @@ section li.password > label:active > span {
 section li.password > p {
   padding: 0.5rem 1.5rem 0;
   line-height: 3.3rem;
+}
+
+#pwd-auth {
+  -moz-user-focus: ignore;
+}
+
+section ul.operate-certificate {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  background: url(images/document_bg.png);
+}
+
+#wifi-certificate-files-List li.disabled a {
+  opacity: 0.6;
+  pointer-events: none;
 }
 
 
@@ -317,9 +350,9 @@ section li.password > p {
 }
 
 #call .cw-alert .cw-alert-checkbox-label {
-  position: absolute;
   right: 0;
   height: 2.7rem;
+  width: 100%;
 }
 
 #call li[aria-disabled="true"] .icon-dialog {
@@ -410,7 +443,8 @@ section li.password > p {
  * Volume & Brightness: min/max icons
  */
 
-ul li > label .range-icons {
+ul li > label.range-icons:before {
+  content: '';
   position: absolute;
   top: calc(50% - 1.5rem);
   right: 0;
@@ -422,7 +456,7 @@ ul li > label .range-icons {
   pointer-events: none;
 }
 
-ul li > label .range-icons.brightness {
+ul li > label.range-icons.brightness:before {
   background:
     url(images/range_icons_brightness_min.png) no-repeat 0 50%,
     url(images/range_icons_brightness_max.png) no-repeat 100% 50%;
@@ -491,23 +525,28 @@ ul li > label .range-icons.brightness {
 #improveBrowserOS-sendFeedback li {
   border: none;
 }
+
 #improveBrowserOS-sendFeedback li:first-child {
   min-height: 3rem;
 }
+
 #improveBrowserOS .link-text {
   white-space: nowrap;
 }
+
 #feedback-description {
   display: block;
   height: 10rem;
   padding: 1rem 1rem 1.2rem;
   resize: none;
 }
+
 #sendFeedback .pack-checkbox span {
   left: 3rem;
   right: auto;
   top: 2rem;
 }
+
 .feedback-choose-face {
   display: block;
   background: url(images/feedback_faces.png);
@@ -517,56 +556,42 @@ ul li > label .range-icons.brightness {
   background-color: transparent;
   background-size: 20rem;
 }
+
 #feedback-mood {
   text-align: center;
 }
-#feedback-mood li{
+
+#feedback-mood li {
   display: inline-block;
 }
+
 #feedback-happy {
   float: left;
 }
+
 #feedback-sad {
   float: right;
 }
-#feedback-happy .feedback-choose-face{
+
+#feedback-happy .feedback-choose-face {
   display: inline-block;
   background-position: 0;
 }
+
 #feedback-sad .feedback-choose-face{
   background-position: 100%;
 }
-.feedback-feel{
+
+.feedback-feel {
   text-align: center;
 }
-.feedback-choose-item {
-  float: left;
-  width: 100%;
-}
-.feedback-choose-item .checkbox-span {
-  text-align: center;
-}
-p.checkbox-description {
-  margin-left: 3rem;
-}
-#feedback-email {
-  width: 100%;
-}
+
 #feedback-email.hidden {
   display: none;
 }
-.email-enable .pack-checkbox > .checkbox-span {
-  left: 2.4rem;
-  right: auto;
-  top: 2rem;
 
-}
-#feedback-emailbar p {
-  padding-bottom: 0;
-}
 #feedback-send-btn {
   text-align: center;
-  top: 2.1rem;
 }
 /******************************************************************************
  * OS License
@@ -603,6 +628,37 @@ p.checkbox-description {
 }
 
 /******************************************************************************
+ * Bluetooth
+ */
+#update-device-name > section p {
+  border-top: 0.1rem solid rgba(255, 255, 255, 0.1);
+  margin-top: 1rem;
+  padding: 0.5rem 1.2rem 0;
+  line-height: 1.2;
+}
+
+/* Web activity handling */
+.skin-organic section[data-dialog] > header:first-child .icon.icon-back {
+  background-image: url(/shared/style/headers/images/icons/organic/close.png);
+}
+
+section[data-dialog] > header:first-child .icon.icon-back {
+  background-image: url(/shared/style/headers/images/icons/close.png);
+}
+
+/******************************************************************************
+ * Toaster
+ */
+section[role="status"] {
+  transition: opacity .6s ease 0s;
+  opacity: 0;
+}
+
+section[role="status"].toast-visible {
+  opacity: 1;
+}
+
+/******************************************************************************
  * Right-To-Left layout
  */
 
@@ -624,12 +680,92 @@ html[dir="rtl"] label[for^="pwd"] {
   padding-right: 3rem;
 }
 
-/******************************************************************************
- * Bluetooth
- */
-#update-device-name > section p {
-  border-top: 0.1rem solid rgba(255, 255, 255, 0.1);
-  margin-top: 1rem;
-  padding: 0.5rem 1.2rem 0;
-  line-height: 1.2;
+/* Following RTL Tweaks */
+
+html[dir="rtl"] .hint .explanation {
+  padding-left: 4rem;
+  padding-right: 1.5rem;
+  white-space: normal;
 }
+
+html[dir="rtl"] .hint > label:not([for]) ~ .explanation {
+  padding-left: 8rem;
+  padding-right: 1.5rem;
+}
+
+html[dir="rtl"] ul[data-state="ready"] li > a {
+  padding-left: 6.2rem; /* 3rem (initial padding) + 3.2rem (wifi icon width) */
+  padding-right: 3rem;
+}
+
+html[dir="rtl"] section li.password {
+  padding-left: 0;
+}
+
+html[dir="rtl"] section li.password > label {
+  left: 1.5rem;
+  right: 0;
+}
+
+html[dir="rtl"] section li.password > label > span:after {
+  left: auto;
+  right: 0;
+  margin-left: auto;
+  margin-right: 0;
+}
+
+html[dir="rtl"] section li.password > label > span {
+  left: auto;
+  right: 1.5rem;
+  padding-right: 3rem;
+}
+
+html[dir="rtl"] #mediaStorage .stackedbar-color-label {
+  left: auto;
+  right: 1.5rem;
+}
+
+html[dir="rtl"] #mediaStorage .stackedbar-color-label + a {
+  padding-left: 0;
+  padding-right: 4rem;
+}
+
+html[dir="rtl"] #call .cw-alert .cw-alert-checkbox-label {
+  left: 0;
+  right: auto;
+}
+
+html[dir="rtl"] #wallpaper-button {
+  left: auto;
+  right: 0;
+}
+
+html[dir="rtl"] ul li > label.range-icons.brightness:before {
+  background-position: 100% 50%, 0 50%;
+  left: auto;
+  right: 1rem;
+}
+
+html[dir="rtl"] #brightness-manual div {
+  left: auto;
+  right: 5rem;
+}
+
+html[dir="rtl"] #time-manual input {
+  left: auto;
+  right: 0;
+}
+
+html[dir="rtl"] #sendFeedback .pack-checkbox span {
+  left: auto;
+  right: 3rem;
+}
+
+html[dir="rtl"] #feedback-happy {
+  float: right;
+}
+
+html[dir="rtl"] #feedback-sad {
+  float: left;
+}
+

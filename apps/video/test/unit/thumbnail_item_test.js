@@ -261,15 +261,6 @@ suite('Thumbnail Item Unit Tests', function() {
       assert.deepEqual(thumbnail.data, videodata);
     });
 
-    test('#selected', function() {
-      thumbnail.setSelected(true);
-      assert.isTrue(thumbnail.isSelected());
-      assert.isTrue(domNode.classList.contains('selected'));
-      thumbnail.setSelected(false);
-      assert.isFalse(thumbnail.isSelected());
-      assert.isFalse(domNode.classList.contains('selected'));
-    });
-
     test('#watched', function() {
       thumbnail.setWatched(false);
       var node = domNode.querySelector('.unwatched');
@@ -284,7 +275,8 @@ suite('Thumbnail Item Unit Tests', function() {
       var node = domNode.querySelector('.img');
       assert.notEqual(node.style.backgroundImage, '');
       thumbnail.updatePoster(null);
-      assert.equal(node.style.backgroundImage, '');
+      assert.equal(node.style.backgroundImage,
+        'url("style/images/default_thumbnail.png")');
     });
   });
 });

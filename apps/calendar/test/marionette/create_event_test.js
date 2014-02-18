@@ -1,55 +1,80 @@
+'use strict';
+
 var Calendar = require('./calendar'),
-    assert = require('assert');
+    assert = require('chai').assert;
 
 
 // test is disabled see: Bug 919066
 marionette('creating an event', function() {
+  var app;
   var client = marionette.client();
 
-  var app, expected;
+  // we always use today as base day to make test simpler, we also
+  // set the hours/minutes so it always shows up at first hours of event list
+  // (avoids conflicts with click events)
+  var startDate = new Date(), endDate = new Date();
+  startDate.setHours(2);
+  startDate.setMinutes(0);
+  startDate.setSeconds(0);
+  startDate.setMilliseconds(0);
+  endDate.setTime(startDate.getTime() + 60 * 60 * 1000 /* one hour */);
+  var sourceData = {
+    title: 'Puppy Bowl dogefortlongtextfotestloremipsumdolorsitamet',
+    location: 'Animal Planet reallylongwordthatshouldnotoverflowbecausewewrap',
+    description: 'lorem ipsum dolor sit amet maecennas ullamcor',
+    startDate: startDate,
+    endDate: endDate
+  };
+
   setup(function() {
     app = new Calendar(client);
-    app.launch();
+    app.launch({ hideSwipeHint: true });
 
-    // Get the day's events at the bottom of the month view.
-    var events = app.monthViewDayEvents;
-
-    // There shouldn't be any events yet.
-    assert.strictEqual(events.length, 0);
-
-    // Create an event!
-    expected = app.createEvent();
+    app.createEvent(sourceData);
 
     // Wait until we return to the base, month view.
-    client.waitFor(function() {
-      return app.isMonthViewActive();
+    app.waitForMonthView();
+  });
+
+  suite('vanilla event', function() {
+    test('should show event in month view', function() {
+      var event = app.waitForElement('monthViewDayEvent');
+      var title = app.waitForChild(event, 'monthViewDayEventName');
+      var location = app.waitForChild(event, 'monthViewDayEventLocation');
+      assert.equal(title.text(), sourceData.title);
+      assert.equal(location.text(), sourceData.location);
     });
   });
 
-  test.skip('should make an event visible in the month day view', function() {
-    // Get the day's events at the bottom of the month view.
-    var els = app.monthViewDayEvents;
+  suite('view event', function() {
 
-    // There should now be a single event.
-    assert.strictEqual(els.length, 1);
-  });
-
-  test.skip('should display the created event in read-only view', function() {
-    // Get the day's events at the bottom of the month view.
-    var els = app.monthViewDayEvents;
-
-    // Click on the event.
-    var el = els[0];
-    el.click();
-
-    // Wait until we see the read-only event view.
-    var active = app.isViewEventViewActive.bind(app, client);
-    client.waitFor(function() {
-      // Verify event's details to make sure they were set correctly.
-      return app.isViewEventViewActive();
+    setup(function() {
+      // FIXME: temporary hack for keyboard while Bug 965131 is fixed
+      app.waitForKeyboardHide();
+      // we change to week view because some months spans through 6 rows which
+      // makes the click event on "monthViewDayEvent" trigger the wrong link
+      app.waitForElement('weekButton').click();
+      app.waitForWeekView();
+      app.waitForElement('weekViewEvent').click();
     });
 
-    var actual = app.getViewEventEvent();
-    assert.deepEqual(actual, expected);
+    test('should display the created event in read-only view', function() {
+      var actual = app.getViewEventEvent();
+      assert.deepEqual(actual, {
+        calendar: 'Offline calendar',
+        title: sourceData.title,
+        location: sourceData.location,
+        description: sourceData.description
+      }, 'event data should match');
+    });
+
+    test('should not overflow title, location and description',
+      function() {
+        app.checkOverflow('viewEventViewTitle', 'title');
+        app.checkOverflow('viewEventViewLocation', 'location');
+        app.checkOverflow('viewEventViewDescription', 'description');
+      });
+
   });
+
 });

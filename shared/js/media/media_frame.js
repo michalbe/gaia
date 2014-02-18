@@ -61,6 +61,7 @@ MediaFrame.prototype.displayImage = function displayImage(blob,
                                                           rotation,
                                                           mirrored)
 {
+  var self = this;
   var previewSizeFillsScreen;
   this.clear();  // Reset everything
 
@@ -79,11 +80,19 @@ MediaFrame.prototype.displayImage = function displayImage(blob,
   this.displayingImage = true;
 
   function isPreviewBigEnough(preview) {
-
     if (!preview || !preview.width || !preview.height)
       return false;
 
-    // A preview is big enough if at least one dimension is >= the
+    // If setMinimumPreviewSize has been called, then a preview is big
+    // enough if it is at least that big.
+    if (self.minimumPreviewWidth && self.minimumPreviewHeight) {
+      return Math.max(preview.width, preview.height) >=
+        Math.max(self.minimumPreviewWidth, self.minimumPreviewHeight) &&
+        Math.min(preview.width, preview.height) >=
+        Math.min(self.minimumPreviewWidth, self.minimumPreviewHeight);
+    }
+
+    // Otherwise a preview is big enough if at least one dimension is >= the
     // screen size in both portait and landscape mode.
     var screenWidth = window.innerWidth * window.devicePixelRatio;
     var screenHeight = window.innerHeight * window.devicePixelRatio;
@@ -114,7 +123,6 @@ MediaFrame.prototype.displayImage = function displayImage(blob,
     else {
       var storage = navigator.getDeviceStorage('pictures');
       var getreq = storage.get(preview.filename);
-      var self = this;
       getreq.onsuccess = function() {
         self.previewblob = getreq.result;
         self._displayImage(self.previewblob);
@@ -141,28 +149,35 @@ MediaFrame.prototype._displayImage = function _displayImage(blob) {
     URL.revokeObjectURL(this.url);
   this.url = URL.createObjectURL(blob);
 
-  var preload = new Image();
+  if (!this.preload) {
+    // Make preload image as object wide variable so that we can cancel the
+    // loading by setting src.
+    this.preload = new Image();
+    // If user gives us a dummy blob, we also need to handle the error case.
+    this.preload.addEventListener('error', function onerror(e) {
+      if (self.onerror)
+        self.onerror(e);
+    });
 
-  preload.addEventListener('load', function onload() {
-    preload.removeEventListener('load', onload);
+    this.preload.addEventListener('load', function onload() {
+      self.image.src = self.preload.src;
 
-    self.image.src = preload.src;
+      // Switch height & width for rotated images
+      if (self.rotation == 0 || self.rotation == 180) {
+        self.itemWidth = self.preload.width;
+        self.itemHeight = self.preload.height;
+      } else {
+        self.itemWidth = self.preload.height;
+        self.itemHeight = self.preload.width;
+      }
 
-    // Switch height & width for rotated images
-    if (self.rotation == 0 || self.rotation == 180) {
-      self.itemWidth = preload.width;
-      self.itemHeight = preload.height;
-    } else {
-      self.itemWidth = preload.height;
-      self.itemHeight = preload.width;
-    }
+      self.computeFit();
+      self.setPosition();
+      self.image.style.display = 'block';
+    });
+  }
 
-    self.computeFit();
-    self.setPosition();
-    self.image.style.display = 'block';
-  });
-
-  preload.src = this.url;
+  this.preload.src = this.url;
 };
 
 MediaFrame.prototype._switchToFullSizeImage = function _switchToFull() {
@@ -175,7 +190,12 @@ MediaFrame.prototype._switchToFullSizeImage = function _switchToFull() {
   var oldurl = this.url;
   var oldimage = this.oldimage = this.image;
   var newimage = this.image = document.createElement('img');
+  newimage.style.transformOrigin = 'center center';
   newimage.src = this.url = URL.createObjectURL(this.imageblob);
+
+  // move onerror callback to newimage when oldimage becomes useless.
+  newimage.onerror = oldimage.onerror;
+  oldimage.onerror = null;
 
   // Add the new image to the container before the current preview image
   // Because it comes first it will be obscured by the preview
@@ -214,7 +234,7 @@ MediaFrame.prototype._switchToFullSizeImage = function _switchToFull() {
       mozRequestAnimationFrame(function() {
         self.container.removeChild(oldimage);
         self.oldimage = null;
-        oldimage.src = null;
+        oldimage.src = ''; // Use '' instead of null. See Bug 901410
         if (oldurl)
           URL.revokeObjectURL(oldurl);
       });
@@ -277,6 +297,10 @@ MediaFrame.prototype.clear = function clear() {
   if (this.url) {
     URL.revokeObjectURL(this.url);
     this.url = null;
+  }
+
+  if (this.preload) {
+    this.preload.src = '';
   }
 
   // Hide the image
@@ -368,6 +392,9 @@ MediaFrame.prototype.reset = function reset() {
   // Otherwise, just resize and position the item we're already displaying
   this.computeFit();
   this.setPosition();
+  // If frame is resized, the video's size also need to reset.
+  if (this.displayingVideo)
+    this.video.setPlayerSize();
 };
 
 // We call this from the resize handler when the user rotates the
@@ -566,4 +593,9 @@ MediaFrame.prototype.pan = function(dx, dy) {
 
   this.setPosition();
   return extra;
+};
+
+MediaFrame.prototype.setMinimumPreviewSize = function(w, h) {
+  this.minimumPreviewWidth = w;
+  this.minimumPreviewHeight = h;
 };

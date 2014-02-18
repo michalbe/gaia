@@ -13,12 +13,6 @@ form[role="dialog"][data-type="edit"] header .icon {
   pointer-events: auto;
 }
 
-/* Override Building Block [Edit mode] styles */
-form[role="dialog"][data-type="edit"] header,
-form[role="dialog"][data-type="edit"] > menu {
-  transition: all 0.3s ease;
-}
-
 form[role="dialog"][data-type="edit"] header {
   transform: translateY(-110%);
 }
@@ -27,7 +21,31 @@ form[role="dialog"][data-type="edit"] > menu {
   transform: translateY(110%);
 }
 
+#call-log-container[data-type="list"] header {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 2;
+}
+
 /* Override Building Block styles for lists */
+#call-log-container[data-type="list"] {
+  padding: 0;
+}
+
+#call-log-container[data-type="list"] header {
+  margin: 0 1.5rem;
+}
+
+#call-log-container[data-type="list"] ol {
+  padding: 0 1.5rem;
+
+  /* Bug 967880 - [Call Log] Background doesn't scroll with the logs causing
+   * expensive over-invalidation.
+   */
+  background-color: white;
+}
+
 #call-log-container[data-type="list"] li {
   height: 7rem;
   padding: 0.5rem 0 0;
@@ -72,8 +90,7 @@ ol, ul {
 .view-body {
   background : white;
   color: black;
-  height: -moz-calc(100% - 9.5rem);
-  -moz-transition: height .15s ease-in;
+  height: -moz-calc(100% - 9.1rem);
   position: absolute;
   overflow: hidden;
   width: 100%;
@@ -86,11 +103,6 @@ ol, ul {
 
 .view-body-inner ol {
   overflow: hidden;
-}
-
-.view-body .fixed-title {
-  background-position: 1.5rem 0;
-  height: 3.5rem;
 }
 
 .icon-container {
@@ -169,12 +181,10 @@ ol, ul {
 
 .recents-edit .pack-checkbox.call-log-selection {
   transform: translateX(4rem);
-  transition: transform 0.3s ease;
 }
 
 .recents-edit .log-item a {
   transform: translateX(3rem);
-  transition: all 0.3s ease;
 }
 
 .recents-edit .log-item a > p {
@@ -182,7 +192,6 @@ ol, ul {
 }
 
 .recents-edit .pack-end {
-  transition: all 0.3s ease;
   transform: translateX(6rem);
 }
 

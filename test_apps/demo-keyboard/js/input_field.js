@@ -44,9 +44,9 @@
   var context;
 
   // Our local copy of the input state from the input context
-  var inputType, inputMode;
-  var selectionStart, selectionEnd;
-  var textBeforeCursor, textAfterCursor;
+  var inputType = null, inputMode = null;
+  var selectionStart = 0, selectionEnd = 0;
+  var textBeforeCursor = '', textAfterCursor = '';
 
   // A dummy element that we use as EventTarget.
   var dispatcher = document.createElement('div');
@@ -116,7 +116,7 @@
     else {
       inputType = inputMode = null;
       selectionStart = selectionEnd = 0;
-      textBeforeCursor = textAfterCursor = null;
+      textBeforeCursor = textAfterCursor = '';
     }
 
     if (contextchanged) {
@@ -176,7 +176,8 @@
   }
 
   function replaceSurroundingText(text, numBefore, numAfter) {
-    monitor(context.replaceSurroundingText(text, numBefore, numAfter));
+    monitor(context.replaceSurroundingText(text, -numBefore,
+                                           numBefore + numAfter));
 
     textBeforeCursor = textBeforeCursor.slice(0, -numBefore) + text;
     if (numAfter)
@@ -187,7 +188,7 @@
   }
 
   function deleteSurroundingText(numBefore, numAfter) {
-    replaceSurroundingText('', numBefore, numAfter);
+    monitor(context.deleteSurroundingText(-numBefore, numBefore + numAfter));
   }
 
   function monitor(promise) {

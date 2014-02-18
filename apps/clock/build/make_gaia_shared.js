@@ -1,10 +1,11 @@
+'use strict';
 /**
  * Scans the built directory's JS and CSS files looking for shared resources
  * to generate a gaia_shared.json
  */
 /*jshint moz: true */
-/*global load, requirejs, Components */
-
+/*global load */
+/* jshint unused:false */
 var requirejsAsLib = true;
 load('../../build/r.js');
 
@@ -51,8 +52,10 @@ requirejs.tools.useLib(function(require) {
   require(['env!env/file', 'parse'], function(file, parse) {
     var jsExtRegExp = /\.js$/;
 
-    // Find all the HTML and JS files.
-    var files = file.getFilteredFileList(buildDir + 'js', /\.js$|\.html$/);
+    // Find all the HTML and JS files. Use the srcDir instead of
+    // buildDir since uglification can mangle the files such that
+    // the dependency scanning fails.
+    var files = file.getFilteredFileList(srcDir + 'js', /\.js$|\.html$/);
     files.forEach(function(fileName) {
       var contents = file.readFile(fileName);
 
@@ -60,8 +63,13 @@ requirejs.tools.useLib(function(require) {
       if (jsExtRegExp.test(fileName)) {
         var deps = parse.findDependencies(fileName, contents);
         deps.forEach(function(dep) {
+
           if (dep.indexOf('shared/') === 0) {
-            shared.js.push(dep.replace(/shared\/js\//, '') + '.js');
+            var sharedDep = dep.replace(/shared\/js\//, '') + '.js';
+            // Avoid duplicate entries for cleanliness
+            if (shared.js.indexOf(sharedDep) === -1) {
+              shared.js.push(sharedDep);
+            }
           }
         });
       }

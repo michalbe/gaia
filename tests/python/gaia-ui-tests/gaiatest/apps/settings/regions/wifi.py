@@ -25,11 +25,14 @@ class Wifi(Base):
 
     def connect_to_network(self, network_info):
         # Wait for some networks to be found
-        self.wait_for_condition(lambda m: len(m.find_elements(*self._available_networks_locator)) > 0,
-                                message="No networks listed on screen")
+        self.wait_for_condition(lambda m: len(m.find_elements(
+            *self._available_networks_locator)) > 0,
+            message='No networks listed on screen')
 
         this_network_locator = ('xpath', "//li/a[text()='%s']" % network_info['ssid'])
-        self.marionette.find_element(*this_network_locator).tap()
+        this_network = self.marionette.find_element(*this_network_locator)
+        self.marionette.execute_script("arguments[0].scrollIntoView(false);", [this_network])
+        this_network.tap()
 
         if network_info.get('keyManagement'):
             password = network_info.get('psk') or network_info.get('wep')

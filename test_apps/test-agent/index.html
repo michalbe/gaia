@@ -11,8 +11,22 @@
       width: 100%;
     }
   </style>
+
 </head>
 <body>
+
+<div id="test-agent-panel">
+  <form>
+    <input type="text" name="search" id="test-agent-search-input" />
+    <button type="button" id="test-agent-search-submit">Search</button>
+    <div class="options">
+      <label>
+        <input type="checkbox" id="test-agent-coverage-checkbox" />
+        Enable Coverage
+      </label>
+    </div>
+  </form>
+</div>
 
 <!-- Test Agent UI will be loaded in here -->
 <div id="test-agent-ui">
@@ -21,6 +35,7 @@
 <div id="mocha">
 </div>
 
+<script type="text/javascript" src="tools.js"></script>
 <script type="text/javascript" src="agent.js"></script>
 
 </body>

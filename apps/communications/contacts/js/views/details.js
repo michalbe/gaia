@@ -5,6 +5,11 @@ var contacts = window.contacts || {};
 contacts.Details = (function() {
   var photoPos = 7;
   var initMargin = 8;
+  var DEFAULT_TEL_TYPE = 'other';
+  var DEFAULT_EMAIL_TYPE = 'other';
+  var PHONE_TYPE_MAP = {
+  'cell' : 'mobile'
+  };
   var contactData,
       contactDetails,
       listContainer,
@@ -36,16 +41,11 @@ contacts.Details = (function() {
     '#msg_button'
   ];
 
-  function getContact(contact) {
-    return (contact instanceof mozContact) ? contact : new mozContact(contact);
-  }
-
   var init = function cd_init(currentDom) {
     _ = navigator.mozL10n.get;
     dom = currentDom || document;
     contactDetails = dom.querySelector('#contact-detail');
     listContainer = dom.querySelector('#details-list');
-    star = dom.querySelector('#favorite-star');
     detailsName = dom.querySelector('#contact-name-title');
     orgTitle = dom.querySelector('#org-title');
     birthdayTemplate = dom.querySelector('#birthday-template-\\#i\\#');
@@ -79,7 +79,7 @@ contacts.Details = (function() {
       var params = hasParams.length > 1 ?
         utils.extractParams(hasParams[1]) : -1;
 
-      Contacts.navigation.back();
+      Contacts.navigation.back(resetPhoto);
       // post message to parent page included Contacts app.
       if (params['back_to_previous_tab'] === '1') {
         var message = { 'type': 'contactsiframe', 'message': 'back' };
@@ -154,7 +154,7 @@ contacts.Details = (function() {
     });
   };
 
-  var render = function cd_render(currentContact, tags, isEnrichedContact) {
+  var render = function cd_render(currentContact, tags, fbContactData) {
     contactData = currentContact || contactData;
 
     TAG_OPTIONS = tags || TAG_OPTIONS;
@@ -164,7 +164,7 @@ contacts.Details = (function() {
     // Initially enabled and only disabled if necessary
     editContactButton.removeAttribute('disabled');
 
-    if (!isEnrichedContact && isFbContact) {
+    if (!fbContactData && isFbContact) {
       var fbContact = new fb.Contact(contactData);
       var req = fbContact.getData();
 
@@ -177,11 +177,9 @@ contacts.Details = (function() {
         doReloadContactDetails(contactData);
       };
     } else {
-      doReloadContactDetails(contactData);
+      doReloadContactDetails(fbContactData || contactData);
     }
   };
-
-
 
   //
   // Method that generates HTML markup for the contact
@@ -217,9 +215,9 @@ contacts.Details = (function() {
     var favorite = isFavorite(contact);
     toggleFavoriteMessage(favorite);
     if (contact.category && contact.category.indexOf('favorite') != -1) {
-      star.classList.remove('hide');
+      detailsName.classList.add('favorite');
     } else {
-      star.classList.add('hide');
+      detailsName.classList.remove('favorite');
     }
   };
 
@@ -249,7 +247,7 @@ contacts.Details = (function() {
     // Disabling button while saving the contact
     favoriteMessage.style.pointerEvents = 'none';
 
-    var request = navigator.mozContacts.save(getContact(contact));
+    var request = navigator.mozContacts.save(utils.misc.toMozContact(contact));
     request.onsuccess = function onsuccess() {
       var cList = contacts.List;
       /*
@@ -395,11 +393,13 @@ contacts.Details = (function() {
     var telLength = Contacts.getLength(contact.tel);
     for (var tel = 0; tel < telLength; tel++) {
       var currentTel = contact.tel[tel];
-      var escapedType = Normalizer.escapeHTML(currentTel.type, true);
+      var escapedType = Normalizer.escapeHTML(currentTel.type, true).trim();
+      escapedType =
+            _(PHONE_TYPE_MAP[escapedType] || escapedType || DEFAULT_TEL_TYPE) ||
+            escapedType;
       var telField = {
         value: Normalizer.escapeHTML(currentTel.value, true) || '',
-        type: _(escapedType) || escapedType ||
-                                        TAG_OPTIONS['phone-type'][0].value,
+        type: escapedType,
         'type_l10n_id': currentTel.type,
         carrier: Normalizer.escapeHTML(currentTel.carrier || '', true) || '',
         i: tel
@@ -439,8 +439,7 @@ contacts.Details = (function() {
       var escapedType = Normalizer.escapeHTML(currentEmail['type'], true);
       var emailField = {
         value: Normalizer.escapeHTML(currentEmail['value'], true) || '',
-        type: _(escapedType) || escapedType ||
-                                          TAG_OPTIONS['email-type'][0].value,
+        type: _(escapedType) || escapedType || DEFAULT_EMAIL_TYPE,
         'type_l10n_id': currentEmail['type'],
         i: email
       };
@@ -534,13 +533,63 @@ contacts.Details = (function() {
     }
   };
 
+  var calculateHash = function calculateHash(photo, cb) {
+    var START_BYTES = 127;
+    var BYTES_HASH = 16;
+
+    var out = [photo.type, photo.size];
+
+    // We skip the first bytes that typically are headers
+    var chunk = photo.slice(START_BYTES, START_BYTES + BYTES_HASH);
+    var reader = new FileReader();
+    reader.onloadend = function() {
+      out.push(reader.result);
+      cb(out.join(''));
+    };
+    reader.onerror = function() {
+      window.console.error('Error while calculating the hash: ',
+                           reader.error.name);
+      cb(out.join(''));
+    };
+    reader.readAsDataURL(chunk);
+  };
+
+  var updateHash = function updateHash(photo, cover) {
+    calculateHash(photo, function(hash) {
+      cover.dataset.imgHash = hash;
+    });
+  };
+
   var renderPhoto = function cd_renderPhoto(contact) {
     contactDetails.classList.remove('up');
     if (isFbContact) {
       contactDetails.classList.add('fb-contact');
     }
-    if (contact.photo && contact.photo.length > 0) {
+
+    var photo = ContactPhotoHelper.getFullResolution(contact);
+    if (photo) {
+      var currentHash = cover.dataset.imgHash;
+      if (!currentHash) {
+        Contacts.updatePhoto(photo, cover);
+        updateHash(photo, cover);
+      }
+      else {
+        // Need to recalculate the hash and see whether the images changed
+        calculateHash(photo, function(newHash) {
+          if (currentHash !== newHash) {
+            Contacts.updatePhoto(photo, cover);
+            cover.dataset.imgHash = newHash;
+          }
+          else {
+            // Only for testing purposes
+            cover.dataset.photoReady = 'true';
+          }
+        });
+      }
+
       contactDetails.classList.add('up');
+      cover.classList.add('translated');
+      contactDetails.classList.add('translated');
       var clientHeight = contactDetails.clientHeight -
           (initMargin * 10 * SCALE_RATIO);
       if (detailsInner.offsetHeight < clientHeight) {
@@ -548,13 +597,19 @@ contacts.Details = (function() {
       } else {
         cover.style.overflow = 'auto';
       }
-      Contacts.updatePhoto(contact.photo[0], cover);
     } else {
-      cover.style.backgroundImage = '';
-      cover.style.overflow = 'auto';
-      contactDetails.style.transform = '';
-      contactDetails.classList.add('no-photo');
+      resetPhoto();
     }
+  };
+
+  var resetPhoto = function cd_resetPhoto() {
+    cover.classList.remove('translated');
+    contactDetails.classList.remove('translated');
+    cover.style.backgroundImage = '';
+    cover.style.overflow = 'auto';
+    contactDetails.style.transform = '';
+    contactDetails.classList.add('no-photo');
+    cover.dataset.imgHash = '';
   };
 
   var reMark = function(field, value) {
@@ -571,6 +626,7 @@ contacts.Details = (function() {
     'toggleFavorite': toggleFavorite,
     'render': render,
     'onLineChanged': checkOnline,
-    'reMark': reMark
+    'reMark': reMark,
+    'defaultTelType' : DEFAULT_TEL_TYPE
   };
 })();

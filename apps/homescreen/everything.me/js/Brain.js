@@ -77,6 +77,14 @@
     PAGEVIEW_SOURCES = _config.pageViewSources;
 
     DISPLAY_INSTALLED_APPS = _config.displayInstalledApps;
+
+    if (mozSettings) {
+      mozSettings.addObserver('language.current', function onLanguageChange(e) {
+        // close any open collection when language changes
+        // to force UI update to the new language
+        Evme.Collection.hide();
+      });
+    }
   };
 
   // l10n: create a mutation observer to know when a node was added
@@ -306,13 +314,17 @@
         flashCounter = 0,
         previousFirstSuggestion = '',
         SEARCHES_BEFORE_FLASHING_HELPER = 4,
-        TIMEOUT_ANDROID_BEFORE_HELPER_CLICK = 500;
+        TIMEOUT_ANDROID_BEFORE_HELPER_CLICK = 500,
+        sourcesMap;
 
-    var sourcesMap = {
-      'suggestions': SEARCH_SOURCES.SUGGESTION,
-      'didyoumean': SEARCH_SOURCES.SPELLING,
-      'refine': SEARCH_SOURCES.REFINE,
-      'history': SEARCH_SOURCES.HISTORY
+    // Helper module init
+    this.init = function init(data) {
+      sourcesMap = {
+        'suggestions': SEARCH_SOURCES.SUGGESTION,
+        'didyoumean': SEARCH_SOURCES.SPELLING,
+        'refine': SEARCH_SOURCES.REFINE,
+        'history': SEARCH_SOURCES.HISTORY
+      };
     };
 
     // items loaded
@@ -660,6 +672,14 @@
       if (Evme.Collection.isOpen()) {
         if (data.app.cfg.isStatic === true) {
           Evme.Collection.toggleEditMode(true);
+          LazyLoader.load([
+            'style/dragdrop.css',
+            'everything.me/js/helpers/dndmanager.js'], function onload() {
+              var el = data.el;
+              Evme.dndManager.start(el, data.evt, function onRearrage(idx) {
+                  Evme.Collection.moveApp(el.dataset.id, idx);
+              });
+          });
         } else if (data.app.type === Evme.RESULT_TYPE.CLOUD) {
           Evme.Collection.toggleEditMode(false);
           openCloudAppMenu(data);
@@ -695,10 +715,10 @@
     }
 
     function saveToHomescreen(data, showConfirm) {
-      var isAppInstalled = EvmeManager.isAppInstalled(data.app.getFavLink()),
+      var isBookmarked = EvmeManager.isBookmarked(data.app.getFavLink()),
         classList = data.el.classList;
 
-      if (isAppInstalled) {
+      if (isBookmarked) {
         classList.add(CLASS_WHEN_SAVING_TO_HOMESCREEN);
         window.alert(Evme.Utils.l10n(L10N_SYSTEM_ALERT, 'app-install-exists', {
           'name': data.data.name
@@ -721,12 +741,20 @@
         }
       }
 
-      // bookmark - add to homescreen
-      EvmeManager.addGridItem({
-        'originUrl': data.app.getFavLink(),
-        'name': data.data.name,
-        'icon': Evme.Utils.formatImageData(data.app.getIcon()),
-        'useAsyncPanZoom': data.app.isExternal()
+      // first resize the icon to the OS size
+      // this includes a 2px padding around the icon
+      Evme.Utils.padIconForOS({
+        'icon': data.app.getIcon(),
+        'resize': true,
+        'callback': function onIconResized(icon) {
+          // bookmark - add to homescreen
+          EvmeManager.addGridItem({
+            'originUrl': data.app.getFavLink(),
+            'name': data.data.name,
+            'icon': icon,
+            'useAsyncPanZoom': data.app.isExternal()
+          });
+        }
       });
 
       // display system banner
@@ -912,24 +940,42 @@
         requestCollectionImage = null,
         timeoutShowAppsLoading = null;
 
-    // a collection is shown
-    this.show = function show(data) {
+    // starting to show the collection
+    this.beforeShow = function beforeShow(data) {
       PaginationBar.hide();
-      document.getElementById('icongrid').classList.add(
-                                                CLASS_WHEN_COLLECTION_VISIBLE);
-      window.setTimeout(loadAppsIntoCollection, 600);
+
+      window.setTimeout(function() {
+        var elAffectedByCollection = document.getElementById('icongrid');
+        elAffectedByCollection.classList.add(CLASS_WHEN_COLLECTION_VISIBLE);
+      }, 50);
+    };
+
+    // the collection is shown
+    this.show = function show(data) {
+      // this timeout gives the Static apps time to render
+      // without the clouds apps have a chance to render with the static apps
+      // which overloads the render engine
+      window.setTimeout(loadAppsIntoCollection, 300);
       currentResultsManager = Evme.CollectionResults;
     };
 
-    // hiding the collection
+    // starting to hide the collection
+    this.beforeHide = function beforeHide() {
+      window.setTimeout(function() {
+        var elAffectedByCollection = document.getElementById('icongrid');
+        elAffectedByCollection.classList.remove(CLASS_WHEN_COLLECTION_VISIBLE);
+      }, 140);
+    };
+
+    // the collection is hidden
     this.hide = function hide() {
       PaginationBar.show();
-      document.getElementById('icongrid').classList.remove(
-                                                CLASS_WHEN_COLLECTION_VISIBLE);
       Evme.Brain.Collection.cancelRequests();
       Evme.ConnectionMessage.hide();
 
       currentResultsManager = Evme.SearchResults;
+
+      Evme.dndManager && Evme.dndManager.stop();
     };
 
     // cancel the current outgoing collection requests
@@ -1169,7 +1215,7 @@
               showSuggestions(cachedData);
             } else {
               window.alert(Evme.Utils.l10n(L10N_SYSTEM_ALERT,
-                                            'offline-collections-more'));
+                                            'offline-smart-collections-more'));
             }
           });
         }
@@ -1188,7 +1234,8 @@
 
     function showSuggestions(data) {
       var suggestedShortcuts = data.response.shortcuts || [],
-          icons = data.response.icons || {};
+          icons = data.response.icons || {},
+          locale = data.response.locale;
 
       if (!isRequesting) {
         return;
@@ -1198,12 +1245,14 @@
       isRequesting = false;
 
       if (suggestedShortcuts.length === 0) {
-        window.alert(Evme.Utils.l10n(L10N_SYSTEM_ALERT, 'no-more-collections'));
+        window.alert(Evme.Utils.l10n(L10N_SYSTEM_ALERT,
+                                      'no-more-smart-collections'));
         Evme.CollectionsSuggest.Loading.hide();
       } else {
         Evme.CollectionsSuggest.load({
           'shortcuts': suggestedShortcuts,
-          'icons': icons
+          'icons': icons,
+          'locale': locale
         });
 
         Evme.CollectionsSuggest.show();
@@ -1251,22 +1300,52 @@
         var shortcuts = response.response.shortcuts,
             iconsMap = response.response.icons;
 
-        // first we need to round the icons
-        Evme.Utils.roundIconsMap(iconsMap,
-          function onRoundedIcons(roundedIconsMap) {
-            for (var i = 0, shortcut; shortcut = shortcuts[i++];) {
-              var extraIconsData =
-                shortcut.appIds.map(function wrapIcon(appId) {
-                  return {'id': appId, 'icon': roundedIconsMap[appId]};
-                });
-
-              // update the matching Collection's icon
-              var collectionSettings = queriesMap[shortcut.query];
-              Evme.Collection.update(collectionSettings, {
-                'extraIconsData': extraIconsData
-              });
+        // cached icons might be missing in the server's response
+        var missingIconIds = [];
+        for (var i = 0, shortcut; shortcut = shortcuts[i++];) {
+          var appIds = shortcut.appIds;
+          for (var j = 0, appId; appId = appIds[j++]; ) {
+            if (missingIconIds.indexOf(appId) > -1) {
+              continue;
+            } else if (!iconsMap[appId]) {
+              missingIconIds.push(appId);
             }
-          });
+          }
+        }
+
+        if (missingIconIds.length) {
+          // try to get missing icons from cache
+          Evme.IconManager.getBatch(missingIconIds,
+            function onIcons(cachedIconsMap) {
+              if (cachedIconsMap) {
+                for (var iconId in cachedIconsMap) {
+                  iconsMap[iconId] = cachedIconsMap[iconId];
+                }
+              }
+              updateCollectionsIcons();
+            });
+        } else {
+          updateCollectionsIcons();
+        }
+
+        function updateCollectionsIcons() {
+          Evme.Utils.roundIconsMap(iconsMap,
+            function onRoundedIcons(roundedIconsMap) {
+              for (var i = 0, shortcut; shortcut = shortcuts[i++];) {
+                var extraIconsData =
+                  shortcut.appIds.map(function wrapIcon(appId) {
+                    return {'id': appId, 'icon': roundedIconsMap[appId]};
+                  });
+
+                // update the matching Collection's icon
+                var collectionSettings = queriesMap[shortcut.query];
+                Evme.Collection.update(collectionSettings, {
+                  'extraIconsData': extraIconsData
+                });
+              }
+            });
+        }
+
       });
     }
   };
@@ -1411,8 +1490,21 @@
 
     this.getApps = function getApps(options) {
       var query = options.query,
-        type = options.type,
-        source = options.source,
+          source = options.source;
+
+      // always perfom local search
+      Evme.SearchResults.onNewQuery({
+        'query': query
+      });
+
+      // exit if search triggered by typing and this feature is disabled
+      if (source === SEARCH_SOURCES.TYPING &&
+          !Evme.Features.isOn('typingApps')) {
+        return;
+      }
+
+      // perform search
+      var type = options.type,
         index = options.index,
         reloadingIcons = options.reloadingIcons,
         exact = options.exact || false,
@@ -1465,11 +1557,6 @@
 
       // set timer for progress indicator
       Evme.SearchResults.APIData.onRequestSent();
-
-      // triggers installed provider search
-      Evme.SearchResults.onNewQuery({
-        'query': Evme.Searchbar.getValue()
-      });
 
       if (!exact && query.length < MINIMUM_LETTERS_TO_SEARCH) {
         Searcher.cancelRequests();
@@ -1823,8 +1910,9 @@
 
         if (Evme.Features.isOn('typingApps')) {
           Evme.Features.startTimingFeature('typingApps', Evme.Features.ENABLE);
-          Searcher.getApps(options);
         }
+
+        Searcher.getApps(options);
 
         if (Evme.Features.isOn('typingImage')) {
           Evme.Features.startTimingFeature('typingImage', Evme.Features.ENABLE);
@@ -1842,14 +1930,14 @@
         'source': source
       };
 
-      if (Evme.Features.isOn('typingApps')) {
-        requestSearch && requestSearch.abort && requestSearch.abort();
-        window.clearTimeout(timeoutSearchWhileTyping);
-        timeoutSearchWhileTyping = window.setTimeout(function onTimeout() {
+      requestSearch && requestSearch.abort && requestSearch.abort();
+      window.clearTimeout(timeoutSearchWhileTyping);
+      timeoutSearchWhileTyping = window.setTimeout(function onTimeout() {
+        if (Evme.Features.isOn('typingApps')) {
           Evme.Features.startTimingFeature('typingApps', Evme.Features.DISABLE);
-          Searcher.getApps(searchOptions);
-        }, TIMEOUT_BEFORE_RUNNING_APPS_SEARCH);
-      }
+        }
+        Searcher.getApps(searchOptions);
+      }, TIMEOUT_BEFORE_RUNNING_APPS_SEARCH);
 
       if (Evme.Features.isOn('typingImage')) {
         requestImage && requestImage.abort && requestImage.abort();

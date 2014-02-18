@@ -3,7 +3,6 @@ var MockCallScreen = {
 
   insertCall: function() {},
   moveToGroup: function() {},
-  setCallsEndedInGroup: function() {},
   toggle: function(cb) {
     if (typeof(cb) == 'function') {
       cb();
@@ -18,11 +17,12 @@ var MockCallScreen = {
   syncSpeakerEnabled: function() {
     this.mSyncSpeakerCalled = true;
   },
-  setCallerContactImage: function() {
+  setCallerContactImage: function(arg) {
     this.mSetCallerContactImageCalled = true;
+    this.mSetCallerContactImageArg = arg;
   },
-  setDefaultContactImage: function() {
-    this.mSetDefaultContactImageCalled = true;
+  setEmergencyWallpaper: function() {
+    this.mSetEmergencyWallpaperCalled = true;
   },
   mute: function() {
     this.mMuteOn = true;
@@ -30,10 +30,10 @@ var MockCallScreen = {
   unmute: function() {
     this.mMuteOn = false;
   },
-  turnSpeakerOff: function() {
+  switchToDefaultOut: function() {
     this.mSpeakerOn = false;
   },
-  turnSpeakerOn: function() {
+  switchToSpeaker: function() {
     this.mSpeakerOn = true;
   },
   render: function(mode) {
@@ -54,6 +54,7 @@ var MockCallScreen = {
   hideGroupDetails: function() {
     this.mGroupDetailsShown = false;
   },
+  setBTReceiverIcon: function() {},
   createTicker: function(node) {
     this.mCalledCreateTicker = true;
   },
@@ -65,6 +66,9 @@ var MockCallScreen = {
   },
   removeCall: function() {
     this.mRemoveCallCalled = true;
+  },
+  setEndConferenceCall: function() {
+    this.mSetEndConferenceCall = true;
   },
 
   set holdAndAnswerOnly(enabled) {
@@ -87,17 +91,21 @@ var MockCallScreen = {
   screen: document.createElement('div'),
   incomingContainer: document.createElement('div'),
   incomingNumber: document.createElement('div'),
+  incomingNumberAdditionalInfo: document.createElement('span'),
 
   mEnableKeypadCalled: false,
   mSyncSpeakerCalled: false,
   mSetCallerContactImageCalled: false,
-  mSetDefaultContactImageCalled: false,
+  mSetCallerContactImageArg: null,
   mMuteOn: false,
   mSpeakerOn: false,
   mLastRenderMode: null,
   mTeardown: function teardown() {
     this.mEnableKeypadCalled = false;
     this.mSyncSpeakerCalled = false;
+    this.mSetCallerContactImageCalled = false;
+    this.mSetCallerContactImageArg = null;
+    this.mSetEmergencyWallpaperCalled = false;
     this.mMuteOn = false;
     this.mSpeakerOn = false;
     this.mLastRenderMode = null;
@@ -111,8 +119,10 @@ var MockCallScreen = {
     this.screen = document.createElement('div');
     this.incomingContainer = document.createElement('div');
     this.incomingNumber = document.createElement('div');
+    this.incomingNumberAdditionalInfo = document.createElement('span');
     this.mGroupDetailsShown = false;
     this.mRemoveCallCalled = false;
+    this.mSetEndConferenceCall = false;
   }
 };
 

@@ -26,7 +26,7 @@ form[role="dialog"][data-type="confirm"] p small{
 section[role="region"] > header:first-child .icon.icon-clear {
   background-image: url(images/icons/clear.png);
   background-position: center calc(50% + 0.1rem);
-  background-size: 1.7rem;
+  background-size: 3rem;
   right: calc(-50% + 7rem);
   width: 2rem;
   margin: 0;
@@ -45,6 +45,17 @@ section[role="region"] > header:first-child form {
  */
 section[role="region"] > header:first-child .icon.icon-attachment {
   background-image: url(images/icons/attachments.png);
+}
+
+/* Override Building Block [Header] first-child hover styles(for v1.3 fixing)
+ * TODO: We will remove this part once Bug 961572 fixing landed in master
+ */
+section[role="region"] > header:first-child > a:not([aria-disabled="true"]):hover:after {
+  background-color: #F97C17 !important;
+}
+
+section[role="region"] > header:first-child > a:not([aria-disabled="true"]):hover:active:after {
+  background-color: #dc6a0e !important;
 }
 
 /* Override Building Block [Imput areas] styles */
@@ -79,7 +90,7 @@ form[role="dialog"][data-type="edit"] header menu[type="toolbar"] button {
 
 /* Override Building Block [Lists] styles */
 [data-type="list"] {
-  padding: 0.7rem 0 0 0;
+  padding: 0;
   text-align: left;
 }
 
@@ -103,8 +114,22 @@ form[role="dialog"][data-type="edit"] header menu[type="toolbar"] button {
   margin: 0 1.5rem;
 }
 
+#threads-container[data-type="list"] header {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 2;
+  padding-top: 0.7rem;
+}
+
+
 #threads-container[data-type="list"] ul {
   padding: 0 1.5rem;
+
+  /* Bug 967878 - [Messages] Background doesn't scroll with the threads causing
+  * expensive over-invalidation
+  */
+  background-color: white;
 }
 
 [data-type="list"] li {
@@ -138,6 +163,24 @@ form[role="dialog"][data-type="edit"] header menu[type="toolbar"] button {
 [data-type="list"] .unread aside.icon-unread {
   background: url("../style/images/unread.png") no-repeat left center / 1rem;
 }
+
+[data-type="list"] .draft a * {
+  pointer-events: none;
+}
+
+[data-type="list"] .draft .icon-draft {
+  background: url("../style/images/draft.png") no-repeat left center / 1rem;
+}
+
+[data-type="list"] .is-draft .pack-end {
+  opacity: 0.5;
+}
+
+[data-type="list"] .is-draft .name {
+  font-style: italic;
+  color: #5f5f5f;
+}
+
 
 [data-type="list"] p time {
   display: inline-block;
@@ -195,12 +238,7 @@ form[data-type="action"] img[src=""] {
   height: 100%;
   left: 0;
   top: 0;
-
-  background-image: url(/shared/style/headers/images/ui/header.png),
-                    url(/shared/style/headers/images/ui/shadow.png);
-  background-repeat: repeat-x;
-  background-position: 0 0, 0 5rem;
-  background-size: 100% 5rem, 100% 0.3rem;
+  background: #fff;
 }
 
 .panel:first-child {
@@ -216,25 +254,15 @@ form[data-type="action"] img[src=""] {
   transition: transform .4s ease;
 }
 
-#main-wrapper.peek .panel {
-  transition: transform 1ms linear;
-}
-
-#main-wrapper[data-position='left'].peek .panel {
-  transform: translateX(-0.1rem);
-}
 #main-wrapper[data-position='left'] .panel {
   transform: translateX(-100%);
 }
 
-#main-wrapper[data-position='right'].peek .panel {
-  transform: translateX(calc(-100% + 0.1rem));
-}
 #main-wrapper[data-position='right'] .panel {
   transform: translateX(0%);
 }
 
-#threads-container,#thread-messages {
+#threads-container, #thread-messages {
   z-index: 10;
   background: white;
 }
@@ -243,14 +271,11 @@ form[data-type="action"] img[src=""] {
   display: none;
 }
 
-.new-message-notice-text {
-  font-size: 1.8rem;
-}
+#messages-new-message-notice {
+  display: flex;
+  flex-direction: row;
 
-#new-message-notice-content {
-  margin: 1rem 2rem;
-  padding: 0;
-
+  padding: 1rem 1.5rem 1rem 2rem;
   overflow: hidden;
 
   white-space: nowrap;
@@ -259,21 +284,29 @@ form[data-type="action"] img[src=""] {
   text-align: left;
 }
 
-#new-message-notice-contact {
+#messages-new-message-notice a {
+  margin: 0;
+}
+
+#messages-new-message-notice .contact {
   overflow: hidden;
 
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-#new-message-notice-container-1 {
-  display: inline-block;
+#messages-new-message-notice > div:first-child {
+  flex: auto;
+
+  overflow: hidden;
 }
 
-#new-message-notice-container-2 {
-  vertical-align: super;
-  float: right;
+#messages-new-message-notice > div:nth-child(2) {
+  flex: none;
+
+  padding: 0.2rem 0 0.2rem 1.5rem;
 }
+
 /*
   Styles for Edit mode in Thread List
 */
@@ -354,12 +387,6 @@ section.has-carrier .article-list header:first-child {
 .article-list {
   z-index: 5;
 
-  /* The bottom border is used to offset the messages as the Compose field
-   * grows and shrinks, preventing occlusion. (see "Bug 748518 - padding-bottom
-   * is ignored with overflow:auto;") */
-  border-bottom-color: transparent;
-  border-bottom-style: solid;
-  -moz-box-sizing: border-box;
   padding: 0;
 
   background: none repeat scroll 0 0 #E4E4E4;
@@ -389,6 +416,7 @@ section.has-carrier .article-list header:first-child {
 
 .article-list[data-type="list"] .message {
   position: relative;
+  z-index: 0; /* bug 970422 */
 
   display: block;
   overflow: hidden;
@@ -450,7 +478,7 @@ section.has-carrier .article-list header:first-child {
 
 .article-list[data-type="list"] .has-subject.outgoing .subject {
   /* to extend the background color and bottom border */
-  width: 100%; 
+  width: 100%;
   margin-left: -1.5rem;
   padding-left: 1.5rem;
   padding-right: 4rem;
@@ -500,11 +528,16 @@ section.has-carrier .article-list header:first-child {
   border-right-width: 0;
 }
 
-.article-list[data-type="list"] .message .bubble > aside {
+.article-list[data-type="list"] .message .bubble > div.message-content {
+  position: relative;
+}
+
+.article-list[data-type="list"] .message .bubble aside {
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  top: -1.5rem;
+  right: -4.1rem;
+  bottom: -1.5rem;
+  height: auto;
   z-index: auto;
   display: none;
   overflow: hidden;
@@ -512,25 +545,29 @@ section.has-carrier .article-list header:first-child {
   text-align: center;
 }
 
-.article-list[data-type="list"] .message.incoming .bubble > aside {
-  left: 0;
+.article-list[data-type="list"] .message.incoming .bubble aside {
+  left: -4rem;
   right: auto;
   margin: 0 0.5rem 0 0;
 }
 
-.article-list[data-type="list"] .message.error .bubble > aside progress,
-.article-list[data-type="list"] .message.delivered .bubble > aside progress {
+.article-list[data-type="list"] .message.has-subject .bubble aside {
+  top: -0.5rem;
+}
+
+.article-list[data-type="list"] .message.error .bubble aside progress,
+.article-list[data-type="list"] .message.delivered .bubble aside progress {
   display: none;
 }
 
-.article-list[data-type="list"] .message.error .bubble > aside {
+.article-list[data-type="list"] .message.error .bubble aside {
   display: block;
 
   background: url('images/icons/exclamation.png') no-repeat center center;
   background-size: 2.2rem;
 }
 
-.article-list[data-type="list"] .message.delivered .bubble > aside {
+.article-list[data-type="list"] .message.delivered .bubble aside {
   display: block;
   background: url('images/icons/deliveredtick.png') no-repeat center center;
   background-size: 2.2rem;
@@ -543,21 +580,21 @@ section.has-carrier .article-list header:first-child {
   width: 100%;
 }
 
-.article-list[data-type="list"] .message.pending .bubble > aside,
-.article-list[data-type="list"] .message.sending .bubble > aside {
+.article-list[data-type="list"] .message.pending .bubble aside,
+.article-list[data-type="list"] .message.sending .bubble aside {
   display: block;
 }
 
-.article-list[data-type="list"] .message.pending .bubble > aside progress,
-.article-list[data-type="list"] .message.sending .bubble > aside progress {
+.article-list[data-type="list"] .message.pending .bubble aside progress,
+.article-list[data-type="list"] .message.sending .bubble aside progress {
   display: block;
   height: 100%;
   margin: 0 auto;
 }
 
-.edit .article-list[data-type="list"] .message.error .bubble > aside,
-.edit .article-list[data-type="list"] .message.pending .bubble > aside progress,
-.edit .article-list[data-type="list"] .message.sending .bubble > aside progress {
+.edit .article-list[data-type="list"] .message.error .bubble aside,
+.edit .article-list[data-type="list"] .message.pending .bubble aside progress,
+.edit .article-list[data-type="list"] .message.sending .bubble aside progress {
   display: none;
 }
 
@@ -569,9 +606,17 @@ section.has-carrier .article-list header:first-child {
   padding: 0;
 }
 
+.article-list[data-type="list"] .message.no-attachment .bubble p {
+  height: 2.3rem;
+}
+
 .article-list[data-type="list"] .message .bubble p a {
   color: #000;
   text-decoration: underline;
+}
+
+.article-list[data-type="list"] .message .bubble p a:active {
+  color: #FF4E00;
 }
 
 /*
@@ -627,9 +672,6 @@ form.bottom[role="search"].messages-compose-form {
 #messages-send-button {
   position: relative;
   bottom: 0;
-}
-
-#messages-send-button {
   right: 0;
 }
 
@@ -657,9 +699,10 @@ form.bottom[role="search"].messages-compose-form {
 
 [data-message-type="mms"] #messages-send-button.has-counter:before {
   content: 'MMS';
-  color: #ff6622;
+  color: #FF4E00;
   font-size: 1.5rem;
-  padding-left: 1.0rem;
+  padding-left: -moz-calc(100% - 5rem);
+  margin-top: -1.2rem;
 }
 
 #messages-input {
@@ -668,25 +711,50 @@ form.bottom[role="search"].messages-compose-form {
   line-height: 2rem;
   min-height: 2.3rem;
   -moz-box-sizing: border-box;
-  /* Cursor hides itself otherwise: */
-  overflow: auto;
+  overflow: auto; /* Cursor hides itself otherwise: */
   white-space: pre-wrap;
   text-align: left;
   font-size: 1.8rem;
 }
 
-#messages-input.placeholder:after {
+#messages-input.placeholder:after,
+#messages-subject-input::-moz-placeholder {
   color: #888;
   position: absolute;
-  top: 0.8rem;
+  bottom: 1rem;
   content: attr(data-placeholder);
   pointer-events: none;
+}
+
+#messages-subject-input::-moz-placeholder {
+  color: #858585;
 }
 
 #send-message-container {
   height: 100%;
   width: 6rem;
   float: right;
+}
+
+#messages-subject-input {
+  position: absolute;
+  top: 0;
+
+  -moz-box-sizing: content-box;
+  box-sizing: content-box;
+  height: 1.5rem;
+  max-height: 3.5rem;
+  width: -moz-calc(100% - 8.5rem);
+  padding: 0.5rem 0.7rem;
+  border: 0;
+  border-bottom: 0.1rem solid #eaeae7;
+
+  white-space: pre-wrap;
+  text-align: left;
+  font-family: 'Fira Sans', sans-serif;
+  font-style: italic;
+  font-size: 1.4rem;
+  line-height: 2rem;
 }
 
 /*
@@ -742,35 +810,6 @@ form.bottom[role="search"].messages-compose-form {
   color: #606060;
   font-weight: 300;
   font-size: 2.2rem;
-}
-
-/*
-  Fixed headers
-*/
-.fixed-title {
-  position: absolute;
-  z-index: 4;
-  top: 5rem;
-
-  width: calc(100% - 5rem);
-  height: 1.8rem;
-  padding: 1.2rem 1rem 0.5rem;
-  margin: 0 1.5rem;
-  border-bottom: solid 0.1rem #ff4e00;
-
-  background-repeat: no-repeat;
-  background-color: #FFFFFF;
-  color: #FF4E00;
-  pointer-events: none;
-  text-align: left;
-  text-transform: uppercase;
-  font-size: 1.6rem;
-  font-weight: normal;
-  line-height: 1.8rem;
-}
-
-.fixed-title.no-fixed-header {
-  transform: translateY(-100%);
 }
 
 /*
@@ -838,8 +877,10 @@ generateHeightRule() (in ThreadUI/thread_ui.js) will create:
 .recipient {
   display: inline-block;
   overflow: hidden;
-  max-width: calc(100% - 2.3rem);
-  height: 2.2rem;
+  -moz-box-sizing: border-box;
+       box-sizing: border-box;
+  max-width: calc(100% - .5rem);
+  height: 2.4rem;
   border: .1rem solid #4d4d4d;
   padding: 0 0.8rem;
 
@@ -865,7 +906,7 @@ generateHeightRule() (in ThreadUI/thread_ui.js) will create:
   background: none;
   border-color: transparent;
   white-space: normal;
-  text-overflow: normal;
+  text-overflow: clip;
   color: black;
   font-size: 1.8rem;
 }
@@ -887,8 +928,9 @@ generateHeightRule() (in ThreadUI/thread_ui.js) will create:
 }
 
 .recipient[contenteditable=false].attention {
-  padding-left: 1.2rem;
+  position: relative;
 
+  padding-left: 1.2rem;
   border: 0.1rem solid #b90000;
 
   background: transparent;
@@ -919,33 +961,57 @@ generateHeightRule() (in ThreadUI/thread_ui.js) will create:
   background: white;
 }
 
-ul.contact-prompt {
-  position: relative;
-  z-index: 5;
-  overflow-y: auto;
-  overflow-x: hidden;
-  max-height: calc(100% - 8rem);
-  text-align: left;
-  color: white;
-  font-weight: lighter;
-  line-height: normal;
-}
-
 body[role="application"] form[role="dialog"][data-type="action"] > section:first-child{
   height: auto;
   border-bottom: 0.1rem solid #616262;
   padding-bottom: 1rem;
-  padding-left: 2rem 2.5rem 0 2.5rem;
+  padding-left: 2.5rem;
 }
 
-ul.contact-prompt .number{
-  font-size: 1.5rem;
-  margin-top: 0.5rem;
+/* building blocks overload
+ * TODO load building-blocks CSS before sms.css so that we don't need !important
+ * Bug XXX
+ */
+form[role="dialog"][data-type="action"].contact-prompt > header {
+  height: auto;
+  min-height: 5rem;
+  font-weight: 100;
 }
 
-ul.contact-prompt .name{
-  font-size: 2.3rem;
+.contact-header {
+  /* bottom padding is .9rem because we need .1rem more for the
+   * nice shadow line at the header bottom, defined as a :after element */
+  padding: 0.8rem 0 0.9rem;
+}
+
+.contact-header .name {
   line-height: 2.5rem;
+  padding: 0.5rem 0 0.8rem;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  font-size: 2.3rem;
+}
+
+.contact-header .details {
+  line-height: 1.5rem;
+  padding: 0 0 0.7rem;
+  margin: 0;
+  overflow: hidden;
+
+  font-size: 1.5rem;
+}
+
+.contact-header img {
+  display: block;
+  width: 6rem;
+  height: 6rem;
+}
+
+.contact-header aside.pack-end {
+  float: right;
+  margin-right: -1.5rem; /* compensate the header's 3rem padding */
 }
 
 body[role="application"] form[role="dialog"][data-type="action"] > header:first-child{
@@ -957,7 +1023,7 @@ section[role="region"].new .article-list[data-type="list"]  li:first-child {
 }
 
 section[role="region"].new .article-list[data-type="list"]  li {
-  pointer-events: normal;
+  pointer-events: auto;
 }
 
 .suggestion * {
@@ -976,4 +1042,17 @@ section[role="region"].new .article-list[data-type="list"]  li {
 .subheader menu {
   margin: 1.5rem 1.5rem 0 0;
   float: right;
+}
+
+/* Elements related to information view */
+section[role="region"].information #messages-options-icon,
+section[role="region"].information #messages-attach-button,
+section[role="region"].information #messages-subheader,
+section[role="region"].information #messages-container,
+section[role="region"].information #messages-compose-form {
+  display: none;
+}
+
+section[role="region"].information > header:first-child .icon.icon-back {
+  background-image: url(images/icons/close.png);
 }

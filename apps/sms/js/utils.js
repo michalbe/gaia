@@ -1,6 +1,8 @@
 /* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- /
 /* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
 
+/* globals ContactPhotoHelper */
+
 (function(exports) {
   'use strict';
   var rdashes = /-(.)/g;
@@ -104,8 +106,9 @@
 
         // Add photo
         if (include.photoURL) {
-          if (contact.photo && contact.photo[0]) {
-            details.photoURL = window.URL.createObjectURL(contact.photo[0]);
+          var photo = ContactPhotoHelper.getThumbnail(contact);
+          if (photo) {
+            details.photoURL = window.URL.createObjectURL(photo);
           }
         }
 
@@ -235,8 +238,8 @@
     removeNonDialables: function ut_removeNonDialables(input) {
       return input.replace(rnondialablechars, '');
     },
-    // @param {String} a First number string to compare.
-    // @param {String} b Second number string to compare.
+    // @param {String} a First recipient field.
+    // @param {String} b Second recipient field
     //
     // Based on...
     //  - ITU-T E.123 (http://www.itu.int/rec/T-REC-E.123-200102-I/)
@@ -247,6 +250,11 @@
     probablyMatches: function ut_probablyMatches(a, b) {
       var service = navigator.mozPhoneNumberService;
 
+      // String comparison starts here
+      if (typeof a !== 'string' || typeof b !== 'string') {
+        return false;
+      }
+
       if (service && service.normalize) {
         a = service.normalize(a);
         b = service.normalize(b);
@@ -256,6 +264,36 @@
       }
 
       return a === b || a.slice(-7) === b.slice(-7);
+    },
+
+    /**
+     * multiRecipientMatch
+     *
+     * Check multi-repients without regard to order
+     *
+     * @param {(String|string[])} a First recipient field.
+     * @param {(String|string[])} b Second recipient field
+     *
+     * @return {Boolean} Return true if all recipients match
+     */
+    multiRecipientMatch: function ut_multiRecipientMatch(a, b) {
+      // When ES6 syntax is allowed, replace with
+      // multiRecipientMatch([...a], [...b])
+      a = [].concat(a);
+      b = [].concat(b);
+      var blen = b.length;
+      if (a.length !== blen) {
+        return false;
+      }
+      // Check each recipient in a against each in b
+      // Allows for any order (and fails early)
+      return a.every(function(number) {
+        for (var i = 0; i < blen; i++) {
+          if (Utils.probablyMatches(number, b[i])) {
+            return true;
+          }
+        }
+      });
     },
 
     // Default image size limitation is set to 300KB for MMS user story.
@@ -316,7 +354,7 @@
         var canvas = document.createElement('canvas');
         canvas.width = targetWidth;
         canvas.height = targetHeight;
-        var context = canvas.getContext('2d');
+        var context = canvas.getContext('2d', { willReadFrequently: true });
 
         context.drawImage(img, 0, 0, targetWidth, targetHeight);
         // Bug 889765: Since we couldn't know the quality of the original jpg

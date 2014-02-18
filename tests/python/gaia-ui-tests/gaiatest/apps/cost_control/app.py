@@ -60,7 +60,6 @@ class CostControl(Base):
         ftu_step2 = ftu_step1.tap_next()
         ftu_step3 = ftu_step2.tap_next()
         ftu_step3.tap_lets_go()
-        self.launch()
 
     def tap_settings(self):
         self.wait_for_element_displayed(*self._settings_button_locator)
@@ -78,5 +77,6 @@ class CostControl(Base):
 
     def switch_to_ftu(self):
         ftu_iframe = self.marionette.find_element(*self._ftu_frame_locator)
+        self.wait_for_condition(lambda m: 'non-ready' not in ftu_iframe.get_attribute('class'))
         self.marionette.switch_to_frame(ftu_iframe)
         self.wait_for_element_present(*self._ftu_section_locator)

@@ -14,19 +14,23 @@ class Homescreen(Base):
     name = 'Homescreen'
 
     _homescreen_icon_locator = (By.CSS_SELECTOR, 'li.icon[aria-label="%s"]')
-    _visible_icons_locator = (By.CSS_SELECTOR, 'div.page[style*="transform: translateX(0px);"] > ol > .icon')
+    _visible_icons_locator = (By.CSS_SELECTOR, '.page[style*="translateX(0px);"] .icon')
     _edit_mode_locator = (By.CSS_SELECTOR, 'body[data-mode="edit"]')
     _search_bar_icon_locator = (By.CSS_SELECTOR, '#evme-activation-icon input')
     _landing_page_locator = (By.ID, 'icongrid')
     _collections_locator = (By.CSS_SELECTOR, 'li.icon[data-collection-name]')
     _collection_locator = (By.CSS_SELECTOR, "li.icon[data-collection-name *= '%s']")
+    _delete_app_locator = (By.CSS_SELECTOR, 'li.icon span.options')
+    _pagination_scroller_locator = (By.CSS_SELECTOR, 'div.paginationScroller')
 
     def launch(self):
         Base.launch(self)
 
-    def switch_to_homescreen_frame(self):
-        self.wait_for_condition(lambda m: self.apps.displayed_app.name == self.name)
-        self.marionette.switch_to_frame(self.apps.displayed_app.frame)
+    def wait_for_homescreen_to_load(self):
+        # The pagination scroller is shown once number of icons/pages is known
+        self.wait_for_element_displayed(*self._pagination_scroller_locator)
+        # This element is inserted by e.me init
+        self.wait_for_element_displayed(*self._search_bar_icon_locator)
 
     def tap_search_bar(self):
         search_bar = self.marionette.find_element(*self._search_bar_icon_locator)
@@ -57,11 +61,6 @@ class Homescreen(Base):
         self.wait_for_condition(lambda m: m.find_element('tag name', 'body')
             .get_attribute('data-transitioning') != 'true')
 
-    def touch_home_button(self):
-        self.marionette.switch_to_frame()
-        self.marionette.execute_script("window.wrappedJSObject.dispatchEvent(new Event('home'));")
-        self.wait_for_condition(lambda m: self.apps.displayed_app.name == self.name)
-
     def activate_edit_mode(self):
         app = self.marionette.find_element(*self._visible_icons_locator)
         Actions(self.marionette).\
@@ -69,7 +68,7 @@ class Homescreen(Base):
             wait(3).\
             release().\
             perform()
-        self.wait_for_element_displayed(By.CSS_SELECTOR, 'div.dockWrapper ol[style*="transition: -moz-transform 0.5ms ease 0s;"]')
+        self.wait_for_element_displayed(*self._delete_app_locator)
 
     def open_context_menu(self):
         test = self.marionette.find_element(*self._landing_page_locator)
@@ -143,7 +142,7 @@ class Homescreen(Base):
             expected_name = self.name
             self.root_element.tap()
             self.wait_for_condition(lambda m: self.apps.displayed_app.name.lower() == expected_name.lower())
-            self.marionette.switch_to_frame(self.apps.displayed_app.frame)
+            self.apps.switch_to_displayed_app()
 
         def tap_delete_app(self):
             """Tap on (x) to delete app"""

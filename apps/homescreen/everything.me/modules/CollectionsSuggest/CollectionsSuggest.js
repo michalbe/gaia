@@ -8,7 +8,8 @@ Evme.CollectionsSuggest = new function Evme_CollectionsSuggest() {
       elList = null,
       elParent = null,
       active = false,
-      savedIcons = null;
+      savedIcons = null,
+      WORLDWIDE_LOCALE = 'en_WW';
 
   this.init = function init(options) {
     elParent = options.elParent;
@@ -50,7 +51,7 @@ Evme.CollectionsSuggest = new function Evme_CollectionsSuggest() {
 
   this.newCustom = function newCustom() {
     elList.blur();
-    var customQuery = prompt(Evme.Utils.l10n(NAME, 'prompt-create'));
+    var customQuery = prompt(Evme.Utils.l10n(NAME, 'prompt-create-custom'));
 
     if (!customQuery) {
       return;
@@ -80,13 +81,16 @@ Evme.CollectionsSuggest = new function Evme_CollectionsSuggest() {
   this.load = function load(data) {
     savedIcons = data.icons;
 
+    // translate only if locale is supported by E.me service
+    var doTranslate = data.locale !== WORLDWIDE_LOCALE;
+
     elList.innerHTML = '';
-    self.add(data.shortcuts);
+    self.add(data.shortcuts, doTranslate);
 
     Evme.EventHandler.trigger(NAME, 'load');
   };
 
-  this.add = function add(shortcuts) {
+  this.add = function add(shortcuts, doTranslate) {
     var shortcutsAdded = {};
 
     elList.innerHTML = '';
@@ -99,32 +103,46 @@ Evme.CollectionsSuggest = new function Evme_CollectionsSuggest() {
 
     elList.appendChild(optCustom);
 
-    for (var i = 0, shortcut, query, queryKey, experienceId, name;
-                                                shortcut = shortcuts[i++];) {
-      query = shortcut.query;
-      queryKey = query.toLowerCase();
-      experienceId = shortcut.experienceId || '';
-      name = query;
+    if (doTranslate) {
+      for (var i = 0, shortcut, experienceId; shortcut = shortcuts[i++];) {
+        experienceId = shortcut.experienceId || '';
 
-      if (experienceId) {
-        var l10nkey = 'id-' + Evme.Utils.shortcutIdToKey(experienceId),
-            translatedName = Evme.Utils.l10n('shortcut', l10nkey);
+        if (experienceId) {
+          var l10nkey = 'id-' + Evme.Utils.shortcutIdToKey(experienceId),
+              translatedQuery = Evme.Utils.l10n('shortcut', l10nkey);
 
-        if (translatedName) {
-          name = translatedName;
+          if (translatedQuery) {
+            shortcut.query = translatedQuery;
+          }
         }
       }
 
-      name = name.replace(/</g, '&lt;');
+      // sort translated queries
+      shortcuts.sort(function cmp(a, b) {
+        if (a.query > b.query)
+          return 1;
+        if (a.query < b.query)
+          return -1;
+        return 0;
+      });
+    }
+
+    for (var i = 0, shortcut, query, queryKey, experienceId;
+                                                  shortcut = shortcuts[i++];) {
+      query = shortcut.query;
+      queryKey = query.toLowerCase();
+      experienceId = shortcut.experienceId || '';
+
+      query = query.replace(/</g, '&lt;');
 
       if (!shortcutsAdded[queryKey]) {
         var opt = document.createElement('option');
-        opt.text = Evme.html(name);
+        opt.text = Evme.html(query);
         opt.value = query.replace(/"/g, '&quot;');
         opt.dataset.experience = experienceId;
 
         elList.appendChild(opt);
-              shortcutsAdded[queryKey] = true;
+        shortcutsAdded[queryKey] = true;
       }
     }
   };

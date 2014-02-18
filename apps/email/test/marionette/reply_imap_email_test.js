@@ -25,19 +25,10 @@ marionette('reply to an e-mail', function() {
   setup(function() {
     app = new Email(client);
     app.launch();
-
     app.manualSetupImapEmail(server);
-    app.tapCompose();
-
-    // Write an e-mail to yourself, and receive it.
-    // Subsequent tests will reply to this e-mail.
-    app.typeTo('testy@localhost');
-    app.typeSubject('test email');
-    app.typeBody(BODY_TEXT);
-    app.tapSend();
-
-    app.tapRefreshButton();
-    app.waitForNewEmail();
+    app.sendAndReceiveMessages([
+      { to: 'testy@localhost', subject: 'test email', body: BODY_TEXT }
+    ]);
     app.tapEmailAtIndex(0);
   });
 
@@ -52,7 +43,10 @@ marionette('reply to an e-mail', function() {
     app.abortCompose('message_reader');
   });
 
-  test('should be able to "reply all" to an email', function() {
+  // Disabled because reply all should not actually work in this loopback
+  // e-mail case; a bug related to forwarding was stopping us from disabling
+  // reply-all.
+  test.skip('should be able to "reply all" to an email', function() {
     app.tapReply('all');
     var body = app.getComposeBody();
     assert(body.indexOf(BODY_TEXT) != -1,
@@ -74,4 +68,3 @@ marionette('reply to an e-mail', function() {
     app.abortCompose('message_reader');
   });
 });
-

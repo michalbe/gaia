@@ -10,11 +10,12 @@ html, body {
   margin: 0;
   color: white;
   font-size: 10px;
+  background-color: 000;
 }
 
 #clock-view {
   width: 100%;
-  height: -moz-calc(100% - 0.13rem);
+  height: calc(100% - 0.13rem);
 
   color: black;
 }
@@ -157,12 +158,11 @@ html, body {
 #banner-countdown {
   z-index: -1;
   opacity: 0;
-  -moz-transition: all 600ms ease;
+  -moz-transition: opacity 600ms ease;
 }
 #banner-countdown.visible {
   z-index: 1;
   opacity: 1;
-  -moz-transition: all 600ms ease;
 }
 
 #banner-countdown strong {

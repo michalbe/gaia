@@ -28,9 +28,9 @@ class Settings(Base):
     _wifi_menu_item_locator = (By.ID, 'menuItem-wifi')
     _device_info_menu_item_locator = (By.ID, 'menuItem-deviceInfo')
     _app_permissions_menu_item_locator = (By.ID, 'menuItem-appPermissions')
+    _battery_menu_item_locator = (By.ID, 'menuItem-battery')
 
-    def launch(self):
-        Base.launch(self)
+    def wait_for_airplane_toggle_ready(self):
         checkbox = self.marionette.find_element(*self._airplane_checkbox_locator)
         self.wait_for_condition(lambda m: checkbox.is_enabled())
 
@@ -53,7 +53,8 @@ class Settings(Base):
 
     @property
     def is_gps_enabled(self):
-        return self.marionette.find_element(*self._gps_enabled_locator).get_attribute('checked')
+        checkbox = self.marionette.find_element(*self._gps_enabled_locator)
+        return checkbox.is_selected()
 
     @property
     def header_text(self):
@@ -126,9 +127,18 @@ class Settings(Base):
         self._tap_menu_item(self._app_permissions_menu_item_locator)
         return AppPermissions(self.marionette)
 
+    def open_battery_settings(self):
+        from gaiatest.apps.settings.regions.battery import Battery
+        self._tap_menu_item(self._battery_menu_item_locator)
+        return Battery(self.marionette)
+
     def _tap_menu_item(self, menu_item_locator):
-        self.wait_for_element_displayed(*menu_item_locator)
         menu_item = self.marionette.find_element(*menu_item_locator)
         parent_section = menu_item.find_element(By.XPATH, 'ancestor::section')
+
+        # Some menu items require some async setup to be completed
+        self.wait_for_condition(lambda m:
+            not menu_item.find_element(By.XPATH, 'ancestor::li').get_attribute('aria-disabled'))
+
         menu_item.tap()
         self.wait_for_condition(lambda m: parent_section.location['x'] + parent_section.size['width'] == 0)

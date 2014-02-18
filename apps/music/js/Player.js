@@ -93,6 +93,7 @@ var PlayerView = {
     this.timeoutID;
     this.cover = document.getElementById('player-cover');
     this.coverImage = document.getElementById('player-cover-image');
+    this.offscreenImage = new Image();
     this.shareButton = document.getElementById('player-cover-share');
 
     this.repeatButton = document.getElementById('player-album-repeat');
@@ -110,16 +111,17 @@ var PlayerView = {
     this.previousControl = document.getElementById('player-controls-previous');
     this.nextControl = document.getElementById('player-controls-next');
 
+    this.banner = document.getElementById('info-banner');
+
     this.isTouching = false;
+    this.isFastSeeking = false;
     this.playStatus = PLAYSTATUS_STOPPED;
     this.pausedPosition = null;
     this.dataSource = [];
     this.playingBlob = null;
     this.currentIndex = 0;
-    this.backgroundIndex = 0;
     this.setSeekBar(0, 0, 0); // Set 0 to default seek position
     this.intervalID = null;
-    this.isContextmenu = false;
 
     this.view.addEventListener('click', this);
     this.view.addEventListener('contextmenu', this);
@@ -142,6 +144,22 @@ var PlayerView = {
     // A timer we use to work around
     // https://bugzilla.mozilla.org/show_bug.cgi?id=783512
     this.endedTimer = null;
+  },
+
+  // When SCO is connected, music is unable to play sounds even it's in the
+  // foreground, this is a limitation for 1.3, see bug 946556. To adapt this,
+  // we regulate the controls to restrict some actions and hope it can give
+  // better ux to the specific scenario.
+  checkSCOStatus: function pv_checkSCOStatus() {
+    if (typeof MusicComms !== 'undefined') {
+      var SCOStatus = MusicComms.isSCOEnabled;
+
+      this.playControl.disabled = this.previousControl.disabled =
+        this.nextControl.disabled = SCOStatus;
+
+      this.seekRegion.parentNode.classList.toggle('disabled', SCOStatus);
+      this.banner.classList.toggle('visible', SCOStatus);
+    }
   },
 
   clean: function pv_clean() {
@@ -215,43 +233,26 @@ var PlayerView = {
     this.album.textContent = metadata.album || unknownAlbum;
     this.album.dataset.l10nId = metadata.album ? '' : unknownAlbumL10nId;
 
-    this.setCoverImage(fileinfo, this.backgroundIndex);
+    this.setCoverImage(fileinfo);
   },
 
-  setCoverBackground: function pv_setCoverBackground(index) {
-    var realIndex = index % 10;
-
-    this.cover.classList.remove('default-album-' + this.backgroundIndex);
-    this.cover.classList.add('default-album-' + realIndex);
-    this.backgroundIndex = realIndex;
-  },
-
-  setCoverImage: function pv_setCoverImage(fileinfo, backgroundIndex) {
+  setCoverImage: function pv_setCoverImage(fileinfo) {
     // Reset the image to be ready for fade-in
-    this.coverImage.src = '';
+    this.offscreenImage.src = '';
     this.coverImage.classList.remove('fadeIn');
 
-    // Set source to image and crop it to be fitted when it's onloded
-    if (fileinfo.metadata.picture) {
-      displayAlbumArt(this.coverImage, fileinfo);
-      this.coverImage.addEventListener('load', pv_showImage);
-    }
+    getThumbnailURL(fileinfo, function(url) {
+      url = url || generateDefaultThumbnailURL(fileinfo.metadata);
+      this.offscreenImage.addEventListener('load', pv_showImage.bind(this));
+      this.offscreenImage.src = url;
+    }.bind(this));
 
     function pv_showImage(evt) {
       evt.target.removeEventListener('load', pv_showImage);
-      evt.target.classList.add('fadeIn');
+      var url = 'url(' + this.offscreenImage.src + ')';
+      this.coverImage.style.backgroundImage = url;
+      this.coverImage.classList.add('fadeIn');
     };
-
-    // backgroundIndex is from the index of sublistView
-    // for playerView to show same default album art (same index)
-    if (backgroundIndex || backgroundIndex === 0) {
-      this.setCoverBackground(backgroundIndex);
-    }
-
-    // We only update the default album art when source type is MIX or SINGLE
-    if (this.sourceType === TYPE_MIX || this.sourceType === TYPE_SINGLE) {
-      this.setCoverBackground(this.currentIndex);
-    }
   },
 
   setOptions: function pv_setOptions(settings) {
@@ -415,7 +416,7 @@ var PlayerView = {
     // picture. If .picture is null, something went wrong and listeners should
     // probably use a blank picture (or their own placeholder).
     if (this.audio.currentTime === 0) {
-      getAlbumArtBlob(fileinfo, this.backgroundIndex, function(err, blob) {
+      getAlbumArtBlob(fileinfo, function(err, blob) {
         if (!err) {
           if (blob)
             notifyMetadata.picture = blob;
@@ -503,13 +504,13 @@ var PlayerView = {
     });
   },
 
-  play: function pv_play(targetIndex, backgroundIndex) {
+  play: function pv_play(targetIndex) {
+    this.checkSCOStatus();
     this.showInfo();
 
     if (arguments.length > 0) {
       this.getSongData(targetIndex, function(songData) {
         this.currentIndex = targetIndex;
-        this.backgroundIndex = backgroundIndex;
         this.setInfo(songData);
 
         // set ratings of the current song
@@ -524,7 +525,10 @@ var PlayerView = {
           // When we need to preview an audio like in picker mode,
           // we will not autoplay the picked song unless the user taps to play
           // And we just call pause right after play.
-          if (this.sourceType === TYPE_SINGLE)
+          // Also we pause at beginning when SCO is enabled, the user can still
+          // select songs to the player but it won't start, they have to wait
+          // until the SCO is disconnected.
+          if (this.sourceType === TYPE_SINGLE || MusicComms.isSCOEnabled)
             this.pause();
         }.bind(this));
       }.bind(this));
@@ -534,7 +538,6 @@ var PlayerView = {
         // Add the blob from the dataSource to the fileinfo
         // because we want use the cover image which embedded in that blob
         // so that we don't have to count on the musicdb
-        this.backgroundIndex = null;
         this.setInfo({metadata: metadata,
                       name: this.dataSource.name,
                       blob: this.dataSource});
@@ -548,6 +551,7 @@ var PlayerView = {
   },
 
   pause: function pv_pause() {
+    this.checkSCOStatus();
     this.audio.pause();
   },
 
@@ -660,7 +664,7 @@ var PlayerView = {
 
   startFastSeeking: function pv_startFastSeeking(direction) {
     // direction can be 1 or -1, 1 means forward and -1 means rewind.
-    this.isTouching = true;
+    this.isTouching = this.isFastSeeking = true;
     var offset = direction * 2;
 
     this.playStatus = direction ? PLAYSTATUS_FWD_SEEK : PLAYSTATUS_REV_SEEK;
@@ -672,7 +676,7 @@ var PlayerView = {
   },
 
   stopFastSeeking: function pv_stopFastSeeking() {
-    this.isTouching = false;
+    this.isTouching = this.isFastSeeking = false;
     if (this.intervalID)
       window.clearInterval(this.intervalID);
 
@@ -751,34 +755,128 @@ var PlayerView = {
       // And we just want the first component of the type "audio" or "video".
       type = type.substring(0, type.indexOf('/')) + '/*';
 
-      var a = new MozActivity({
-        name: 'share',
-        data: {
-          type: type,
-          number: 1,
-          blobs: [file],
-          filenames: [name],
-          filepaths: [filename],
-          // We only pass some metadata attributes so we don't share personal
-          // details like # of times played and ratings
-          metadata: [{
-            title: songData.metadata.title,
-            artist: songData.metadata.artist,
-            album: songData.metadata.album
-          }]
-        }
-      });
-
-      a.onerror = function(e) {
-        console.warn('share activity error:', a.error.name);
+      var activityData = {
+        type: type,
+        number: 1,
+        blobs: [file],
+        filenames: [name],
+        filepaths: [filename],
+        // We only pass some metadata attributes so we don't share personal
+        // details like # of times played and ratings
+        metadata: [{
+          title: songData.metadata.title,
+          artist: songData.metadata.artist,
+          album: songData.metadata.album
+        }]
       };
+
+      if (PlayerView.playStatus !== PLAYSTATUS_PLAYING) {
+        var a = new MozActivity({
+          name: 'share',
+          data: activityData
+        });
+
+        a.onerror = function(e) {
+          console.warn('share activity error:', a.error.name);
+        };
+      }
+      else {
+        // HACK HACK HACK
+        //
+        // Bug 956811: If we are currently playing music and share the
+        // music with an inline activity handler (like the set
+        // ringtone app) that wants to play music itself, we have a
+        // problem because we have two foreground apps playing music
+        // and neither one takes priority over the other. This is an
+        // underlying bug in the way that inline activities are
+        // handled and in our "audio competing policy". See bug
+        // 892371.
+        //
+        // To work around this problem, if the music app is currently
+        // playing anything, then before we launch the activity we start
+        // listening for changes on a property in the settings database.
+        // If the setting changes, we pause our playback and don't resume
+        // until the activity returns. Then we pass the name of this magic
+        // setting as a secret undocumented property of the activity so that
+        // the setringtone app can use it.
+        //
+        // This done as much as possible in a self-invoking function to make it
+        // easier to remove the hack when we have a real bug fix.
+        //
+        // See also the corresponding code in apps/setringtone/js/share.js
+        //
+        // HACK HACK HACK
+        (function() {
+          // This are the magic names we'll use for this hack
+          var hack_activity_property = '_hack_hack_shut_up';
+          var hack_setting_property = 'music._hack.pause_please';
+
+          // Listen for changes to the magic setting
+          navigator.mozSettings.addObserver(hack_setting_property, observer);
+
+          // Pass the magic setting name as part of the activity request
+          activityData[hack_activity_property] = hack_setting_property;
+
+          // Now initiate the activity. This code is the same as the
+          // normal non-hack code in the if clause above.
+          var a = new MozActivity({
+            name: 'share',
+            data: activityData
+          });
+
+          a.onerror = a.onsuccess = cleanup;
+
+          // This is the function that pauses the music if the activity
+          // handler sets the magic settings property.
+          function observer(e) {
+            // If the value of the setting has changed, then we pause the music.
+            // Note that we don't care what the new value of the setting is.
+            // We only care whether it has changed. The setringtone app will
+            // just toggle it back and forth between true and false.
+            PlayerView.pause();
+          }
+
+          // When the activity is done, we stop observing the setting.
+          // And if we have been paused, then we resume playing.
+          function cleanup() {
+            navigator.mozSettings.removeObserver(hack_setting_property,
+                                                 observer);
+            if (PlayerView.playStatus === PLAYSTATUS_PAUSED)
+              PlayerView.audio.play();
+          }
+        }());
+      }
     });
+  },
+
+  handlePeerConnectivity: function nfc_handlePeerConnectivity(event) {
+    // Only trigger NFC sharing when launched regular music.
+    if (typeof ModeManager !== 'undefined' && navigator.mozNfc) {
+      // NFC enabled, assign the callback to have shrink UI
+      if (ModeManager.currentMode == MODE_PLAYER) {
+        navigator.mozNfc.onpeerready = (function(event) {
+          var peer = navigator.mozNfc.getNFCPeer(event.detail);
+          if (peer && this.playingBlob) {
+            // send music file
+            peer.sendFile(this.playingBlob);
+          }
+        }.bind(this));
+      } else {
+        // clear onpeerready if not in PLAYER MODE.
+        navigator.mozNfc.onpeerready = null;
+      }
+    }
   },
 
   handleEvent: function pv_handleEvent(evt) {
     var target = evt.target;
-      if (!target)
-        return;
+    if (!target)
+      return;
+
+    // Currently we are unable to distinguish the nfc event and the others.
+    // So we just pass all the event to the peer connectivity handler.
+    this.handlePeerConnectivity(evt);
+
     switch (evt.type) {
       case 'click':
         switch (target.id) {
@@ -870,11 +968,10 @@ var PlayerView = {
         }
         break;
       case 'touchend':
-        // If isContextmenu is true then the event is trigger by the long press
+        // If isFastSeeking is true then the event is trigger by the long press
         // of the previous or next buttons, so stop the fast seeking.
         // Otherwise, check the target id then do the corresponding actions.
-        if (this.isContextmenu) {
-          this.isContextmenu = false;
+        if (this.isFastSeeking) {
           this.stopFastSeeking();
         } else if (target.id === 'player-seek-bar') {
           this.seekIndicator.classList.remove('highlight');
@@ -890,11 +987,9 @@ var PlayerView = {
         }
         break;
       case 'contextmenu':
-        this.isContextmenu = true;
-
         if (target.id === 'player-controls-next')
           this.startFastSeeking(1);
-        if (target.id === 'player-controls-previous')
+        else if (target.id === 'player-controls-previous')
           this.startFastSeeking(-1);
         break;
       case 'durationchange':

@@ -21,9 +21,6 @@ function Icon(descriptor, app) {
 var SCALE_RATIO = window.devicePixelRatio;
 var MAX_ICON_SIZE = 60;
 var ICON_PADDING_IN_CANVAS = 4;
-var ICONS_PER_ROW = 4;
-
-var DRAGGING_TRANSITION = '-moz-transform .3s';
 
 Icon.prototype = {
 
@@ -40,6 +37,11 @@ Icon.prototype = {
                     '/style/images/app_downloading.png',
   CANCELED_ICON_URL: window.location.protocol + '//' + window.location.host +
                     '/style/images/app_paused.png',
+
+  // App icons shadow settings
+  SHADOW_BLUR: 5,
+  SHADOW_OFFSET_Y: 2,
+  SHADOW_COLOR: 'rgba(0,0,0,0.15)',
 
   // These properties will be copied from the descriptor onto the icon's HTML
   // element dataset and allow us to uniquely look up the Icon object from
@@ -296,9 +298,9 @@ Icon.prototype = {
     var background = new Image();
     background.src = 'style/images/default_background.png';
     background.onload = function icon_loadBackgroundSuccess() {
-      ctx.shadowColor = 'rgba(0,0,0,0.15)';
-      ctx.shadowBlur = 5;
-      ctx.shadowOffsetY = 2;
+      ctx.shadowColor = self.SHADOW_COLOR;
+      ctx.shadowBlur = self.SHADOW_BLUR;
+      ctx.shadowOffsetY = self.SHADOW_OFFSET_Y;
       ctx.drawImage(background, 2 * SCALE_RATIO, 2 * SCALE_RATIO,
                     MAX_ICON_SIZE * SCALE_RATIO, MAX_ICON_SIZE * SCALE_RATIO);
       // Disable smoothing on icon resize
@@ -331,9 +333,9 @@ Icon.prototype = {
 
     // Collection icons are self contained and should NOT be manipulated
     if (type !== GridItemsFactory.TYPE.COLLECTION) {
-      ctx.shadowColor = 'rgba(0,0,0,0.15)';
-      ctx.shadowBlur = 5;
-      ctx.shadowOffsetY = 2;
+      ctx.shadowColor = this.SHADOW_COLOR;
+      ctx.shadowBlur = this.SHADOW_BLUR;
+      ctx.shadowOffsetY = this.SHADOW_OFFSET_Y;
     }
 
     // Deal with very small or very large icons
@@ -492,8 +494,7 @@ Icon.prototype = {
    */
   translate: function icon_translate() {
     var descriptor = this.descriptor;
-    if (descriptor.type === GridItemsFactory.TYPE.BOOKMARK ||
-        descriptor.customName)
+    if (descriptor.customName)
       return;
 
     var app = this.app;
@@ -504,11 +505,13 @@ Icon.prototype = {
     if (!manifest)
       return;
 
-    var localizedName;
+    var localizedName = manifest.name;
 
     if (descriptor.type === GridItemsFactory.TYPE.COLLECTION) {
-      localizedName = navigator.mozL10n.get(manifest.name);
-    } else {
+      // try to translate, but fall back to current name
+      // (translation might fail for custom collection name)
+      localizedName = navigator.mozL10n.get(manifest.name) || manifest.name;
+    } else if (descriptor.type !== GridItemsFactory.TYPE.BOOKMARK) {
       var iconsAndNameHolder = manifest;
       var entryPoint = descriptor.entry_point;
       if (entryPoint)
@@ -738,7 +741,17 @@ function Page(container, icons, numberOfIcons) {
 
 Page.prototype = {
 
+  ICONS_PER_ROW: 4,
+
+  DRAGGING_TRANSITION: '-moz-transform .3s',
+
+  REARRANGE_DELAY: 50,
+
   FALLBACK_READY_EVENT_DELAY: 1000,
+
+  // After launching an app we disable the page during this time (ms)
+  // in order to prevent multiple open-app animations
+  DISABLE_TAP_EVENT_DELAY: 500,
 
   /*
    * Renders a page for a list of apps
@@ -842,10 +855,10 @@ Page.prototype = {
 
     if (upward) {
       for (var i = draggableIndex + 1; i <= targetIndex; i++)
-        this.placeIcon(children[i], i, i - 1, DRAGGING_TRANSITION);
+        this.placeIcon(children[i], i, i - 1, this.DRAGGING_TRANSITION);
     } else {
       for (var i = targetIndex; i < draggableIndex; i++)
-        this.placeIcon(children[i], i, i + 1, DRAGGING_TRANSITION);
+        this.placeIcon(children[i], i, i + 1, this.DRAGGING_TRANSITION);
     }
   },
 
@@ -903,11 +916,11 @@ Page.prototype = {
       return;
 
     var x = node.dataset.posX = parseInt(node.dataset.posX || 0) +
-                      ((Math.floor(to % ICONS_PER_ROW) -
-                        Math.floor(from % ICONS_PER_ROW)) * 100);
+                      ((Math.floor(to % this.ICONS_PER_ROW) -
+                        Math.floor(from % this.ICONS_PER_ROW)) * 100);
     var y = node.dataset.posY = parseInt(node.dataset.posY || 0) +
-                      ((Math.floor(to / ICONS_PER_ROW) -
-                        Math.floor(from / ICONS_PER_ROW)) * 100);
+                      ((Math.floor(to / this.ICONS_PER_ROW) -
+                        Math.floor(from / this.ICONS_PER_ROW)) * 100);
 
     window.mozRequestAnimationFrame(function() {
       node.style.MozTransform = 'translate(' + x + '%, ' + y + '%)';
@@ -962,10 +975,16 @@ Page.prototype = {
   disableTap: function pg_disableTap(callback) {
     document.body.setAttribute('disabled-tapping', true);
 
+    var disableTapTimeout = null;
+
     var enableTap = function enableTap() {
       document.removeEventListener('visibilitychange', enableTap);
       document.removeEventListener('collectionopened', enableTap);
       window.removeEventListener('hashchange', enableTap);
+      if (disableTapTimeout !== null) {
+        window.clearTimeout(disableTapTimeout);
+        disableTapTimeout = null;
+      }
       document.body.removeAttribute('disabled-tapping');
       callback && callback();
     };
@@ -977,6 +996,10 @@ Page.prototype = {
     document.addEventListener('collectionopened', enableTap);
     // 3. Users click on home button quickly while app are opening
     window.addEventListener('hashchange', enableTap);
+    // 4. After this time out
+    disableTapTimeout = window.setTimeout(enableTap,
+        this.DISABLE_TAP_EVENT_DELAY);
+
   },
 
   /*

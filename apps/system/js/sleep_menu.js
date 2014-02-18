@@ -137,7 +137,7 @@ var SleepMenu = {
     this.buildMenu(this.generateItems());
     this.elements.overlay.classList.add('visible');
     // Lock to default orientation
-    screen.mozLockOrientation(ScreenLayout.defaultOrientation);
+    screen.mozLockOrientation(OrientationManager.defaultOrientation);
   },
 
   buildMenu: function sm_buildMenu(items) {
@@ -151,10 +151,11 @@ var SleepMenu = {
   },
 
   hide: function lm_hide() {
+    if (!this.elements.overlay.classList.contains('visible')) {
+      return;
+    }
     this.elements.overlay.classList.remove('visible');
-    // Reset the orientation for the currently running app
-    var currentApp = WindowManager.getDisplayedApp();
-    WindowManager.setOrientationForApp(currentApp);
+    window.dispatchEvent(new Event('sleepmenuhide'));
   },
 
   handleEvent: function sm_handleEvent(evt) {

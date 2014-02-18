@@ -19,7 +19,7 @@ body {
   height: 100%;
   margin: 0;
   padding: 0;
-  background-color: transparent;
+  background-color: #000;
 }
 
 #cardContainer,
@@ -40,12 +40,12 @@ body {
   -moz-transition-property: transform;
   -moz-transition-duration: 0.3s;
   -moz-transition-timing-function: ease;
-  -moz-transition-delay: 0;
+  transition-delay: 0s;
 
 }
 
 .card.anim-up center {
-  transition: translateX(0);
+  transform: translateX(0);
 }
 
 .card.no-anim {
@@ -61,10 +61,7 @@ body {
 }
 
 .card.before {
-  /* Show a sliver of the before card, to kickstart
-  platform for a smooth, non-black transition: 828266.
-  Otherwise, this would just be -100% */
-  transform: translateX(calc(-100% + 0.5px));
+  transform: translateX(-100%);
 }
 
 .card.before.anim-vertical {
@@ -72,10 +69,7 @@ body {
 }
 
 .card.after {
-  /* Show a sliver of the after card, to kickstart
-  platform for a smooth, non-black transition: 828266.
-  Otherwise, this would just be 100% */
-  transform: translateX(calc(100% - 0.5px));
+  transform: translateX(100%);
 }
 
 .card.after.anim-vertical {
@@ -99,7 +93,6 @@ body {
 
 .top-header {
   background: -moz-linear-gradient(to top, #ffffff 0, #a3a3a3 0.5rem, #992f21 0.5rem, #992f21 0.6rem, #bb492d 0.6rem, #cc6523 100%);
-  background-image: -webkit-gradient(linear, left top, left bottom, color-stop(0%,  #cc6523), color-stop(100%, #bb492d));
   height: 5.2rem;
   width: 100%;
   padding: 0;
@@ -123,7 +116,7 @@ body {
 
 .header-btn, .header-left-btn, .header-right-btn {
   position: absolute;
-  top: 0
+  top: 0;
   height: 5.2rem;
   width: 3.2rem;
   border: none;
@@ -148,9 +141,9 @@ body {
   overflow-x: hidden;
 }
 .scrollregion-below-header {
-  overflow-y: auto;
   overflow-x: hidden;
   height: calc(100% - 5.8rem + 0.5rem);
+  will-change: scroll-position;
 }
 
 .scrollregion-below-header.scrollregion-horizontal-too {
@@ -163,9 +156,10 @@ body {
   bottom: 0;
   width: 100%;
   height: 4rem;
-  background-color: rgba(0, 0, 0, 0.75);
+  background-color: rgba(0, 0, 0, 0.85);
   z-index: 10;
 }
+
 .bottom-btn {
   height: 4rem;
   border: none;
@@ -176,15 +170,6 @@ body {
 .bottom-btn.disabled {
   opacity: 0.3;
   pointer-events: none;
-}
-.bottom-btn:active {
-  background-color: #008AAA !important;
-}
-/* create a space the size of the toolbar since it is absolute...
-   9.6 rem = 4.8rem (toolbar height)  + 4.8rem (search bar height) */
-.bottom-toolbar-spacer {
-  display: block;
-  height: 8rem;
 }
 
 .popup {
@@ -265,4 +250,40 @@ section[role="status"] .toaster-banner-retry {
 section[role="status"][title="undo"] .toaster-banner-undo,
 section[role="status"][title="retry"] .toaster-banner-retry {
   display: inline;
+}
+
+
+/*
+These folder-depth* styles are here instead of folder_cards.css
+because they are also used by the value_selector for showing
+the list of folders. folder-item specific styles so that these
+paddings override other styles in folder_cards.css
+*/
+.fld-folder-item.fld-folder-depth0,
+.fld-folder-depth0 {
+  padding-left: 1.5rem;
+}
+.fld-folder-item.fld-folder-depth1,
+.fld-folder-depth1 {
+  padding-left: 3rem;
+}
+.fld-folder-item.fld-folder-depth2,
+.fld-folder-depth2 {
+  padding-left: 4.5rem;
+}
+.fld-folder-item.fld-folder-depth3,
+.fld-folder-depth3 {
+  padding-left: 6rem;
+}
+.fld-folder-item.fld-folder-depth4,
+.fld-folder-depth4 {
+  padding-left: 6.5rem;
+}
+.fld-folder-item.fld-folder-depth5,
+.fld-folder-depth5 {
+  padding-left: 9.5rem;
+}
+.fld-folder-item.fld-folder-depth6,
+.fld-folder-depthmax {
+  padding-left: 11rem;
 }

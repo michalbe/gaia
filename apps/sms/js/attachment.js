@@ -98,7 +98,7 @@
         var ratio = Math.max(img.width / width, img.height / height);
         canvas.width = Math.round(img.width / ratio);
         canvas.height = Math.round(img.height / ratio);
-        var context = canvas.getContext('2d');
+        var context = canvas.getContext('2d', { willReadFrequently: true });
         context.drawImage(img, 0, 0, width, height);
         var data = canvas.toDataURL(type);
 
@@ -257,7 +257,6 @@
     iframe.removeEventListener('load', iframeLoad);
     navigator.mozL10n.translate(iframe.contentDocument.body);
     iframe.contentDocument.addEventListener('click', clickOnFrame);
-    iframe.contentDocument.addEventListener('contextmenu', clickOnFrame);
   }
 
   exports.Attachment = Attachment;

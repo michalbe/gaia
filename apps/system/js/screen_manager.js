@@ -13,6 +13,11 @@ var ScreenManager = {
    */
   screenEnabled: false,
 
+  /**
+   * If user is unlocking, postpone the timeout counter.
+   */
+  _unlocking: false,
+
   /*
    * before idle-screen-off, invoke a nice dimming to the brightness
    * to notify the user that the screen is about to be turn off.
@@ -73,7 +78,7 @@ var ScreenManager = {
    * When brightening or dimming the screen, this is how much we adjust
    * the brightness value at a time.
    */
-  BRIGHTNESS_ADJUST_STEP: 0.04,
+  BRIGHTNESS_ADJUST_STEP: 0.01,
 
   /*
    * Wait for _dimNotice milliseconds during idle-screen-off
@@ -102,6 +107,10 @@ var ScreenManager = {
     window.addEventListener('sleep', this);
     window.addEventListener('wake', this);
     window.addEventListener('requestshutdown', this);
+
+    // User is unlocking by sliding or other methods.
+    window.addEventListener('unlocking-start', this);
+    window.addEventListener('unlocking-stop', this);
 
     this.screen = document.getElementById('screen');
 
@@ -200,6 +209,14 @@ var ScreenManager = {
 
       case 'wake':
         this.turnScreenOn();
+        break;
+
+      case 'unlocking-start':
+        this._setUnlocking();
+        break;
+
+      case 'unlocking-stop':
+        this._resetUnlocking();
         break;
 
       case 'userproximity':
@@ -416,18 +433,43 @@ var ScreenManager = {
   _reconfigScreenTimeout: function scm_reconfigScreenTimeout() {
     // Remove idle timer if screen wake lock is acquired or
     // if no app has been displayed yet.
-    if (this._screenWakeLocked || !WindowManager.getDisplayedApp()) {
+    if (this._screenWakeLocked || typeof(AppWindowManager) !== 'object' ||
+        !AppWindowManager.getDisplayedApp()) {
       this._setIdleTimeout(0);
     // The screen should be turn off with shorter timeout if
     // it was never unlocked.
-    } else if (LockScreen.locked) {
-      this._setIdleTimeout(10, true);
-      window.addEventListener('will-unlock', this);
-      window.addEventListener('lockpanelchange', this);
-    } else {
-      this._setIdleTimeout(this._idleTimeout, false);
+    } else if (!this._unlocking) {
+      if (window.lockScreen && window.lockScreen.locked) {
+        this._setIdleTimeout(10, true);
+        window.addEventListener('will-unlock', this);
+        window.addEventListener('lockpanelchange', this);
+      } else {
+        this._setIdleTimeout(this._idleTimeout, false);
+      }
     }
   },
+
+  /**
+   * If user is unlocking, postpone the timeout counter.
+   *
+   * @this {ScreenManager}
+   */
+  _setUnlocking: function scm_setUnlocking() {
+      this._unlocking = true;
+
+      // Need to cancel it: the last set timeout would still be triggered.
+      window.clearIdleTimeout(this._idleTimerId);
+   },
+
+  /**
+   * Reset the state of user unlocking.
+   *
+   * @this {ScreenManager}
+   */
+  _resetUnlocking: function scm_resetUnlocking() {
+      this._unlocking = false;
+      this._reconfigScreenTimeout();
+   },
 
   setScreenBrightness: function scm_setScreenBrightness(brightness, instant) {
     this._targetBrightness = brightness;

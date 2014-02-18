@@ -14,17 +14,15 @@ var GridManager = (function() {
   var BASE_HEIGHT = 460; // 480 - 20 (status bar height)
   var DEVICE_HEIGHT = window.innerHeight;
 
-  var HIDDEN_ROLES = ['system', 'input', 'homescreen'];
+  var HIDDEN_ROLES = ['system', 'input', 'homescreen', 'search'];
+
+  // Store the pending apps to be installed until SingleVariant conf is loaded
+  var pendingInstallRequests = [];
 
   function isHiddenApp(role) {
     if (!role) {
-      console.warn(
-        'Unexpected role when checking hidden app: ' + JSON.stringify(role)
-      );
-
       return false;
     }
-
     return (HIDDEN_ROLES.indexOf(role) !== -1);
   }
 
@@ -324,14 +322,13 @@ var GridManager = (function() {
           window.mozRequestAnimationFrame(refresh);
         };
 
-        var container = pages[currentPage].container;
-        container.addEventListener(touchmove, pan, true);
+        window.addEventListener(touchmove, pan, true);
 
         removePanHandler = function removePanHandler(e) {
-          touchEndTimestamp = e ? e.timeStamp : Number.MAX_VALUE;
+          touchEndTimestamp = e ? e.timeStamp : 0;
           window.removeEventListener(touchend, removePanHandler, true);
 
-          container.removeEventListener(touchmove, pan, true);
+          window.removeEventListener(touchmove, pan, true);
 
           window.mozRequestAnimationFrame(function panTouchEnd() {
             onTouchEnd(deltaX, e);
@@ -381,6 +378,10 @@ var GridManager = (function() {
         'y': startEvent.pageY
       });
     });
+  }
+
+  function cancelPanning() {
+    removePanHandler();
   }
 
   function onTouchEnd(deltaX, evt) {
@@ -490,6 +491,7 @@ var GridManager = (function() {
     if (index < 0 || index >= pages.length)
       return;
 
+    touchEndTimestamp = touchEndTimestamp || lastGoingPageTimestamp;
     var delay = touchEndTimestamp - lastGoingPageTimestamp ||
                 kPageTransitionDuration;
     lastGoingPageTimestamp += delay;
@@ -567,6 +569,14 @@ var GridManager = (function() {
 
   function updatePaginationBar() {
     PaginationBar.update(currentPage, pages.length);
+  }
+
+  function updatePageSetSize() {
+    for (var i in pages) {
+      var container = pages[i].container;
+      container.setAttribute('aria-setsize', pages.length);
+      container.setAttribute('aria-posinset', Number(i) + 1);
+    }
   }
 
   /*
@@ -700,6 +710,7 @@ var GridManager = (function() {
       pages.push(page);
 
       pageElement.className = 'page';
+      pageElement.setAttribute('role', 'region');
       container.appendChild(pageElement);
 
       // If the new page is situated right after the current displayed page,
@@ -709,6 +720,7 @@ var GridManager = (function() {
       }
 
       updatePaginationBar();
+      updatePageSetSize();
     },
 
     /*
@@ -720,6 +732,7 @@ var GridManager = (function() {
       pages[index].destroy(); // Destroy page
       pages.splice(index, 1); // Removes page from the list
       updatePaginationBar();
+      updatePageSetSize();
     },
 
     /*
@@ -915,6 +928,13 @@ var GridManager = (function() {
     panningResolver = createPanningResolver();
   }
 
+  function addSVEventListener() {
+    window.addEventListener('singlevariant-ready', function svFileReady(ev) {
+      window.removeEventListener('singlevariant-ready', svFileReady);
+      pendingInstallRequests.forEach(GridManager.install);
+    });
+  }
+
   /*
    * Initialize the mozApps event handlers and synchronize our grid
    * state with the applications known to the system.
@@ -928,7 +948,11 @@ var GridManager = (function() {
     }
 
     appMgr.oninstall = function oninstall(event) {
-      GridManager.install(event.application);
+      if (Configurator.isSingleVariantReady) {
+        GridManager.install(event.application);
+      } else {
+        pendingInstallRequests.push(event.application);
+      }
     };
 
     appMgr.onuninstall = function onuninstall(event) {
@@ -961,8 +985,8 @@ var GridManager = (function() {
       for (var manifestURL in iconsByManifestURL) {
         var iconsForApp = iconsByManifestURL[manifestURL];
         for (var entryPoint in iconsForApp) {
-          if (entryPoint) {
-            var icon = iconsForApp[entryPoint];
+          var icon = iconsForApp[entryPoint];
+          if (icon) {
             icon.remove();
             markDirtyState();
           }
@@ -985,6 +1009,11 @@ var GridManager = (function() {
       // navigator.mozApps backed app will objects will be handled
       // asynchronously and therefore at a later time.
       var app = null;
+      if (descriptor.bookmarkURL && !descriptor.type) {
+        // pre-1.3 bookmarks
+        descriptor.type = GridItemsFactory.TYPE.BOOKMARK;
+      }
+
       if (descriptor.type === GridItemsFactory.TYPE.BOOKMARK ||
           descriptor.type === GridItemsFactory.TYPE.COLLECTION ||
           descriptor.role === GridItemsFactory.TYPE.COLLECTION) {
@@ -1405,6 +1434,10 @@ var GridManager = (function() {
      *
      */
     init: function gm_init(options, callback) {
+      // Add listener which will alert us when the SingleVariant configuration
+      // file has been read
+      addSVEventListener();
+
       // Populate defaults
       for (var key in defaults) {
         if (typeof options[key] === 'undefined') {
@@ -1487,6 +1520,7 @@ var GridManager = (function() {
         for (var entryPoint in iconsForApp) {
           var icon = iconsForApp[entryPoint];
           updateDock = updateDock || dock.containsIcon(icon);
+          icon.app.ondownloadapplied = icon.app.ondownloaderror = null;
           icon.remove();
         }
         delete appIcons[app.manifestURL];
@@ -1560,6 +1594,8 @@ var GridManager = (function() {
     ensurePagesOverflow: ensurePagesOverflow,
 
     contextmenu: contextmenu,
+
+    cancelPanning: cancelPanning,
 
     get container() {
       return container;

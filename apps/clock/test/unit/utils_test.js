@@ -1,3 +1,5 @@
+'use strict';
+/* global MockRequestWakeLock */
 requireApp('clock/test/unit/mocks/mock_request_wake_lock.js');
 
 suite('Time functions', function() {
@@ -53,7 +55,7 @@ suite('Time functions', function() {
     test('12:00pm', function() {
       var time = parseTime('12:00PM');
       assert.equal(time.hour, 12);
-      assert.equal(time.minute, 00);
+      assert.equal(time.minute, 0);
     });
 
     test('11:30pm', function() {
@@ -453,7 +455,7 @@ suite('Time functions', function() {
 
   });
 
-  suite('safeCpuLock tests', function() {
+  suite('safeWakeLock tests', function() {
 
     setup(function() {
       this.mocklock = new MockRequestWakeLock();
@@ -470,13 +472,13 @@ suite('Time functions', function() {
       var callback = this.sinon.spy(function(unlock) {
         assert.ok(navigator.requestWakeLock.calledOnce);
       });
-      Utils.safeCpuLock(15000, callback);
+      Utils.safeWakeLock({timeoutMs: 15000}, callback);
       this.sinon.clock.tick(16000);
       assert.ok(callback.calledOnce);
     });
 
     test('single unlock', function() {
-      Utils.safeCpuLock(15000, function(unlock) {
+      Utils.safeWakeLock({timeoutMs: 15000}, function(unlock) {
         unlock();
       });
       this.sinon.clock.tick(16000);
@@ -487,7 +489,7 @@ suite('Time functions', function() {
 
     test('no duplicate unlock', function() {
       var here = 0;
-      Utils.safeCpuLock(15000, function(unlock) {
+      Utils.safeWakeLock({timeoutMs: 15000}, function(unlock) {
         setTimeout(function() {
           here++;
           unlock();
@@ -503,7 +505,7 @@ suite('Time functions', function() {
 
     test('timeout unlock', function() {
       var here = false;
-      Utils.safeCpuLock(15000, function(unlock) {
+      Utils.safeWakeLock({timeoutMs: 15000}, function(unlock) {
         here = true;
       });
       this.sinon.clock.tick(16000);
@@ -516,7 +518,7 @@ suite('Time functions', function() {
     test('exception in callback still unlocks CPU', function() {
       var here = false;
       try {
-        Utils.safeCpuLock(15000, function(unlock) {
+        Utils.safeWakeLock({timeoutMs: 15000}, function(unlock) {
           here = true;
           throw new Error('gotcha');
         });

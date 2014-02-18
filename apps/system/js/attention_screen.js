@@ -41,9 +41,11 @@ var AttentionScreen = {
     window.addEventListener('home', this.hide.bind(this));
     window.addEventListener('holdhome', this.hide.bind(this));
     window.addEventListener('appwillopen', this.appOpenHandler.bind(this));
+    window.addEventListener('launchapp', this.appLaunchHandler.bind(this));
     window.addEventListener('emergencyalert', this.hide.bind(this));
 
-    window.addEventListener('will-unlock', this.screenUnlocked.bind(this));
+    window.addEventListener('appforeground',
+      this.appForegroundHandler.bind(this));
   },
 
   resize: function as_resize(evt) {
@@ -75,6 +77,12 @@ var AttentionScreen = {
     // If the user presses the home button we will still hide the attention
     // screen. But in the case of an app crash we'll keep it fully open
     if (!evt.detail.isHomescreen) {
+      this.hide();
+    }
+  },
+
+  appLaunchHandler: function as_appLaunchHandler(evt) {
+    if (!evt.detail.stayBackground) {
       this.hide();
     }
   },
@@ -137,8 +145,7 @@ var AttentionScreen = {
     // alternatively, if the newly appended frame is the visible frame
     // and we are in the status bar mode, expend to full screen mode.
     if (!this.isVisible()) {
-      // Attention screen now only support default orientation.
-      screen.mozLockOrientation(ScreenLayout.defaultOrientation);
+      this.tryLockOrientation();
 
       this.attentionScreen.classList.add('displayed');
       this.mainScreen.classList.add('attention');
@@ -228,11 +235,6 @@ var AttentionScreen = {
         { origin: this.attentionScreen.lastElementChild.dataset.frameOrigin });
     }
 
-    // Restore the orientation of current displayed app
-    var currentApp = WindowManager.getDisplayedApp();
-    if (currentApp)
-      WindowManager.setOrientationForApp(currentApp);
-
     this.attentionScreen.classList.remove('displayed');
     this.mainScreen.classList.remove('attention');
     this.dispatchEvent('attentionscreenhide', { origin: origin });
@@ -241,7 +243,7 @@ var AttentionScreen = {
   // expend the attention screen overlay to full screen
   show: function as_show() {
     // Attention screen now only support default orientation.
-    screen.mozLockOrientation(ScreenLayout.defaultOrientation);
+    this.tryLockOrientation();
 
     delete this.attentionScreen.lastElementChild.dataset.appRequestedSmallSize;
 
@@ -269,12 +271,6 @@ var AttentionScreen = {
     if (!this.isFullyVisible())
       return;
 
-    // Restore the orientation of current displayed app
-    var currentApp = WindowManager.getDisplayedApp();
-
-    if (currentApp)
-      WindowManager.setOrientationForApp(currentApp);
-
     // entering "active-statusbar" mode,
     // with a transform: translateY() slide up transition.
     this.mainScreen.classList.add('active-statusbar');
@@ -292,6 +288,22 @@ var AttentionScreen = {
       // transition completed, entering "status-mode" (40px height iframe)
       attentionScreen.classList.add('status-mode');
     });
+  },
+
+  // If the lock request fails, request again later.
+  // XXX: Group orientation requests in orientation manager to avoid this.
+  tryLockOrientation: function as_tryLockOrientation() {
+    var tries = 20;
+    var tryToUnlock = function() {
+      var rv = screen.mozLockOrientation(OrientationManager.defaultOrientation);
+      if (!rv && tries--) {
+        console.warn(
+          'Attention screen fails on locking orientation, retrying..');
+        setTimeout(tryToUnlock, 20);
+      }
+    };
+
+    tryToUnlock();
   },
 
   dispatchEvent: function as_dispatchEvent(name, detail) {
@@ -322,11 +334,11 @@ var AttentionScreen = {
     }
   },
 
-  screenUnlocked: function as_screenUnlocked() {
+  appForegroundHandler: function as_appForegroundHandler(evt) {
     // If the app behind the soon-to-be-unlocked lockscreen has an
     // attention screen we should display it
-    var app = WindowManager.getCurrentDisplayedApp();
-    app && this.showForOrigin(app.origin);
+    var app = evt.detail;
+    this.showForOrigin(app.origin);
   },
 
   getAttentionScreenOrigins: function as_getAttentionScreenOrigins() {

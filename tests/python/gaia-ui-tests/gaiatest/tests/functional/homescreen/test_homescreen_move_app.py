@@ -12,11 +12,12 @@ class TestMoveApp(GaiaTestCase):
         GaiaTestCase.setUp(self)
 
         self.homescreen = Homescreen(self.marionette)
-        self.homescreen.switch_to_homescreen_frame()
+        self.apps.switch_to_displayed_app()
+        self.homescreen.wait_for_homescreen_to_load()
 
     def test_move_app_position(self):
-        """
-        Verify the user can move an application around on the homescreen.
+        """Verify the user can move an application around on the homescreen.
+
         https://moztrap.mozilla.org/manage/case/1317/
         """
 
@@ -33,8 +34,7 @@ class TestMoveApp(GaiaTestCase):
         self.homescreen.move_app_to_position(0, 12)
 
         # Exit edit mode
-        self.homescreen.touch_home_button()
-        self.homescreen.switch_to_homescreen_frame()
+        self.device.touch_home_button()
         self.assertFalse(self.homescreen.is_edit_mode_active, "Edit mode should not be active")
 
         # Check the app order and that the app on position 12 is the right one

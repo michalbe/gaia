@@ -3,12 +3,17 @@
   color: #000;
 }
 
+#simpin-dialog button.back[hidden] {
+  display: none;
+}
+
 #simpin-dialog section[role="region"] {
   position: absolute;
   top: 0;
   left: 0;
   bottom: 0;
   right: 0;
+  margin-bottom: 7rem;
 }
 
 #simpin-dialog .container {
@@ -16,6 +21,7 @@
   padding: 0 2rem;
   font-size: 1.5rem;
   height: calc(100% - 6rem);
+  width: calc(100% - 4rem);
   overflow-y: scroll;
 }
 
@@ -27,7 +33,7 @@
   padding-top: 1rem;
 }
 
-#errorMsg{
+#errorMsg {
   padding: 1rem;
 }
 

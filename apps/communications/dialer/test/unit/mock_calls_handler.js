@@ -16,11 +16,13 @@ var MockCallsHandler = {
     return this.mActiveCall;
   },
 
+  toggleCalls: function() {},
   toggleMute: function() {},
   unmute: function() {},
   toggleSpeaker: function() {},
-  turnSpeakerOn: function() {},
-  turnSpeakerOff: function() {},
+  switchToSpeaker: function() {},
+  switchToDefaultOut: function() {},
+  switchToReceiver: function() {},
   checkCalls: function() {},
   mergeActiveCallWith: function() {},
   mergeConferenceGroupWithActiveCall: function() {},

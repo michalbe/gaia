@@ -1,11 +1,14 @@
 'use strict';
 
-mocha.globals(['SettingsListener', 'LockScreen', 'Bluetooth', 'StatusBar',
+mocha.globals(['SettingsListener', 'lockScreen', 'Bluetooth', 'StatusBar',
       'AttentionScreen', 'removeEventListener', 'addEventListener',
       'ScreenManager', 'clearIdleTimeout', 'setIdleTimeout', 'dispatchEvent',
-      'WindowManager']);
+      'AppWindowManager']);
 
-requireApp('system/test/unit/mock_window_manager.js');
+requireApp('system/test/unit/mock_app_window_manager.js');
+requireApp('system/test/unit/mock_lock_screen.js');
+requireApp('system/test/unit/mock_statusbar.js');
+requireApp('system/test/unit/mock_bluetooth.js');
 requireApp('system/test/unit/mock_navigator_moz_power.js');
 requireApp('system/test/unit/mock_sleep_menu.js');
 requireApp('system/shared/test/unit/mocks/mock_settings_listener.js');
@@ -33,13 +36,18 @@ function restoreProperty(originObject, prop, reals, useDefineProperty) {
   }
 }
 
+var mocksForScreenManager = new MocksHelper([
+  'SettingsListener', 'Bluetooth', 'StatusBar',
+  'AppWindowManager'
+]).init();
+
 suite('system/ScreenManager', function() {
   var reals = {};
+  mocksForScreenManager.attachTestHelpers();
 
   setup(function(done) {
+    window.lockScreen = MockLockScreen;
     switchProperty(navigator, 'mozPower', MockMozPower, reals, true);
-    switchProperty(window, 'WindowManager', MockWindowManager, reals);
-    switchProperty(window, 'SettingsListener', MockSettingsListener, reals);
     this.sinon.useFakeTimers();
 
     // We make sure fake timers are in place before we require the app
@@ -47,12 +55,7 @@ suite('system/ScreenManager', function() {
   });
 
   teardown(function() {
-    MockMozPower.mTeardown();
-    MockWindowManager.mTeardown();
-    MockSettingsListener.mTeardown();
     restoreProperty(navigator, 'mozPower', reals, true);
-    restoreProperty(window, 'WindowManager', reals);
-    restoreProperty(window, 'SettingsListener', reals);
   });
 
   suite('init()', function() {
@@ -71,12 +74,12 @@ suite('system/ScreenManager', function() {
       this.sinon.stub(ScreenManager, '_setIdleTimeout');
 
       switchProperty(navigator, 'mozTelephony', stubTelephony, reals);
-      switchProperty(window, 'LockScreen', stubLockscreen, reals);
+      switchProperty(window, 'lockScreen', stubLockscreen, reals);
     });
 
     teardown(function() {
       restoreProperty(navigator, 'mozTelephony', reals);
-      restoreProperty(window, 'LockScreen', reals);
+      restoreProperty(window, 'lockScreen', reals);
     });
 
     test('Event listener adding', function() {
@@ -713,6 +716,35 @@ suite('system/ScreenManager', function() {
       ScreenManager.toggleScreen();
       assert.isTrue(stubTurnOn.called);
       assert.isFalse(stubTurnOff.called);
+    });
+  });
+
+  suite('unlocking-start/stop events', function() {
+    test('handle unlocking-start event', function() {
+      // The public interface is event, so we manually fire and forward it to
+      // the handler, to avoid the asynchronous part which is unnecessary in
+      // the test.
+      var stubDispatchEvent = this.sinon.stub(window, 'dispatchEvent',
+        function(e) {
+          ScreenManager.handleEvent(e);
+        });
+      window.dispatchEvent(new CustomEvent('unlocking-start'));
+      assert.isTrue(ScreenManager._unlocking);
+      stubDispatchEvent.restore();
+    });
+
+    test('handle unlocking-stop event', function() {
+      var stubDispatchEvent = this.sinon.stub(window, 'dispatchEvent',
+        function(e) {
+          ScreenManager.handleEvent(e);
+        });
+      var stubReconfigScreenTimeout = this.sinon.stub(ScreenManager,
+        '_reconfigScreenTimeout');
+      window.dispatchEvent(new CustomEvent('unlocking-stop'));
+      assert.isFalse(ScreenManager._unlocking);
+      assert.isTrue(stubReconfigScreenTimeout.called);
+      stubDispatchEvent.restore();
+      stubReconfigScreenTimeout.restore();
     });
   });
 });

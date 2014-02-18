@@ -71,8 +71,8 @@ var ValueSelector = {
       el.addEventListener('mousedown', this);
     }, this);
 
-    window.addEventListener('appopen', this);
-    window.addEventListener('appwillclose', this);
+    window.addEventListener('appopened', this);
+    window.addEventListener('appclosing', this);
 
     // invalidate the current spin date picker when language setting changes
     navigator.mozSettings.addObserver('language.current',
@@ -141,8 +141,8 @@ var ValueSelector = {
 
   handleEvent: function vs_handleEvent(evt) {
     switch (evt.type) {
-      case 'appopen':
-      case 'appwillclose':
+      case 'appopened':
+      case 'appclosing':
         this.hide();
         break;
 
@@ -417,11 +417,7 @@ var ValueSelector = {
         minutes: now.getMinutes()
       };
     } else {
-      var inputParser = ValueSelector.InputParser;
-      if (!inputParser)
-        console.error('Cannot get input parser for value selector');
-
-      time = inputParser.importTime(currentValue);
+      time = InputParser.importTime(currentValue);
     }
 
     var timePicker = TimePicker.timePicker;
@@ -472,11 +468,7 @@ var ValueSelector = {
     // Show current date as default value
     var date = new Date();
     if (currentValue) {
-      var inputParser = ValueSelector.InputParser;
-      if (!inputParser)
-        console.error('Cannot get input parser for value selector');
-
-      date = inputParser.formatInputDate(currentValue, '');
+      date = InputParser.formatInputDate(currentValue, '');
     }
     this._datePicker.value = date;
   }

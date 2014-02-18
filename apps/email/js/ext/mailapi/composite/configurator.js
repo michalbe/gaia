@@ -318,6 +318,22 @@ function CompositeIncomingAccount(
    *     support hierarchies, but we just declare that those servers are not
    *     acceptable for use.
    *   }
+   *   @param[overflowMap @dictof[
+   *     @key[uidl String]
+   *     @value[@dict[
+   *       @key[size Number]
+   *     ]]
+   *   ]]{
+   *     The list of messages that will NOT be downloaded by a sync
+   *     automatically, but instead need to be fetched with a "Download
+   *     more messages..." operation. (POP3 only.)
+   *   }
+   *   @param[uidlMap @dictof[
+   *     @key[uidl String]
+   *     @value[headerID String]
+   *   ]]{
+   *     A mapping of UIDLs to message header IDs. (POP3 only.)
+   *   }
    * ]{
    *   Meta-information about the account derived from probing the account.
    *   This information gets flushed on database upgrades.
@@ -1223,7 +1239,6 @@ console.log('BISECT CASE', serverUIDs.length, 'curDaysDelta', curDaysDelta);
       // build the list of requests based on downloading required.
       var requests = [];
       bodyInfo.bodyReps.forEach(function(rep, idx) {
-
         // attempt to be idempotent by only requesting the bytes we need if we
         // actually need them...
         if (rep.isDownloaded)
@@ -1379,6 +1394,7 @@ console.log('BISECT CASE', serverUIDs.length, 'curDaysDelta', curDaysDelta);
       self._storage.updateMessageBody(
         header,
         body,
+        {},
         event
       );
 
@@ -1635,7 +1651,7 @@ ImapFolderSyncer.prototype = {
    */
   initialSync: function(slice, initialDays, syncCallback,
                         doneCallback, progressCallback) {
-    syncCallback('sync', false);
+    syncCallback('sync', false /* Ignore Headers */);
     // We want to enter the folder and get the box info so we can know if we
     // should trigger our SYNC_WHOLE_FOLDER_AT_N_MESSAGES logic.
     // _timelySyncSearch is what will get called next either way, and it will
@@ -1764,11 +1780,7 @@ ImapFolderSyncer.prototype = {
     // intended to be a new thing for each request.  So we don't want extra
     // desire building up, so we set it to what we have every time.
     //
-    // We don't want to affect this value in accumulating mode, however, since
-    // it could result in sending more headers than actually requested over the
-    // wire.
-    if (!this._syncSlice._accumulating)
-      this._syncSlice.desiredHeaders = this._syncSlice.headers.length;
+    this._syncSlice.desiredHeaders = this._syncSlice.headers.length;
 
     if (this._curSyncDoneCallback)
       this._curSyncDoneCallback(err);
@@ -1961,10 +1973,6 @@ console.log("folder message count", folderMessageCount,
                   "[oldest defined as", $sync.OLDEST_SYNC_DATE, "]");
       this._doneSync();
       return;
-    }
-    else if (this._syncSlice._accumulating) {
-      // flush the accumulated results thus far
-      this._syncSlice.setStatus('synchronizing', true, true, true);
     }
 
     // - Increase our search window size if we aren't finding anything
@@ -2166,13 +2174,17 @@ var LOGFAB = exports.LOGFAB = $log.register($module, {
 define('mailapi/imap/jobs',
   [
     'rdcommon/log',
+    'mix',
     '../jobmixins',
+    'mailapi/drafts/jobs',
     'module',
     'exports'
   ],
   function(
     $log,
+    mix,
     $jobmixins,
+    draftsJobs,
     $module,
     exports
   ) {
@@ -2423,32 +2435,6 @@ ImapJobDriver.prototype = {
   local_undo_download: $jobmixins.local_undo_download,
 
   undo_download: $jobmixins.undo_download,
-
-  //////////////////////////////////////////////////////////////////////////////
-  // saveDraft
-
-  local_do_saveDraft: $jobmixins.local_do_saveDraft,
-
-  do_saveDraft: $jobmixins.do_saveDraft,
-
-  check_saveDraft: $jobmixins.check_saveDraft,
-
-  local_undo_saveDraft: $jobmixins.local_undo_saveDraft,
-
-  undo_saveDraft: $jobmixins.undo_saveDraft,
-
-  //////////////////////////////////////////////////////////////////////////////
-  // deleteDraft
-
-  local_do_deleteDraft: $jobmixins.local_do_deleteDraft,
-
-  do_deleteDraft: $jobmixins.do_deleteDraft,
-
-  check_deleteDraft: $jobmixins.check_deleteDraft,
-
-  local_undo_deleteDraft: $jobmixins.local_undo_deleteDraft,
-
-  undo_deleteDraft: $jobmixins.undo_deleteDraft,
 
   //////////////////////////////////////////////////////////////////////////////
   // modtags: Modify tags on messages
@@ -2872,6 +2858,7 @@ ImapJobDriver.prototype = {
     doneCallback('moot');
   },
 
+
   //////////////////////////////////////////////////////////////////////////////
   // append: Add a message to a folder
   //
@@ -3189,6 +3176,8 @@ HighLevelJobDriver.prototype = {
   undo_xcopy: function() {
   },
 };
+
+mix(ImapJobDriver.prototype, draftsJobs.draftsMixins);
 
 var LOGFAB = exports.LOGFAB = $log.register($module, {
   ImapJobDriver: {
@@ -3846,6 +3835,49 @@ var properties = {
     callback(null);
   },
 
+  /**
+   * Asynchronously save the sent message to the sent folder, if applicable.
+   * This should only be called once the SMTP send has completed.
+   *
+   * If non-gmail, append a bcc-including version of the message into the sent
+   * folder.  For gmail, the SMTP server automatically copies the message into
+   * the sent folder so we don't need to do this.
+   *
+   * There are several notable limitations with the current implementation:
+   * - We do not write a copy of the message into the sent folder locally, so
+   *   the message must be downloaded/synchronized for the user to see it.
+   * - The operation to append the message does not get persisted to disk, so
+   *   in the event the app crashes or is closed, a copy of the message will
+   *   not end up in the sent folder.  This has always been the emergent
+   *   phenomenon for IMAP, except previously we would persist the operation
+   *   and then mark it moot at 'check' time.  Our new technique of not saving
+   *   the operation is preferable for disk space reasons.  (NB: We could
+   *   persist it, but the composite Blob we build would be flattened which
+   *   could generate an I/O storm, cause temporary double-storage use, etc.)
+   */
+  saveSentMessage: function(composer) {
+    // (gmail automatically copies the message into the sent folder; we don't
+    // have to do anything)
+    if (this.isGmail) {
+      return;
+    }
+
+    composer.withMessageBlob({ includeBcc: true }, function(blob) {
+      var message = {
+        messageText: blob,
+        // do not specify date; let the server use its own timestamping
+        // since we want the approximate value of 'now' anyways.
+        flags: ['Seen'],
+      };
+
+      var sentFolder = this.getFirstFolderWithType('sent');
+      if (sentFolder) {
+        this.universe.appendMessages(sentFolder.id,
+                                     [message]);
+      }
+    }.bind(this));
+  },
+
   shutdown: function(callback) {
     CompositeIncomingAccount.prototype.shutdownFolders.call(this);
 
@@ -3907,9 +3939,45 @@ var LOGFAB = exports.LOGFAB = $log.register($module, {
 }); // end define
 ;
 /**
- * Make our TCPSocket implementation look like node's net library.
+ * Remoted network API that tries to look like node.js's "net" API.  We are
+ * expected/required to run in a worker thread where we don't have direct
+ * access to mozTCPSocket so everything has to get remitted to the main thread.
+ * Our counterpart is mailapi/worker-support/net-main.js
  *
- * We make sure to support:
+ *
+ * ## Sending lots of data: flow control, Blobs ##
+ *
+ * mozTCPSocket provides a flow-control mechanism (the return value to send
+ * indicates whether we've crossed a buffering boundary and 'ondrain' tells us
+ * when all buffered data has been sent), but does not yet support enqueueing
+ * Blobs for processing (which is part of the proposed standard at
+ * http://www.w3.org/2012/sysapps/raw-sockets/).  Also, the raw-sockets spec
+ * calls for generating the 'drain' event once our buffered amount goes back
+ * under the internal buffer target rather than waiting for it to hit zero like
+ * mozTCPSocket.
+ *
+ * Our main desire right now for flow-control is to avoid using a lot of memory
+ * and getting killed by the OOM-killer.  As such, flow control is not important
+ * to us if we're just sending something that we're already keeping in memory.
+ * The things that will kill us are giant things like attachments (or message
+ * bodies we are quoting/repeating, potentially) that we are keeping as Blobs.
+ *
+ * As such, rather than echoing the flow-control mechanisms over to this worker
+ * context, we just allow ourselves to write() a Blob and have the net-main.js
+ * side take care of streaming the Blobs over the network.
+ *
+ * Note that successfully sending a lot of data may entail holding a wake-lock
+ * to avoid having the network device we are using turned off in the middle of
+ * our sending.  The network-connection abstraction is not currently directly
+ * involved with the wake-lock management, but I could see it needing to beef up
+ * its error inference in terms of timeouts/detecting disconnections so we can
+ * avoid grabbing a wi-fi wake-lock, having our connection quietly die, and then
+ * we keep holding the wi-fi wake-lock for much longer than we should.
+ *
+ * ## Supported API Surface ##
+ *
+ * We make sure to expose the following subset of the node.js API because we
+ * have consumers that get upset if these do not exist:
  *
  * Attributes:
  * - encrypted (false, this is not the tls byproduct)
@@ -3971,8 +4039,40 @@ NetSocket.prototype.setTimeout = function() {
 };
 NetSocket.prototype.setKeepAlive = function(shouldKeepAlive) {
 };
-NetSocket.prototype.write = function(buffer) {
-  this._sendMessage('write', [buffer.buffer, buffer.byteOffset, buffer.length]);
+// The semantics of node.js's socket.write does not take ownership and that's
+// how our code uses it, so we can't use transferrables by default.  However,
+// there is an optimization we want to perform related to Uint8Array.subarray().
+//
+// All the subarray does is create a view on the underlying buffer.  This is
+// important and notable because the structured clone implementation for typed
+// arrays and array buffers is *not* clever; it just serializes the entire
+// underlying buffer and the typed array as a view on that.  (This does have
+// the upside that you can transfer a whole bunch of typed arrays and only one
+// copy of the buffer.)  The good news is that ArrayBuffer.slice() does create
+// an entirely new copy of the buffer, so that works with our semantics and we
+// can use that to transfer only what needs to be transferred.
+NetSocket.prototype.write = function(u8array) {
+  if (u8array instanceof Blob) {
+    // We always send blobs in their entirety; you should slice the blob and
+    // give us that if that's what you want.
+    this._sendMessage('write', [u8array]);
+    return;
+  }
+
+  var sendArgs;
+  // Slice the underlying buffer and transfer it if the array is a subarray
+  if (u8array.byteOffset !== 0 ||
+      u8array.length !== u8array.buffer.byteLength) {
+    var buf = u8array.buffer.slice(u8array.byteOffset,
+                                   u8array.byteOffset + u8array.length);
+    this._sendMessage('write',
+                      [buf, 0, buf.byteLength],
+                      [buf]);
+  }
+  else {
+    this._sendMessage('write',
+                      [u8array.buffer, u8array.byteOffset, u8array.length]);
+  }
 };
 NetSocket.prototype.upgradeToSecure = function() {
   this._sendMessage('upgradeToSecure', []);
@@ -4245,6 +4345,16 @@ define('pop3/transport',['exports'], function(exports) {
   }
 
   /**
+   * Trigger the response callback with '-ERR desc\r\n'.
+   */
+  Request.prototype._respondWithError = function(desc) {
+    var rsp = new Response([textEncoder.encode(
+      '-ERR ' + desc + '\r\n')], false);
+    rsp.request = this;
+    this.onresponse(rsp, null);
+  }
+
+  /**
    * Couple a POP3 parser with a request/response model, such that
    * you can easily hook Pop3Protocol up to a socket (or other
    * transport) to get proper request/response semantics.
@@ -4261,6 +4371,7 @@ define('pop3/transport',['exports'], function(exports) {
     this.unsentRequests = []; // if not pipelining, queue requests one at a time
     this.pipeline = false;
     this.pendingRequests = [];
+    this.closed = false;
   }
 
   exports.Response = Response;
@@ -4288,6 +4399,12 @@ define('pop3/transport',['exports'], function(exports) {
     } else {
       req = new Request(cmd, args, expectMultiline, cb);
     }
+
+    if (this.closed) {
+      req._respondWithError('(request sent after connection closed)');
+      return;
+    }
+
     if (this.pipeline || this.pendingRequests.length === 0) {
       this.onsend(req.toByteArray());
       this.pendingRequests.push(req);
@@ -4329,6 +4446,25 @@ define('pop3/transport',['exports'], function(exports) {
           req.onresponse(null, response);
         }
       }
+    }
+  }
+
+  /**
+   * Call this function when the socket attached to this protocol is
+   * closed. Any current requests that have been enqueued but not yet
+   * responded to will be sent a dummy "-ERR" response, indicating
+   * that the underlying connection closed without actually
+   * responding. This avoids the case where we hang if we never
+   * receive a response from the server.
+   */
+  Pop3Protocol.prototype.onclose = function() {
+    this.closed = true;
+    var requestsToRespond = this.pendingRequests.concat(this.unsentRequests);
+    this.pendingRequests = [];
+    this.unsentRequests = [];
+    for (var i = 0; i < requestsToRespond.length; i++) {
+      var req = requestsToRespond[i];
+      req._respondWithError('(connection closed, no response)');
     }
   }
 });
@@ -6070,11 +6206,13 @@ MailParser.prototype._detectHTMLCharset = function(html){
 define('mailapi/imap/imapchew',
   [
     'mimelib',
+    'mailapi/db/mail_rep',
     '../mailchew',
     'exports'
   ],
   function(
     $mimelib,
+    mailRep,
     $mailchew,
     exports
   ) {
@@ -6234,7 +6372,7 @@ function chewStructure(msg) {
 
     function makePart(partInfo, filename) {
 
-      return {
+      return mailRep.makeAttachmentPart({
         name: filename || 'unnamed-' + (++unnamedPartCounter),
         contentId: partInfo.id ? stripArrows(partInfo.id) : null,
         type: (partInfo.type + '/' + partInfo.subtype).toLowerCase(),
@@ -6248,11 +6386,11 @@ function chewStructure(msg) {
         textFormat: (partInfo.params && partInfo.params.format &&
                      partInfo.params.format.toLowerCase()) || undefined
          */
-      };
+      });
     }
 
     function makeTextPart(partInfo) {
-      return {
+      return mailRep.makeBodyPart({
         type: partInfo.subtype,
         part: partInfo.partID,
         sizeEstimate: partInfo.size,
@@ -6268,7 +6406,7 @@ function chewStructure(msg) {
         // the information on the bodyRep directly?
         _partInfo: partInfo.size ? partInfo : null,
         content: ''
-      };
+      });
     }
 
     if (disposition === 'attachment') {
@@ -6368,7 +6506,7 @@ exports.chewHeaderAndBodyStructure =
   var parts = chewStructure(msg);
   var rep = {};
 
-  rep.header = {
+  rep.header = mailRep.makeHeaderInfo({
     // the FolderStorage issued id for this message (which differs from the
     // IMAP-server-issued UID so we can do speculative offline operations like
     // moves).
@@ -6399,17 +6537,17 @@ exports.chewHeaderAndBodyStructure =
 
     // we lazily fetch the snippet later on
     snippet: null
-  };
+  });
 
 
-  rep.bodyInfo = {
+  rep.bodyInfo = mailRep.makeBodyInfo({
     date: msg.date,
     size: 0,
     attachments: parts.attachments,
     relatedParts: parts.relatedParts,
     references: msg.msg.references,
     bodyReps: parts.bodyReps
-  };
+  });
 
   return rep;
 };
@@ -6445,7 +6583,6 @@ exports.chewHeaderAndBodyStructure =
  *
  */
 exports.updateMessageWithFetch = function(header, body, req, res, _LOG) {
-
   var bodyRep = body.bodyReps[req.bodyRepIndex];
 
   // check if the request was unbounded or we got back less bytes then we
@@ -6467,7 +6604,9 @@ exports.updateMessageWithFetch = function(header, body, req, res, _LOG) {
     res.text, bodyRep.type, bodyRep.isDownloaded, req.createSnippet, _LOG
   );
 
-  header.snippet = data.snippet;
+  if (req.createSnippet) {
+    header.snippet = data.snippet;
+  }
   if (bodyRep.isDownloaded)
     bodyRep.content = data.content;
 };
@@ -6672,10 +6811,11 @@ return {
 
 define('pop3/pop3',['module', 'exports', 'rdcommon/log', 'net', 'crypto',
         './transport', 'mailparser/mailparser', '../mailapi/imap/imapchew',
+        '../mailapi/syncbase',
         './mime_mapper', '../mailapi/allback'],
 function(module, exports, log, net, crypto,
          transport, mailparser, imapchew,
-         mimeMapper, allback) {
+         syncbase, mimeMapper, allback) {
 
   /**
    * The Pop3Client modules and classes are organized according to
@@ -6724,20 +6864,6 @@ function(module, exports, log, net, crypto,
     setTimeout = set;
     clearTimeout = clear;
   }
-
-  // CONSTANTS:
-
-  // If a message is larger than INFER_ATTACHMENTS_SIZE bytes, guess
-  // that it has an attachment.
-  var INFER_ATTACHMENTS_SIZE = 512 * 1024;
-
-  // Attempt to fetch SNIPPET_SIZE_GOAL bytes for each message to
-  // generate the snippet.
-  var SNIPPET_SIZE_GOAL = 4 * 1024; // in bytes
-  // Based on SNIPPET_SIZE_GOAL, calculate approximately how many
-  // lines we'll need to fetch in order to roughly retrieve
-  // SNIPPET_SIZE_GOAL bytes.
-  var LINES_TO_FETCH_FOR_SNIPPET = Math.floor(SNIPPET_SIZE_GOAL / 80);
 
   /***************************************************************************
    * Pop3Client
@@ -6878,6 +7004,11 @@ function(module, exports, log, net, crypto,
         message: 'Socket exception: ' + JSON.stringify(err),
         exception: err,
       });
+    }.bind(this));
+
+    this.socket.on('close', function() {
+      this.protocol.onclose();
+      this.die();
     }.bind(this));
 
     // To track requests/responses in the presence of a server
@@ -7180,7 +7311,13 @@ function(module, exports, log, net, crypto,
         var number = words[0];
         var size = parseInt(words[1], 10);
         this.idToSize[number] = size;
-        allMessages.push({
+        // Push the message onto the front, so that the last line
+        // becomes the first message in allMessages. Most POP3 servers
+        // seem to return messages in ascending date order, so we want
+        // to process the newest messages first. (Tested with Dovecot,
+        // Gmail, and AOL.) The resulting list here contains the most
+        // recent message first.
+        allMessages.unshift({
           uidl: this.idToUidl[number],
           size: size,
           number: number
@@ -7193,21 +7330,39 @@ function(module, exports, log, net, crypto,
   }
 
   /**
-   * Fetche the headers and snippets for all messages. Only retrieves
+   * Fetch the headers and snippets for all messages. Only retrieves
    * messages for which filterFunc(uidl) returns true.
    *
    * @param {object} opts
    * @param {function(uidl)} opts.filter Only store messages matching filter
    * @param {function(evt)} opts.progress Progress callback
    * @param {int} opts.checkpointInterval Call `checkpoint` every N messages
+   * @param {int} opts.maxMessages Download _at most_ this many
+   *   messages during this listMessages invocation. If we find that
+   *   we would have to download more than this many messages, mark
+   *   the rest as "overflow" messages that could be downloaded in a
+   *   future sync iteration. (Default is infinite.)
    * @param {function(next)} opts.checkpoint Callback to periodically save state
-   * @param {function(err, numSynced)} cb
+   * @param {function(err, numSynced, overflowMessages)} cb
+   *   Upon completion, returns the following data:
+   *
+   *   numSynced: The number of messages synced.
+   *
+   *   overflowMessages: An array of objects with the following structure:
+   *
+   *       { uidl: "", size: 0 }
+   *
+   *     Each message in overflowMessages was NOT downloaded. Instead,
+   *     you should store those UIDLs for future retrieval as part of
+   *     a "Download More Messages" operation.
    */
   Pop3Client.prototype.listMessages = function(opts, cb) {
     var filterFunc = opts.filter;
     var progressCb = opts.progress;
     var checkpointInterval = opts.checkpointInterval || null;
+    var maxMessages = opts.maxMessages || Infinity;
     var checkpoint = opts.checkpoint;
+    var overflowMessages = [];
 
     // Get a mapping of number->UIDL.
     this._loadMessageList(function(err, unfilteredMessages) {
@@ -7222,15 +7377,21 @@ function(module, exports, log, net, crypto,
       for (var i = 0; i < unfilteredMessages.length; i++) {
         var msgInfo = unfilteredMessages[i];
         if (!filterFunc || filterFunc(msgInfo.uidl)) {
-          totalBytes += msgInfo.size;
-          messages.push(msgInfo);
+          if (messages.length < maxMessages) {
+            totalBytes += msgInfo.size;
+            messages.push(msgInfo);
+          } else {
+            overflowMessages.push(msgInfo);
+          }
         } else {
           seenCount++;
         }
       }
 
-      console.log('POP3: listMessages found ' + messages.length +
-                  ' new, ' + seenCount + ' seen messages. New UIDLs:');
+      console.log('POP3: listMessages found ' +
+                  messages.length + ' new, ' +
+                  overflowMessages.length + ' overflow, and ' +
+                  seenCount + ' seen messages. New UIDLs:');
 
       messages.forEach(function(m) {
         console.log('POP3: ' + m.size + ' bytes: ' + m.uidl);
@@ -7248,7 +7409,10 @@ function(module, exports, log, net, crypto,
         console.log('POP3: Next batch. Messages left: ' + messages.length);
         // If there are no more messages, we're done.
         if (!messages.length) {
-          cb && cb(null, totalMessages);
+          console.log('POP3: Sync complete. ' +
+                      totalMessages + ' messages synced, ' +
+                      overflowMessages.length + ' overflow messages.');
+          cb && cb(null, totalMessages, overflowMessages);
           return;
         }
 
@@ -7319,7 +7483,11 @@ function(module, exports, log, net, crypto,
   // it creates unnecessary garbage. Clean this up when we switch over
   // to jsmime.
   Pop3Client.prototype.downloadPartialMessageByNumber = function(number, cb) {
-    this.protocol.sendRequest('TOP', [number, LINES_TO_FETCH_FOR_SNIPPET],
+    // Based on SNIPPET_SIZE_GOAL, calculate approximately how many
+    // lines we'll need to fetch in order to roughly retrieve
+    // SNIPPET_SIZE_GOAL bytes.
+    var numLines = Math.floor(syncbase.POP3_SNIPPET_SIZE_GOAL / 80);
+    this.protocol.sendRequest('TOP', [number, numLines],
                               true, function(err, rsp) {
       if(err) {
         cb && cb({
@@ -7521,7 +7689,7 @@ function(module, exports, log, net, crypto,
         !rep.header.hasAttachments &&
         (rootNode.parsedHeaders['x-ms-has-attach'] ||
          rootNode.meta.mimeMultipart === 'mixed' ||
-         estSize > INFER_ATTACHMENTS_SIZE)) {
+         estSize > syncbase.POP3_INFER_ATTACHMENTS_SIZE)) {
       rep.header.hasAttachments = true;
     }
 
@@ -7605,6 +7773,8 @@ function(log, util, module, require, exports,
          mailchew, sync, date, jobmixins,
          allback, pop3) {
 
+var PASTWARDS = 1;
+
 /**
  * Manage the synchronization process for POP3 accounts. In IMAP and
  * ActiveSync, the work of this class is split in two (a `folderConn`
@@ -7635,12 +7805,20 @@ exports.Pop3FolderSyncer = Pop3FolderSyncer;
  *
  * @param {boolean} getNew If a fresh connection should always be made.
  * @param {int} cbIndex Index of the parent function's callback in args
+ * @param {string} whyLabel Description for why we need the connection
  */
-function lazyWithConnection(getNew, cbIndex, fn) {
+function lazyWithConnection(getNew, cbIndex, whyLabel, fn) {
   return function pop3LazyWithConnection() {
     var args = Array.slice(arguments);
     require([], function () {
       var next = function() {
+        // Only the inbox actually needs a connection. Using the
+        // connection in a non-inbox folder is an error.
+        if (!this.isInbox) {
+          fn.apply(this, [null].concat(args));
+          return;
+        }
+
         this.account.withConnection(function (err, conn, done) {
           var callback = args[cbIndex];
           if (err) {
@@ -7652,7 +7830,7 @@ function lazyWithConnection(getNew, cbIndex, fn) {
             };
             fn.apply(this, [conn].concat(args));
           }
-        }.bind(this));
+        }.bind(this), whyLabel);
       }.bind(this);
 
       // if we require a fresh connection, close out the old one first.
@@ -7668,7 +7846,10 @@ function lazyWithConnection(getNew, cbIndex, fn) {
 
 Pop3FolderSyncer.prototype = {
   syncable: true,
-  canGrowSync: false, // not relevant for POP3
+  get canGrowSync() {
+    // Only the inbox can be grown in POP3.
+    return this.isInbox;
+  },
 
   /**
    * Given a list of messages, download snippets for those that don't
@@ -7678,6 +7859,7 @@ Pop3FolderSyncer.prototype = {
    * body part/message downloading. XXX rename this family of methods.
    */
   downloadBodies: lazyWithConnection(/* getNew = */ false, /* cbIndex = */ 2,
+    /* whyLabel = */ 'downloadBodies',
   function(conn, headers, options, callback) {
     var latch = allback.latch();
     var storage = this.storage;
@@ -7705,6 +7887,7 @@ Pop3FolderSyncer.prototype = {
    * all in one go.
    */
   downloadBodyReps: lazyWithConnection(/* getNew = */ false, /* cbIndex = */ 2,
+    /* whyLabel = */ 'downloadBodyReps',
   function(conn, header, options, callback) {
     if (options instanceof Function) {
       callback = options;
@@ -7724,8 +7907,12 @@ Pop3FolderSyncer.prototype = {
       console.log('POP3: Storing message ' + header.srvid +
                   ' with ' + header.bytesToDownloadForBodyDisplay +
                   ' bytesToDownload.');
-      this.storeMessage(header, message.bodyInfo, function() {
-        callback && callback(null, message.bodyInfo);
+      // Force a flush if there were any attachments so that any memory-backed
+      // Blobs get replaced with their post-save disk-backed equivalent so they
+      // can be garbage collected.
+      var flush = message.bodyInfo.attachments.length > 0;
+      this.storeMessage(header, message.bodyInfo, { flush: flush }, function() {
+        callback && callback(null, message.bodyInfo, flush);
       });
     }.bind(this));
   }),
@@ -7760,9 +7947,13 @@ Pop3FolderSyncer.prototype = {
    *
    * @param {HeaderInfo} header Message header.
    * @param {BodyInfo} bodyInfo Body information, reps, etc.
+   * @param {Object} options
+   * @param {Boolean} options.flush Force a flush so the message gets reloaded,
+   *                                replacing memory-backed Blobs with
+   *                                disk-backed ones?
    * @param {function()} callback
    */
-  storeMessage: function(header, bodyInfo, callback) {
+  storeMessage: function(header, bodyInfo, options, callback) {
     callback = callback || function() {};
     var event = {
       changeDetails: {}
@@ -7815,14 +8006,29 @@ Pop3FolderSyncer.prototype = {
           header.date, header.id, true, header, latch.defer());
         event.changeDetails.attachments = range(bodyInfo.attachments.length);
         event.changeDetails.bodyReps = range(bodyInfo.bodyReps.length);
+        var updateOptions = {};
+        if (options.flush) {
+          updateOptions.flushBecause = 'blobs';
+        }
         self.storage.updateMessageBody(
-          header, bodyInfo, event, latch.defer());
+          header, bodyInfo, updateOptions, event, latch.defer());
       }
 
       latch.then(function() {
         callback(null, bodyInfo);
       });
     });
+  },
+
+  /**
+   * Return the folderMeta for the INBOX, upon which we store the
+   * uidlMap and overflowMap. Cache it for performance, since this
+   * function gets invoked frequently.
+   */
+  get inboxMeta() {
+    // Override this getter to provide direct access in the future.
+    return (this.inboxMeta = this.account.getFolderMetaForFolderId(
+      this.account.getFirstFolderWithType('inbox').id));
   },
 
   /**
@@ -7836,21 +8042,58 @@ Pop3FolderSyncer.prototype = {
     if (uidl == null) {
       return null;
     }
-    var inboxMeta = this.account.getFolderMetaForFolderId(
-      this.account.getFirstFolderWithType('inbox').id);
-    inboxMeta.uidlMap = inboxMeta.uidlMap || {};
-    return inboxMeta.uidlMap[uidl];
+    this.inboxMeta.uidlMap = this.inboxMeta.uidlMap || {};
+    return this.inboxMeta.uidlMap[uidl];
   },
 
   /**
    * Store the given message UIDL so that we know it has already been
-   * downloaded.
+   * downloaded. If the message was previously marked as overflow,
+   * remove it from the overflow map because we know about it now.
    */
   storeMessageUidlForMessageId: function(uidl, headerId) {
-    var inboxMeta = this.account.getFolderMetaForFolderId(
-      this.account.getFirstFolderWithType('inbox').id);
-    inboxMeta.uidlMap = inboxMeta.uidlMap || {};
-    inboxMeta.uidlMap[uidl] = headerId;
+    this.inboxMeta.uidlMap = this.inboxMeta.uidlMap || {};
+    this.inboxMeta.uidlMap[uidl] = headerId;
+    if (this.inboxMeta.overflowMap) {
+      delete this.inboxMeta.overflowMap[uidl];
+    }
+  },
+
+  /**
+   * Mark the given message UIDL as being an "overflow message"; that
+   * is, it was NOT downloaded and should be made available to
+   * download during a "download more messages..." operation.
+   *
+   * This data is stored in INBOX's folderMeta like so:
+   *
+   * overflowMap: {
+   *   "(message uidl)": { size: 0 },
+   *   ...
+   * }
+   */
+  storeOverflowMessageUidl: function(uidl, size) {
+    this.inboxMeta.overflowMap = this.inboxMeta.overflowMap || {};
+    this.inboxMeta.overflowMap[uidl] = { size: size };
+  },
+
+  /**
+   * Return true if there are overflow messages. (If so, we're NOT
+   * synced to the dawn of time.)
+   */
+  hasOverflowMessages: function() {
+    if (!this.inboxMeta.overflowMap) { return false; }
+    for (var key in this.inboxMeta.overflowMap) {
+      return true; // if there's even a single key, we have some!
+    }
+    return false;
+  },
+
+  /**
+   * Return whether or not the given UIDL is in the overflow map.
+   */
+  isUidlInOverflowMap: function(uidl) {
+    if (!this.inboxMeta.overflowMap) { return false; }
+    return !!this.inboxMeta.overflowMap[uidl];
   },
 
   /**
@@ -7860,8 +8103,8 @@ Pop3FolderSyncer.prototype = {
    * at a time.
    */
   initialSync: function(slice, initialDays, syncCb, doneCb, progressCb) {
-    syncCb('sync', false /* accumulateMode */, true /* ignoreHeaders */);
-    this.sync(true, slice, doneCb, progressCb);
+    syncCb('sync', true /* ignoreHeaders */);
+    this.sync('initial', slice, doneCb, progressCb);
   },
 
   /**
@@ -7871,7 +8114,7 @@ Pop3FolderSyncer.prototype = {
    */
   refreshSync: function(
       slice, dir, startTS, endTS, origStartTS, doneCb, progressCb) {
-    this.sync(false, slice, doneCb, progressCb);
+    this.sync('refresh', slice, doneCb, progressCb);
   },
 
   /**
@@ -7897,7 +8140,7 @@ Pop3FolderSyncer.prototype = {
     if (meta._TEST_pendingAdds) {
       meta._TEST_pendingAdds.forEach(function(msg) {
         callbacksWaiting++;
-        this.storeMessage(msg.header, msg.bodyInfo, latch.defer());
+        this.storeMessage(msg.header, msg.bodyInfo, {}, latch.defer());
       }, this);
       meta._TEST_pendingAdds = null;
     }
@@ -7905,11 +8148,20 @@ Pop3FolderSyncer.prototype = {
   },
 
   /**
-   * Irrelevant for POP3.
+   * If we have overflow messages, fetch them here.
    */
   growSync: function(slice, growthDirection, anchorTS, syncStepDays,
                      doneCallback, progressCallback) {
-    return false; // No need to invoke the callbacks.
+    if (growthDirection !== PASTWARDS || !this.hasOverflowMessages()) {
+      return false;
+    }
+
+    // For simplicity, we ignore anchorTS and syncStepDays, because
+    // POP3's limitations make it difficult to infer anything about
+    // the messages we're going to download now. All we can do here is
+    // download another batch of overflow messages.
+    this.sync('grow', slice, doneCallback, progressCallback);
+    return true;
   },
 
   allConsumersDead: function() {
@@ -7938,17 +8190,51 @@ Pop3FolderSyncer.prototype = {
    * messages along with messages we've seen before. To ensure we only
    * retrieve messages we don't know about, we keep track of message
    * unique IDs (UIDLs) and only download new messages.
+   *
+   * OVERFLOW MESSAGE HANDLING:
+   *
+   * We don't want to overwhelm a sync with a ridiculous number of
+   * messages if the spool has a lot of new messagse. Instead of
+   * blindly downloading all headers right away, we store excess
+   * "overflow" messages for future "grow" syncs, e.g. when the user
+   * clicks "Get More Messages" in the message list.
+   *
+   * This works as follows:
+   *
+   * If we're syncing normally, mark any excess messages as overflow
+   * messages and don't download them. This is handled largely by
+   * Pop3Client by the maxMessages option to listMessages(). We ignore
+   * any messages already marked as overflow for the purposes of the
+   * sync filter.
+   *
+   * If this is a grow sync, i.e. we want to download some overflow
+   * messages, we set the download filter to _only_ include overflow
+   * UIDLs. We may still have _more_ overflow messages, but that's
+   * okay, because they'll just be stored in the overflowMap like
+   * normal, for a future "grow" sync. Any messages we do download are
+   * marked as stored and removed from the overflowMap (in
+   * `this.storeMessageUidlForMessageId`).
    */
   sync: lazyWithConnection(/* getNew = */ true, /* cbIndex = */ 2,
-  function(conn, initialSync, slice, doneCallback, progressCallback) {
+  /* whyLabel = */ 'sync',
+  function(conn, syncType, slice, doneCallback, progressCallback) {
     // if we could not establish a connection, abort the sync.
     var self = this;
     this._LOG.sync_begin();
 
     // Only fetch info for messages we don't already know about.
-    var filterFunc = function(uidl) {
-      return self.getMessageIdForUidl(uidl) == null; // might be 0
-    };
+    var filterFunc;
+    if (syncType !== 'grow') {
+      // In a regular sync, download any message that we don't know
+      // about that isn't in the overflow map.
+      filterFunc = function(uidl) {
+        return self.getMessageIdForUidl(uidl) == null && // might be 0
+          !self.isUidlInOverflowMap(uidl);
+      };
+    } else /* (syncType === 'grow') */ {
+      // In a 'grow' sync, ONLY download overflow messages.
+      filterFunc = this.isUidlInOverflowMap.bind(this);
+    }
 
     var bytesStored = 0;
     var numMessagesSynced = 0;
@@ -7966,6 +8252,7 @@ Pop3FolderSyncer.prototype = {
       conn.listMessages({
         filter: filterFunc,
         checkpointInterval: sync.POP3_SAVE_STATE_EVERY_N_MESSAGES,
+        maxMessages: sync.POP3_MAX_MESSAGES_PER_SYNC,
         checkpoint: function(next) {
           // Every N messages, wait for everything to be stored to
           // disk and saved in the database. Then proceed.
@@ -7979,14 +8266,14 @@ Pop3FolderSyncer.prototype = {
           var message = evt.message;
           var messageCb = latch.defer();
 
-          this.storeMessage(message.header, message.bodyInfo, function() {
+          this.storeMessage(message.header, message.bodyInfo, {}, function() {
             bytesStored += evt.size;
             numMessagesSynced++;
             progressCallback(0.1 + 0.7 * bytesStored / totalBytes);
             messageCb();
           });
         }.bind(this),
-      }, function fetchDone(err, numSynced) {
+      }, function fetchDone(err, numSynced, overflowMessages) {
         // Upon downloading all of the messages, we MUST issue a QUIT
         // command. This will tear down the connection, however if we
         // don't, we will never receive notifications of new messages.
@@ -8001,6 +8288,15 @@ Pop3FolderSyncer.prototype = {
           doneCallback(err);
           return;
         }
+
+        // If there were excess messages, mark them for later download.
+        if (overflowMessages.length) {
+          overflowMessages.forEach(function(message) {
+            this.storeOverflowMessageUidl(message.uidl, message.size);
+          }, this);
+          this._LOG.overflowMessages(overflowMessages.length);
+        }
+
         // When all of the messages have been persisted to disk, indicate
         // that we've successfully synced. Refresh our view of the world.
         this.storage.runAfterDeferredCalls(fetchDoneCb);
@@ -8009,12 +8305,24 @@ Pop3FolderSyncer.prototype = {
 
     latch.then((function onSyncDone() {
       this._LOG.sync_end();
-      // POP3 always syncs the entire time range available.
+
+      // Because POP3 has no concept of syncing discrete time ranges,
+      // we have to trick the storage into marking everything synced
+      // _except_ the dawn of time. This has to be slightly later than
+      // a value that would be interpreted as the dawn of time -- in
+      // this case, it has to be one day plus one. Ideally, this
+      // should be abstracted a little better; it's mostly IMAP that
+      // needs more involved logic.
       this.storage.markSyncRange(
-        sync.OLDEST_SYNC_DATE, date.NOW(), 'XXX', date.NOW());
-      this.storage.markSyncedToDawnOfTime();
+        sync.OLDEST_SYNC_DATE + date.DAY_MILLIS + 1,
+        date.NOW(), 'XXX', date.NOW());
+
+      if (!this.hasOverflowMessages()) {
+        this.storage.markSyncedToDawnOfTime();
+      }
+
       this.account.__checkpointSyncCompleted();
-      if (initialSync) {
+      if (syncType === 'initial') {
         // If it's the first time we've synced, we've set
         // ignoreHeaders to true, which means that slices don't know
         // about new messages. We'll reset ignoreHeaders to false
@@ -8030,7 +8338,8 @@ Pop3FolderSyncer.prototype = {
         this.storage._curSyncSlice.ignoreHeaders = false;
         this.storage._curSyncSlice.waitingOnData = 'db';
         this.storage.getMessagesInImapDateRange(
-          0, null, sync.INITIAL_FILL_SIZE, sync.INITIAL_FILL_SIZE,
+          sync.OLDEST_SYNC_DATE, null,
+          sync.INITIAL_FILL_SIZE, sync.INITIAL_FILL_SIZE,
           // Don't trigger a refresh; we just synced. Accordingly,
           // releaseMutex can be null.
           this.storage.onFetchDBHeaders.bind(
@@ -8060,6 +8369,7 @@ var LOGFAB = exports.LOGFAB = log.register(module, {
     events: {
       savedAttachment: { storage: true, mimeType: true, size: true },
       saveFailure: { storage: false, mimeType: false, error: false },
+      overflowMessages: { count: true },
     },
     TEST_ONLY_events: {
     },
@@ -8086,9 +8396,10 @@ var LOGFAB = exports.LOGFAB = log.register(module, {
 
 }); // end define
 ;
-define('mailapi/pop3/jobs',['module', 'exports', 'rdcommon/log', '../jobmixins', '../allback',
-        'pop3/pop3'],
-       function(module, exports, log, jobmixins, allback, pop3) {
+define('mailapi/pop3/jobs',['module', 'exports', 'rdcommon/log', '../allback', 'mix',
+        '../jobmixins', '../drafts/jobs', 'pop3/pop3'],
+       function(module, exports, log, allback, mix,
+                jobmixins, draftsJobs, pop3) {
 
 /**
  * Manage the jobs for a POP3 account. POP3 does not support
@@ -8197,27 +8508,23 @@ Pop3JobDriver.prototype = {
       'purgeExcessMessages');
   },
 
-  /**
-   * Add a message to a folder.
-   */
-  local_do_append: function(op, callback) {
+  local_do_saveSentDraft: function(op, callback) {
     var self = this;
     this._accessFolderForMutation(
       op.folderId, /* needConn*/ false,
       function(nullFolderConn, folderStorage) {
-        var messages = op.messages;
         var latch = allback.latch();
-        messages.forEach(function(message) {
-          var msg = pop3.Pop3Client.parseMime(message.messageText);
-          folderStorage.folderSyncer.storeMessage(
-            msg.header, msg.bodyInfo, latch.defer());
-        }, this);
+
+        folderStorage.addMessageHeader(op.headerInfo, latch.defer());
+        folderStorage.addMessageBody(op.headerInfo, op.bodyInfo, latch.defer());
+
         latch.then(function(results) {
-          callback();
+          // header/body insertion can't fail
+          callback(null, null, /* save */ true);
         });
       },
       /* no conn => no deathback required */ null,
-      'local_append');
+      'saveSentDraft');
   },
 
   do_syncFolderList: function(op, doneCallback) {
@@ -8256,28 +8563,22 @@ Pop3JobDriver.prototype = {
   do_downloadBodyReps: jobmixins.do_downloadBodyReps,
   local_do_downloadBodyReps: jobmixins.local_do_downloadBodyReps,
 
-  // Drafts can only be stored locally as well.
-  local_do_saveDraft: jobmixins.local_do_saveDraft,
-  check_saveDraft: jobmixins.check_saveDraft,
-  local_undo_saveDraft: jobmixins.local_undo_saveDraft,
-
-  local_do_deleteDraft: jobmixins.local_do_deleteDraft,
-  do_deleteDraft: jobmixins.do_deleteDraft,
-  check_deleteDraft: jobmixins.check_deleteDraft,
-  local_undo_deleteDraft: jobmixins.local_undo_deleteDraft,
-
   // These utility functions are necessary.
   postJobCleanup: jobmixins.postJobCleanup,
   allJobsDone: jobmixins.allJobsDone,
   _partitionAndAccessFoldersSequentially:
       jobmixins._partitionAndAccessFoldersSequentially
-
 };
+
+mix(Pop3JobDriver.prototype, draftsJobs.draftsMixins);
+
 
 var LOGFAB = exports.LOGFAB = log.register(module, {
   Pop3JobDriver: {
     type: log.DAEMON,
     events: {
+      savedAttachment: { storage: true, mimeType: true, size: true },
+      saveFailure: { storage: false, mimeType: false, error: false },
     },
     TEST_ONLY_events: {
       saveFailure: { filename: false },
@@ -8294,9 +8595,9 @@ var LOGFAB = exports.LOGFAB = log.register(module, {
 }); // end define
 ;
 define('mailapi/pop3/account',['rdcommon/log', '../errbackoff', '../composite/incoming', './sync',
-        './jobs', 'module', 'require', 'exports'],
+        './jobs', '../drafts/draft_rep', 'module', 'require', 'exports'],
 function(log, errbackoff, incoming, pop3sync,
-         pop3jobs, module, require, exports) {
+         pop3jobs, draftRep, module, require, exports) {
 var CompositeIncomingAccount = incoming.CompositeIncomingAccount;
 
 /**
@@ -8353,7 +8654,7 @@ var properties = {
    * abstracts the `done` callback.)
    * @param {function(err, conn, done)} cb
    */
-  withConnection: function(cb) {
+  withConnection: function(cb, whyLabel) {
     // This implementation serializes withConnection requests so that
     // we don't step on requests' toes. While Pop3Client wouldn't mix
     // up the requests themselves, interleaving different operations
@@ -8371,7 +8672,7 @@ var properties = {
           }
         }.bind(this);
         if (!this._conn || this._conn.state === 'disconnected') {
-          this._makeConnection(next);
+          this._makeConnection(next, whyLabel);
         } else {
           next();
         }
@@ -8456,6 +8757,26 @@ var properties = {
   },
 
   /**
+   * Save an attachment-stripped version of the sent draft to our sent folder.
+   */
+  saveSentMessage: function(composer) {
+    var sentFolder = this.getFirstFolderWithType('sent');
+    if (!sentFolder) {
+      return;
+    }
+
+    var sentStorage = this.getFolderStorageForFolderId(sentFolder.id);
+    var id = sentStorage._issueNewHeaderId();
+    var suid = sentStorage.folderId + '/' + id;
+
+    var sentPieces = draftRep.cloneDraftMessageForSentFolderWithoutAttachments(
+      composer.header, composer.body, { id: id, suid: suid });
+
+    this.universe.saveSentDraft(sentFolder.id,
+                                sentPieces.header, sentPieces.body);
+  },
+
+  /**
    * Delete the given folder. (This always happens locally.)
    */
   deleteFolder: function(folderId, callback) {
@@ -8500,7 +8821,7 @@ var properties = {
     }
     this.withConnection(function(err) {
       callback(err);
-    });
+    }, 'checkAccount');
   },
 
   /**
@@ -8646,8 +8967,10 @@ SmtpAccount.prototype = {
    * ]
    */
   sendMessage: function(composer, callback) {
+    console.log('smtp: requiring code');
     require(['simplesmtp/lib/client'], function ($simplesmtp) {
       var conn, bailed = false, sendingMessage = false;
+      console.log('smtp: code loaded');
 
       conn = $simplesmtp(
         this.connInfo.port, this.connInfo.hostname,
@@ -8666,6 +8989,7 @@ SmtpAccount.prototype = {
       // Send the envelope once the connection is ready (fires again after
       // ready too.)
       conn.once('idle', function() {
+          console.log('smtp: idle reached, sending envelope');
           conn.useEnvelope(composer.getEnvelope());
         });
       // Then send the actual message if everything was cool
@@ -8673,13 +8997,33 @@ SmtpAccount.prototype = {
           if (bailed)
             return;
           sendingMessage = true;
-          composer.withMessageBuffer({ includeBcc: false }, function(buffer) {
-            conn.write(buffer);
+          console.log('smtp: message reached, building message blob');
+          composer.withMessageBlob({ includeBcc: false }, function(blob) {
+            console.log('smtp: blob composed, writing blob');
+            // simplesmtp's SMTPClient does not understand Blobs, so we issue
+            // the write directly.  All that it cares about is knowing whether
+            // our data payload included a trailing \r\n.  Our long term plan
+            // to avoid this silliness is to switch to using firemail's fork of
+            // simplesmtp or something equally less hacky; see bug 885110.
+            conn.socket.write(blob);
+            // SMTPClient tracks the last bytes it has written in _lastDataBytes
+            // to this end and writes the \r\n if they aren't the last bytes
+            // written.  Since we know that mailcomposer always ends the buffer
+            // with \r\n we just set that state directly ourselves.
+            conn._lastDataBytes[0] = 0x0d;
+            conn._lastDataBytes[1] = 0x0a;
+            // put some data in the console.log if in debug mode too
+            if (conn.options.debug) {
+              console.log('CLIENT (DATA) blob of size:', blob.size);
+            }
+            // this does not actually terminate the connection; just tells the
+            // client to flush stuff, etc.
             conn.end();
           });
         });
       // And close the connection and be done once it has been sent
       conn.on('ready', function() {
+          console.log('smtp: send completed, closing connection');
           bailed = true;
           conn.close();
           callback(null);
@@ -8695,6 +9039,7 @@ SmtpAccount.prototype = {
       conn.on('rcptFailed', function(addresses) {
           // nb: this gets called all the time, even without any failures
           if (addresses.length) {
+            console.warn('smtp: nonzero bad recipients');
             bailed = true;
             // simplesmtp does't view this as fatal, so we have to close it ourself
             conn.close();
@@ -8705,6 +9050,7 @@ SmtpAccount.prototype = {
         if (bailed) // (paranoia, this shouldn't happen.)
           return;
         var reportAs = null;
+        console.error('smtp: error:', err.name);
         switch (err.name) {
           // no explicit error type is given for: a bad greeting, failure to
           // EHLO/HELO, bad login sequence, OR a data problem during send.
@@ -8743,6 +9089,7 @@ SmtpAccount.prototype = {
         // the connection gets automatically closed.
       });
       conn.on('end', function() {
+        console.log('smtp: connection ended');
         var idx = this._activeConnections.indexOf(conn);
         if (idx !== -1)
           this._activeConnections.splice(idx, 1);
@@ -8974,24 +9321,9 @@ CompositeAccount.prototype = {
     return this._sendPiece.sendMessage(
       composer,
       function(err, errDetails) {
-        // We need to append the message to the sent folder if we think we sent
-        // the message okay and this is not gmail.  gmail automatically crams
-        // the message in the sent folder for us, so if we do it, we're just
-        // going to create duplicates.
-        if (!err && !this._receivePiece.isGmail) {
-          composer.withMessageBuffer({ includeBcc: true }, function(buffer) {
-            var message = {
-              messageText: buffer,
-              // do not specify date; let the server use its own timestamping
-              // since we want the approximate value of 'now' anyways.
-              flags: ['Seen'],
-            };
-
-            var sentFolder = this.getFirstFolderWithType('sent');
-            if (sentFolder)
-              this.universe.appendMessages(sentFolder.id,
-                                           [message]);
-          }.bind(this));
+        if (!err) {
+          // The saving is done asynchronously as a best-effort.
+          this._receivePiece.saveSentMessage(composer);
         }
         callback(err, errDetails, null);
       }.bind(this));
@@ -9070,6 +9402,7 @@ exports.configurator = {
         incomingInfo.preferredAuthMethod = null;
       }
       smtpConnInfo = {
+        emailAddress: userDetails.emailAddress, // used for probing
         hostname: domainInfo.outgoing.hostname,
         port: domainInfo.outgoing.port,
         crypto: (typeof domainInfo.outgoing.socketType === 'string' ?

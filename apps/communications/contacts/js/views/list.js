@@ -162,9 +162,6 @@ contacts.List = (function() {
     groupsList = document.getElementById('groups-list');
     groupsList.addEventListener('click', onClickHandler);
 
-    var selector = 'header:not(.hide)';
-    FixedHeader.init('#groups-container', '#fixed-container', selector);
-
     initOrder();
 
     // Test code calls init() directly, so we may have to reset.
@@ -186,7 +183,6 @@ contacts.List = (function() {
     if (monitor) {
       monitor.resumeMonitoringMutations(true);
     }
-    FixedHeader.refresh();
   }
 
   // Define a source adapter object to pass to contacts.Search.
@@ -231,10 +227,11 @@ contacts.List = (function() {
     clone: function(node) {
       var id = node.dataset.uuid;
       renderLoadedContact(node, id);
-      renderPhoto(node, id);
       updateRowStyle(node, true);
       updateSingleRowSelection(node, id);
-      return node.cloneNode(true);
+      var out = node.cloneNode(true);
+      renderPhoto(out, id, true);
+      return out;
     },
 
     getNodeById: function(id) {
@@ -253,7 +250,7 @@ contacts.List = (function() {
   }; // searchSource
 
   var initSearch = function initSearch(callback) {
-    contacts.Search.init(searchSource, true);
+    contacts.Search.init(searchSource, true, selectNavigationController);
 
     if (callback) {
       callback();
@@ -430,7 +427,6 @@ contacts.List = (function() {
     }
 
     renderGroupHeader(group, letter);
-    FixedHeader.refresh();
 
     // Return the new list created by renderGroupHeader() above
     return headers[group];
@@ -759,7 +755,6 @@ contacts.List = (function() {
     // be selected just if we clicked on select all
     // and we didn't unselected any other contact
     selectAllPending = false;
-    FixedHeader.refresh();
 
     // If there are zero contacts, then we still need to notify
     // that the initial screen has been displayed.  This is a no-op
@@ -802,7 +797,7 @@ contacts.List = (function() {
   var updatePhoto = function updatePhoto(contact, id) {
     id = id || contact.id;
     var prevPhoto = photosById[id];
-    var newPhoto = Array.isArray(contact.photo) ? contact.photo[0] : null;
+    var newPhoto = ContactPhotoHelper.getThumbnail(contact);
 
     // Do nothing if photo did not change
     if ((!prevPhoto && !newPhoto) || (prevPhoto === newPhoto)) {
@@ -826,10 +821,12 @@ contacts.List = (function() {
   // Utility function to manage the dataset-src URL for images.  Its important
   // to only modify this attribute from this function in order to ensure that
   // the URLs are properly revoked.
-  function setImageURL(img, photo) {
+  function setImageURL(img, photo, asClone) {
     var oldURL = img.dataset.src;
     if (oldURL) {
-      window.URL.revokeObjectURL(oldURL);
+      if (!asClone) {
+        window.URL.revokeObjectURL(oldURL);
+      }
       img.dataset.src = '';
     }
     if (photo) {
@@ -846,22 +843,23 @@ contacts.List = (function() {
   // "Render" the photo by setting the img tag's dataset-src attribute to the
   // value in our photo cache.  This in turn will allow the imgLoader to load
   // the image once we have stopped scrolling.
-  var renderPhoto = function renderPhoto(link, id) {
+  var renderPhoto = function renderPhoto(link, id, asClone) {
     id = id || link.dataset.uuid;
     var photo = photosById[id];
     if (!photo) {
       return;
     }
 
-    var img = link.querySelector('aside > img');
+    var img = link.querySelector('aside > span[data-type=img]');
     if (img) {
-      setImageURL(img, photo);
+      setImageURL(img, photo, asClone);
       return;
     }
     if (!photoTemplate) {
       photoTemplate = document.createElement('aside');
       photoTemplate.className = 'pack-end';
-      var img = document.createElement('img');
+      var img = document.createElement('span');
+      img.dataset.type = 'img';
       photoTemplate.appendChild(img);
     }
 
@@ -1199,13 +1197,11 @@ contacts.List = (function() {
   var hideGroup = function hideGroup(group) {
     var groupTitle = getGroupList(group).parentNode.children[0];
     groupTitle.classList.add('hide');
-    FixedHeader.refresh();
   };
 
   var showGroupByList = function showGroupByList(current) {
     var groupTitle = current.parentNode.children[0];
     groupTitle.classList.remove('hide');
-    FixedHeader.refresh();
   };
 
   var remove = function remove(id) {
@@ -1356,7 +1352,6 @@ contacts.List = (function() {
     loadedContacts = {};
     loaded = false;
 
-    FixedHeader.refresh();
     if (cb)
       cb();
   };
@@ -1617,6 +1612,8 @@ contacts.List = (function() {
     }
 
     scrollable.classList.add('selecting');
+    fastScroll.classList.add('selecting');
+    utils.alphaScroll.toggleFormat('short');
 
     toggleMenus();
 
@@ -1780,6 +1777,8 @@ contacts.List = (function() {
     groupList.classList.remove('selecting');
     searchList.classList.remove('selecting');
     scrollable.classList.remove('selecting');
+    fastScroll.classList.remove('selecting');
+    utils.alphaScroll.toggleFormat('normal');
 
     updateRowsOnScreen();
 
@@ -1794,10 +1793,21 @@ contacts.List = (function() {
     close.classList.add('hide');
   };
 
+  var refreshFb = function resfreshFb(uid) {
+    var selector = '[data-fb-uid="' + uid + '"]';
+    var node = document.querySelector(selector);
+    if (node) {
+      if (node.dataset.uuid in rowsOnScreen) {
+        contacts.List.refresh(node.dataset.uuid);
+      }
+    }
+  };
+
   return {
     'init': init,
     'load': load,
     'refresh': refresh,
+    'refreshFb': refreshFb,
     'getContactById': getContactById,
     'getAllContacts': getAllContacts,
     'handleClick': handleClick,

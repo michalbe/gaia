@@ -9,13 +9,13 @@ function HandledCall(aCall) {
 
   aCall.ongroupchange = (function onGroupChange() {
     if (this.call.group) {
-      this._leftGroup = false;
       CallScreen.moveToGroup(this.node);
-    } else if (this.call.state != 'disconnecting' &&
-               this.call.state != 'disconnected') {
+      this._leftGroup = false;
+    } else if (this._wasUnmerged()) {
       CallScreen.insertCall(this.node);
+      this._leftGroup = false;
     } else {
-      this._leftGroup = true;
+      this._leftGroup = !this.node.dataset.groupHangup;
     }
   }).bind(this);
 
@@ -69,6 +69,12 @@ function HandledCall(aCall) {
   }
 }
 
+HandledCall.prototype._wasUnmerged = function hc_wasUnmerged() {
+  return !this.node.dataset.groupHangup &&
+         this.call.state != 'disconnecting' &&
+         this.call.state != 'disconnected';
+};
+
 HandledCall.prototype.handleEvent = function hc_handle(evt) {
   switch (evt.call.state) {
     case 'dialing':
@@ -96,6 +102,8 @@ HandledCall.prototype.updateCallNumber = function hc_updateCallNumber() {
   var additionalInfoNode = this.additionalInfoNode;
   var self = this;
 
+  CallScreen.setCallerContactImage(null);
+
   /* If we have a second call waiting in CDMA mode then we don't know which
    * number is currently active */
   if (secondNumber) {
@@ -104,6 +112,7 @@ HandledCall.prototype.updateCallNumber = function hc_updateCallNumber() {
       self._cachedInfo = _('switch-calls');
       self._cachedAdditionalInfo = '';
       self.replaceAdditionalContactInfo('');
+      self.numberNode.style.fontSize = '';
     });
     return;
   }
@@ -122,6 +131,9 @@ HandledCall.prototype.updateCallNumber = function hc_updateCallNumber() {
       node.textContent = _('emergencyNumber');
       self._cachedInfo = _('emergencyNumber');
     });
+
+    // Set Emergency Wallpaper
+    CallScreen.setEmergencyWallpaper();
     return;
   }
 
@@ -179,15 +191,13 @@ HandledCall.prototype.updateCallNumber = function hc_updateCallNumber() {
       self._cachedAdditionalInfo =
         Utils.getPhoneNumberAdditionalInfo(matchingTel);
       self.replaceAdditionalContactInfo(self._cachedAdditionalInfo);
-      if (contact.photo && contact.photo.length > 0) {
-        self.photo = contact.photo[0];
-        CallScreen.setCallerContactImage(self.photo,
-                                         {force: true});
-        if (typeof self.photo === 'string') {
-          contactCopy.photo = self.photo;
-        } else {
-          contactCopy.photo = [URL.createObjectURL(self.photo)];
-        }
+      var photo = ContactPhotoHelper.getFullResolution(contact);
+      if (photo) {
+        self.photo = photo;
+        CallScreen.setCallerContactImage(photo);
+
+        var thumbnail = ContactPhotoHelper.getThumbnail(contact);
+        contactCopy.photo = [thumbnail];
       }
 
       self.recentsEntry.contactInfo = {
@@ -301,10 +311,8 @@ HandledCall.prototype.connected = function hc_connected() {
   CallScreen.enableKeypad();
   CallScreen.syncSpeakerEnabled();
 
-  if (this.photo) {
-    CallScreen.setCallerContactImage(this.photo, {force: true});
-  } else {
-    CallScreen.setDefaultContactImage({force: true});
+  if (!this.call.group) {
+    CallScreen.setCallerContactImage(this.photo);
   }
 };
 

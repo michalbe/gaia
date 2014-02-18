@@ -1,5 +1,6 @@
 import os
 from setuptools import setup, find_packages
+import shutil
 
 # get documentation from the README
 try:
@@ -13,8 +14,24 @@ version = {}
 execfile(os.path.join('gaiatest', 'version.py'), version)
 
 # dependencies
-deps = ['marionette_client>=0.6.2', 'mozdevice', 'py==1.4.14', 'requests',
-        'moztest>=0.3', 'yoctopuce==1.01.12553']
+with open('requirements.txt') as f:
+    deps = f.read().splitlines()
+
+# copy atoms directory over
+setupdir = os.path.dirname(__file__)
+jsdir = os.path.join(setupdir, os.pardir, os.pardir, 'atoms')
+pythondir = os.path.join(setupdir, 'gaiatest', 'atoms')
+
+if os.path.isdir(jsdir):
+    if os.path.isdir(pythondir):
+        shutil.rmtree(pythondir)
+    print 'copying JS atoms from %s to %s' % (jsdir, pythondir)
+    shutil.copytree(jsdir, pythondir)
+else:
+    if os.path.isdir(pythondir):
+        print 'using JS atoms from %s' % pythondir
+    else:
+        raise Exception('JS atoms not found in %s or %s!' % (jsdir, pythondir))
 
 setup(name='gaiatest',
       version=version['__version__'],

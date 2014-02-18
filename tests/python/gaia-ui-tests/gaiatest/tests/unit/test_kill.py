@@ -6,6 +6,7 @@ import time
 
 from gaiatest import GaiaTestCase
 
+
 class TestKill(GaiaTestCase):
 
     def test_kill(self):
@@ -22,12 +23,12 @@ class TestKill(GaiaTestCase):
 
         for app in running_apps:
             self.apps.launch(app.name)
+            time.sleep(1)
             self.apps.kill(app)
+            time.sleep(1)
 
         self.check_no_apps_running()
 
     def check_no_apps_running(self):
-        runningApps = self.apps.runningApps()
-        for origin in runningApps.keys():
-            if 'homescreen' not in origin:
-                self.fail('%s still running' % origin)
+        self.assertEqual(
+            [a.name.lower() for a in self.apps.running_apps], ['homescreen'])

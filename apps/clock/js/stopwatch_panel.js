@@ -1,5 +1,4 @@
 define(function(require) {
-
   'use strict';
 
   var Panel = require('panel');
@@ -24,6 +23,7 @@ define(function(require) {
     this.nodes = {};
     this.lapTemplate = new Template('lap-list-item-tmpl');
     this.interval = null;
+    this.screenWakeLock = null;
 
     // Gather elements
     [
@@ -169,6 +169,7 @@ define(function(require) {
     tickfn();
     this.showButtons('pause', 'lap');
     this.hideButtons('start', 'resume', 'reset');
+    this.screenWakeLock = navigator.requestWakeLock('screen');
   };
 
   Stopwatch.Panel.prototype.onpause = function() {
@@ -177,6 +178,10 @@ define(function(require) {
     this.nodes.reset.removeAttribute('disabled');
     this.showButtons('resume', 'reset');
     this.hideButtons('pause', 'start', 'lap');
+    if (this.screenWakeLock) {
+      this.screenWakeLock.unlock();
+      this.screenWakeLock = null;
+    }
   };
 
   Stopwatch.Panel.prototype.onresume = function() {
@@ -184,6 +189,7 @@ define(function(require) {
   };
 
   function createLapDom(num, time) {
+    /* jshint validthis:true */
     var li = document.createElement('li');
     li.setAttribute('class', 'lap-cell');
     var html = this.lapTemplate.interpolate({

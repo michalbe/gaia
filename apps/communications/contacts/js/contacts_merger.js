@@ -1,26 +1,24 @@
+/* globals SimplePhoneMatcher, utils, ContactPhotoHelper */
+
 'use strict';
 
 var contacts = window.contacts || {};
 
 contacts.Merger = (function() {
   var DEFAULT_ADR_TYPE = 'home';
-  var DEFAULT_TEL_TYPE = 'another';
-  var DEFAULT_EMAIL_TYPE = 'personal';
-
-  function getContact(contact) {
-    return (contact instanceof mozContact) ? contact : new mozContact(contact);
-  }
+  var DEFAULT_TEL_TYPE = 'other';
+  var DEFAULT_EMAIL_TYPE = 'other';
 
   // Performs the merge passing the master contact and matching contacts
-  // The master contact will be the one that will contain all the merged info
+  // The master contact is the one that contains the info with more priority
   // The matchingContacts are the contacts which information will merged with
   // the master. It is an Array in which the elements should be ordered
   // by priority i.e. the data from the first elements might take precedence
   // over the data of the last elements according to the merging rules.
   //
-  // Each element in the array is an objects with the following keys:
+  // Each element in the array is an object with the following keys:
   //   * matchingContact: the Contact object matching one or more targets.
-  //   * matchings: optional, an object whose entries are arrays of
+  //   * matchings: optional, an object which entries are arrays of
   //     field-matching objects indexed by the field name.
   //
   // Each field-matching object has two fields:
@@ -54,13 +52,15 @@ contacts.Merger = (function() {
 
   function mergeAll(masterContact, matchingContacts, callbacks) {
     var emailsHash;
-    var orgsHash;
     var categoriesHash;
     var telsHash;
     var mergedContact = {};
 
-    mergedContact.givenName = masterContact.givenName || [];
-    mergedContact.familyName = masterContact.familyName || [];
+    mergedContact.givenName = [];
+    copyStringArray(masterContact.givenName, mergedContact.givenName);
+
+    mergedContact.familyName = [];
+    copyStringArray(masterContact.familyName, mergedContact.familyName);
 
     mergedContact.photo = masterContact.photo || [];
     mergedContact.bday = masterContact.bday;
@@ -97,28 +97,54 @@ contacts.Merger = (function() {
     mergedContact.url = masterContact.url || [];
     mergedContact.note = masterContact.note || [];
 
-    // If the master Contact is a SIM Contact and there is matching by name
-    // Then the given name and the familyName will be taken from that Contact
-    var simOverwritten = false;
-    var simContact = isSimContact(masterContact);
+    var mergedPhoto = null;
+
     matchingContacts.forEach(function(aResult) {
       var theMatchingContact = aResult.matchingContact;
 
       var givenName = theMatchingContact.givenName;
-      if (Array.isArray(givenName)) {
+      if (Array.isArray(givenName) && givenName[0]) {
         if (mergedContact.givenName.indexOf(givenName[0]) === -1) {
-          if (simContact && !simOverwritten) {
-            mergedContact.givenName[0] = givenName[0];
-            simOverwritten = true;
+          if (mergedContact.givenName[0] &&
+              mergedContact.givenName[0].trim()) {
+            mergedContact.givenName.push(givenName[0]);
           }
-          mergedContact.givenName.push(givenName[0]);
+          else {
+            mergedContact.givenName[0] = givenName[0];
+          }
         }
       }
 
       var familyName = theMatchingContact.familyName;
-      if (Array.isArray(familyName)) {
+      if (Array.isArray(familyName) && familyName[0]) {
         if (mergedContact.familyName.indexOf(familyName[0]) === -1) {
-          mergedContact.familyName.push(familyName[0]);
+          if (mergedContact.familyName[0] &&
+              mergedContact.familyName[0].trim()) {
+            mergedContact.familyName.push(familyName[0]);
+          }
+          else {
+            mergedContact.familyName[0] = familyName[0];
+          }
+        }
+      }
+
+      // Avoiding duplicating givenName - familyName for SIM Contacts
+      if ((!isDefined(masterContact.givenName) ||
+           !isDefined(masterContact.familyName)) &&
+            isSimContact(theMatchingContact)) {
+
+        if (isDefined(mergedContact.givenName) &&
+            isDefined(mergedContact.familyName) &&
+          mergedContact.familyName[0] === mergedContact.givenName[0]) {
+
+          if (!isDefined(masterContact.givenName)) {
+            mergedContact.givenName = [];
+            mergedContact.name = mergedContact.familyName;
+          }
+          if (!isDefined(masterContact.familyName)) {
+            mergedContact.familyName = [];
+            mergedContact.name = mergedContact.givenName;
+          }
         }
       }
 
@@ -138,7 +164,7 @@ contacts.Merger = (function() {
 
       if (Array.isArray(theMatchingContact.tel)) {
         var theMatchings = aResult.matchings || {};
-        var telMatchings = theMatchings['tel'];
+        var telMatchings = theMatchings.tel;
         theMatchingContact.tel.forEach(function(aTel) {
           var theValue = aTel.value;
           var target = theValue, matchedValue = '';
@@ -174,9 +200,9 @@ contacts.Merger = (function() {
         });
       }
 
-      if (!isDefined(mergedContact.photo) &&
-                                          isDefined(theMatchingContact.photo)) {
-        mergedContact.photo.push(theMatchingContact.photo[0]);
+      if (!mergedPhoto && isDefined(theMatchingContact.photo)) {
+        var photo = ContactPhotoHelper.getFullResolution(theMatchingContact);
+        mergedPhoto = photo;
       }
 
       populateField(theMatchingContact.adr, mergedContact.adr,
@@ -192,41 +218,33 @@ contacts.Merger = (function() {
                           (mergedContact.familyName[0] ?
                             mergedContact.familyName[0] : '')).trim()];
 
-    var fields = ['familyName', 'givenName', 'name', 'org', 'email', 'tel',
-                  'bday', 'adr', 'category', 'url', 'note', 'photo'];
+    fillMasterContact(masterContact, mergedContact, mergedPhoto,
+    function filled(masterContact) {
+      // Updating the master contact
+      var req = navigator.mozContacts.save(
+        utils.misc.toMozContact(masterContact));
 
-    fields.forEach(function(aField) {
-      masterContact[aField] = mergedContact[aField];
-    });
+      req.onsuccess = function() {
+        // Now for all the matchingContacts they have to be removed
+        matchingContacts.forEach(function(aMatchingContact) {
+          // Only remove those contacts which are already in the DB
+          if (aMatchingContact.matchingContact.id) {
+            var contact = aMatchingContact.matchingContact;
+            navigator.mozContacts.remove(utils.misc.toMozContact(contact));
+          }
+        });
 
-    // Removing 'sim' Category as it is not needed anymore
-    if (simContact && simOverwritten) {
-      var categoryIndex = masterContact.category.indexOf('sim');
-      masterContact.category.splice(categoryIndex, 1);
-    }
-
-    // Updating the master contact
-    var req = navigator.mozContacts.save(getContact(masterContact));
-
-    req.onsuccess = function() {
-      // Now for all the matchingContacts they have to be removed
-      matchingContacts.forEach(function(aMatchingContact) {
-        // Only remove those contacts which are already in the DB
-        if (aMatchingContact.matchingContact.id) {
-          var contact = aMatchingContact.matchingContact;
-          navigator.mozContacts.remove(getContact(contact));
+        if (typeof callbacks.success === 'function') {
+          callbacks.success(masterContact);
         }
-      });
+      };
 
-      typeof callbacks.success === 'function' &&
-                                              callbacks.success(mergedContact);
-    };
-
-    req.onerror = function() {
-      window.console.error('Error while saving merged Contact: ',
-                           req.error.name);
-      typeof callbacks.error === 'function' && callbacks.error(req.error);
-    };
+      req.onerror = function() {
+        window.console.error('Error while saving merged Contact: ',
+                             req.error.name);
+        typeof callbacks.error === 'function' && callbacks.error(req.error);
+      };
+    });
   }
 
   function isDefined(field) {
@@ -235,6 +253,15 @@ contacts.Merger = (function() {
              typeof field[0] === 'object'));
   }
 
+  function copyStringArray(source, dest) {
+    if (Array.isArray(source)) {
+      source.forEach(function(aVal) {
+        if (aVal && aVal.trim()) {
+          dest.push(aVal);
+        }
+      });
+    }
+  }
 
   function populateEmails(sourceEmails, hash, out) {
     if (Array.isArray(sourceEmails)) {
@@ -274,6 +301,29 @@ contacts.Merger = (function() {
         destination.push(as);
       });
     }
+  }
+
+  function fillMasterContact(masterContact, mergedContact, mergedPhoto, done) {
+    var fields = ['familyName', 'givenName', 'name', 'org', 'email', 'tel',
+                  'bday', 'adr', 'category', 'url', 'note', 'photo'];
+
+    fields.forEach(function(aField) {
+      masterContact[aField] = mergedContact[aField];
+    });
+
+    if (!mergedPhoto) {
+      done(masterContact);
+      return;
+    }
+
+    utils.thumbnailImage(mergedPhoto, function gotTumbnail(thumbnail) {
+      if (mergedPhoto !== thumbnail) {
+        masterContact.photo = [mergedPhoto, thumbnail];
+      } else {
+        masterContact.photo = [mergedPhoto];
+      }
+      done(masterContact);
+    });
   }
 
   return {

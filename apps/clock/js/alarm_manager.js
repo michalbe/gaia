@@ -1,4 +1,5 @@
 define(function(require) {
+'use strict';
 /* An Alarm's ID:
  * ID in Clock app                              ID in mozAlarms API
  * id (unique)                                  id (unique)
@@ -65,6 +66,7 @@ var AlarmManager = {
   },
 
   updateAlarmStatusBar: function am_updateAlarmStatusBar() {
+    /* jshint loopfunc:true */
     var request = navigator.mozAlarms.getAll();
     request.onsuccess = function(e) {
       var hasAlarmEnabled = false;
@@ -77,7 +79,11 @@ var AlarmManager = {
       });
       var endCb = generator();
       for (var i = 0; i < e.target.result.length && !hasAlarmEnabled; i++) {
-        AlarmsDB.getAlarm(e.target.result[i].data.id,
+        var data = e.target.result[i].data;
+        if (!data.id || ['alarm', 'snooze'].indexOf(data.type) === -1) {
+          return;
+        }
+        AlarmsDB.getAlarm(data.id,
           (function(mozAlarm, doneCb) {
           return function(err, alarm) {
             if (!err) {

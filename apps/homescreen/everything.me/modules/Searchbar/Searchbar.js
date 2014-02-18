@@ -31,6 +31,7 @@ Evme.Searchbar = new function Evme_Searchbar() {
     elForm.addEventListener('submit', function oSubmit(e) {
       e.preventDefault();
       e.stopPropagation();
+      clearTimeouts();
       cbReturnPressed(e, el.value);
     });
 
@@ -46,7 +47,6 @@ Evme.Searchbar = new function Evme_Searchbar() {
     elButtonClear.addEventListener('touchstart', function onTouchStart(e) {
       e.preventDefault();
       e.stopPropagation();
-      clearTimeouts();
       clearButtonClick();
     });
 
@@ -232,9 +232,15 @@ Evme.Searchbar = new function Evme_Searchbar() {
   }
 
   function cbFocus(e) {
-    if (isFocused) {
+    var launchEvt = document.createEvent('CustomEvent');
+    launchEvt.initCustomEvent('search-focus',
+      /* canBubble: */ true, /* cancelable */ true, null);
+    window.dispatchEvent(launchEvt);
+
+    if (launchEvt.defaultPrevented || isFocused) {
       return;
     }
+
     isFocused = true;
     self.updateClearButtonState();
 

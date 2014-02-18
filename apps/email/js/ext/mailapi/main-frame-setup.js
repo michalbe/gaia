@@ -360,6 +360,7 @@ function MailAccount(api, wireRep, acctsSlice) {
   /**
    * @listof[@oneof[
    *   @case['bad-user-or-pass']
+   *   @case['bad-address']
    *   @case['needs-app-pass']
    *   @case['imap-disabled']
    *   @case['pop-server-not-great']{
@@ -565,7 +566,7 @@ MailFolder.prototype = {
   },
   toJSON: function() {
     return {
-      type: 'MailFolder',
+      type: this.type,
       path: this.path
     };
   },
@@ -1152,8 +1153,9 @@ MailHeader.prototype = {
 
   __update: function(wireRep) {
     this._wireRep = wireRep;
-    if (wireRep.snippet !== null)
+    if (wireRep.snippet !== null) {
       this.snippet = wireRep.snippet;
+    }
 
     this.isRead = wireRep.flags.indexOf('\\Seen') !== -1;
     this.isStarred = wireRep.flags.indexOf('\\Flagged') !== -1;
@@ -1216,8 +1218,14 @@ MailHeader.prototype = {
   },
 
   /**
-   * Request the `MailBody` instance for this message, passing it to the
-   * provided callback function once retrieved.
+   * Request the `MailBody` instance for this message, passing it to
+   * the provided callback function once retrieved. If you request the
+   * bodyReps as part of this call, the backend guarantees that it
+   * will only call the "onchange" notification when the body has
+   * actually changed. In other words, if you end up calling getBody()
+   * multiple times for some reason, the backend will be smart about
+   * only fetching the bodyReps the first time and generating change
+   * notifications as one would expect.
    *
    * @args[
    *   @param[options @dict[
@@ -1264,7 +1272,9 @@ MailHeader.prototype = {
    * move may be performed instead.)
    */
   editAsDraft: function(callback) {
-    return this._slice._api.resumeMessageComposition(this, callback);
+    var composer = this._slice._api.resumeMessageComposition(this, callback);
+    composer.hasDraft = true;
+    return composer;
   },
 
   /**
@@ -1381,6 +1391,41 @@ MailBody.prototype = {
       type: 'MailBody',
       id: this.id
     };
+  },
+
+  __update: function(wireRep, detail) {
+    // Related parts and bodyReps have no state we need to maintain.  Just
+    // replace them with the new copies for simplicity.
+    this._relatedParts = wireRep.relatedParts;
+    this.bodyReps = wireRep.bodyReps;
+
+    // detaching an attachment is special since we need to splice the attachment
+    // out.
+    if (detail && detail.changeDetails &&
+        detail.changeDetails.detachedAttachments) {
+      var indices = detail.changeDetails.detachedAttachments;
+      for (var iSplice = 0; iSplice < indices.length; iSplice++) {
+        this.attachments.splice(indices[iSplice], 1);
+      }
+    }
+
+    // Attachment instances need to be updated rather than replaced.
+    if (wireRep.attachments) {
+      var i, attachment;
+      for (i = 0; i < this.attachments.length; i++) {
+        attachment = this.attachments[i];
+        attachment.__update(wireRep.attachments[i]);
+      }
+      // If we added new attachments, construct them now.
+      for (i = this.attachments.length; i < wireRep.attachments.length; i++) {
+        this.attachments.push(
+          new MailAttachment(this, wireRep.attachments[i]));
+      }
+      // We don't handle the fictional case where wireRep.attachments
+      // decreases in size, because that doesn't currently happen and
+      // probably won't ever, apart from detachedAttachments above
+      // which are a different thing.
+    }
   },
 
   /**
@@ -1550,8 +1595,24 @@ MailAttachment.prototype = {
     };
   },
 
+  __update: function(wireRep) {
+    this.mimetype = wireRep.type;
+    this.sizeEstimateInBytes = wireRep.sizeEstimate;
+    this._file = wireRep.file;
+  },
+
   get isDownloaded() {
     return !!this._file;
+  },
+
+  /**
+   * Is this attachment something we can download?  In almost all cases, the
+   * answer is yes, regardless of network state.  The exception is that sent
+   * POP3 messages do not retain their attachment Blobs and there is no way to
+   * download them after the fact.
+   */
+  get isDownloadable() {
+    return this.mimetype !== 'application/x-gelam-no-download';
   },
 
   download: function(callWhenDone, callOnProgress) {
@@ -1974,8 +2035,22 @@ function MessageComposition(api, handle) {
   this.body = null;
 
   this._references = null;
-  this._customHeaders = null;
+  /**
+   * @property attachments
+   * @type Object[]
+   *
+   * A list of attachments currently attached or currently being attached with
+   * the following attributes:
+   * - name: The filename
+   * - size: The size of the attachment payload in binary form.  This does not
+   *   include transport encoding costs.
+   *
+   * Manipulating this list has no effect on reality; the methods addAttachment
+   * and removeAttachment must be used.
+   */
   this.attachments = null;
+
+  this.hasDraft = false;
 }
 MessageComposition.prototype = {
   toString: function() {
@@ -1996,16 +2071,26 @@ MessageComposition.prototype = {
   },
 
   /**
-   * Add custom headers; don't use this for built-in headers.
-   */
-  addHeader: function(key, value) {
-    if (!this._customHeaders)
-      this._customHeaders = [];
-    this._customHeaders.push(key);
-    this._customHeaders.push(value);
-  },
-
-  /**
+   * Add an attachment to this composition.  This is an asynchronous process
+   * that incrementally converts the Blob we are provided into a line-wrapped
+   * base64-encoded message suitable for use in the rfc2822 message generation
+   * process.  We will perform the conversion in slices whose sizes are
+   * chosen to avoid causing a memory usage explosion that causes us to be
+   * reaped.  Once the conversion is completed we will forget the Blob reference
+   * provided to us.
+   *
+   * From the perspective of our drafts, an attachment is not fully attached
+   * until it has been completely encoded, sliced, and persisted to our
+   * IndexedDB database.  In the event of a crash during this time window,
+   * the attachment will effectively have not been attached.  Our logic will
+   * discard the partially-translated attachment when de-persisting the draft.
+   * We will, however, create an entry in the attachments array immediately;
+   * we also return it to you.  You should be able to safely call
+   * removeAttachment with it regardless of what has happened on the backend.
+   *
+   * The caller *MUST* forget all references to the Blob that is being attached
+   * after issuing this call.
+   *
    * @args[
    *   @param[attachmentDef @dict[
    *     @key[name String]
@@ -2013,14 +2098,37 @@ MessageComposition.prototype = {
    *   ]]
    * ]
    */
-  addAttachment: function(attachmentDef) {
-    this.attachments.push(attachmentDef);
+  addAttachment: function(attachmentDef, callback) {
+    // There needs to be a draft for us to attach things to.
+    if (!this.hasDraft)
+      this.saveDraft();
+    this._api._composeAttach(this._handle, attachmentDef, callback);
+
+    var placeholderAttachment = {
+      name: attachmentDef.name,
+      blob: {
+        size: attachmentDef.blob.size,
+        type: attachmentDef.blob.type
+      }
+    };
+    this.attachments.push(placeholderAttachment);
+    return placeholderAttachment;
   },
 
-  removeAttachment: function(attachmentDef) {
+  /**
+   * Remove an attachment previously requested to be added via `addAttachment`.
+   *
+   * @method removeAttachment
+   * @param attachmentDef Object
+   *   This must be one of the instances from our `attachments` list.  A
+   *   logically equivalent object is no good.
+   */
+  removeAttachment: function(attachmentDef, callback) {
     var idx = this.attachments.indexOf(attachmentDef);
-    if (idx !== -1)
+    if (idx !== -1) {
       this.attachments.splice(idx, 1);
+      this._api._composeDetach(this._handle, idx, callback);
+    }
   },
 
   /**
@@ -2035,7 +2143,6 @@ MessageComposition.prototype = {
       subject: this.subject,
       body: this.body,
       referencesStr: this._references,
-      customHeaders: this._customHeaders,
       attachments: this.attachments,
     };
   },
@@ -2081,6 +2188,7 @@ MessageComposition.prototype = {
    * Save the state of this composition.
    */
   saveDraft: function(callback) {
+    this.hasDraft = true;
     this._api._composeDone(this._handle, 'save', this._buildWireRep(),
                            callback);
   },
@@ -2303,6 +2411,12 @@ function MailAPI() {
   this._slices = {};
   this._pendingRequests = {};
   this._liveBodies = {};
+  /**
+   * Functions to invoke to actually process/fire splices.  Exists to support
+   * the fallout of waiting for contact resolution now that slice changes are
+   * batched.
+   */
+  this._spliceFireFuncs = [];
 
   // Store bridgeSend messages received before back end spawns.
   this._storedSends = [];
@@ -2374,7 +2488,8 @@ MailAPI.prototype = {
    * Process a message received from the bridge.
    */
   __bridgeReceive: function ma___bridgeReceive(msg) {
-    if (this._processingMessage) {
+    // Pong messages are used for tests
+    if (this._processingMessage && msg.type !== 'pong') {
       this._deferredMessages.push(msg);
     }
     else {
@@ -2390,8 +2505,9 @@ MailAPI.prototype = {
     }
     try {
       var done = this[methodName](msg);
-      if (!done)
+      if (!done) {
         this._processingMessage = msg;
+      }
     }
     catch (ex) {
       internalError('Problem handling message type:', msg.type, ex,
@@ -2416,34 +2532,198 @@ MailAPI.prototype = {
     return true;
   },
 
-  _recv_sliceSplice: function ma__recv_sliceSplice(msg, fake) {
+  _fireAllSplices: function() {
+    for (var i = 0; i < this._spliceFireFuncs.length; i++) {
+      var fireSpliceData = this._spliceFireFuncs[i];
+      fireSpliceData();
+    }
+
+    this._spliceFireFuncs.length = 0;
+  },
+
+  _recv_batchSlice: function receiveBatchSlice(msg) {
     var slice = this._slices[msg.handle];
     if (!slice) {
-      unexpectedBridgeDataError('Received message about a nonexistent slice:',
-                                msg.handle);
+      unexpectedBridgeDataError("Received message about nonexistent slice:", msg.handle);
       return true;
     }
 
-    var transformedItems = this._transform_sliceSplice(msg, slice);
+    var updateStatus = this._updateSliceStatus(msg, slice);
+    for (var i = 0; i < msg.sliceUpdates.length; i++) {
+      var update = msg.sliceUpdates[i];
+      if (update.type === 'update') {
+        // Updates are performed and fire immediately/synchronously
+        this._processSliceUpdate(msg, update, slice);
+      } else {
+        // Added items are transformed immediately, but the actual mutation of
+        // the slice and notifications do not fire until _fireAllSplices().
+        this._transformAndEnqueueSingleSplice(msg, update, slice);
+      }
+    }
+
+    // If there are pending contact resolutions, we need to wait them to
+    // complete before processing and firing the splices.
+    if (ContactCache.pendingLookupCount) {
+      ContactCache.callbacks.push(function contactsResolved() {
+        this._fireAllSplices();
+        this._fireStatusNotifications(updateStatus, slice);
+        this._doneProcessingMessage(msg);
+      }.bind(this));
+      // (Wait for us to call _doneProcessingMessage before processing the next
+      // message.  This also means this method will only push one callback.)
+      return false;
+    }
+
+    this._fireAllSplices();
+    this._fireStatusNotifications(updateStatus, slice);
+    return true; // All done processing; feel free to process the next msg.
+  },
+
+  _fireStatusNotifications: function (updateStatus, slice) {
+    if (updateStatus && slice.onstatus) {
+      slice.onstatus(slice.status);
+    }
+  },
+
+  _updateSliceStatus: function(msg, slice) {
+    // - generate namespace-specific notifications
+    slice.atTop = msg.atTop;
+    slice.atBottom = msg.atBottom;
+    slice.userCanGrowUpwards = msg.userCanGrowUpwards;
+    slice.userCanGrowDownwards = msg.userCanGrowDownwards;
+
+    // Have to update slice status before we actually do the work
+    var generatedStatusChange = (msg.status &&
+      (slice.status !== msg.status ||
+      slice.syncProgress !== msg.progress));
+
+    if (msg.status) {
+      slice.status = msg.status;
+      slice.syncProgress = msg.syncProgress;
+    }
+
+    return generatedStatusChange;
+  },
+
+  _processSliceUpdate: function (msg, splice, slice) {
+    try {
+      for (var i = 0; i < splice.length; i += 2) {
+        var idx = splice[i], wireRep = splice[i + 1],
+            itemObj = slice.items[idx];
+        itemObj.__update(wireRep);
+        if (slice.onchange) {
+          slice.onchange(itemObj, idx);
+        }
+        if (itemObj.onchange) {
+          itemObj.onchange(itemObj, idx);
+        }
+      }
+    }
+    catch (ex) {
+      reportClientCodeError('onchange notification error', ex,
+                            '\n', ex.stack);
+    }
+  },
+
+  /**
+   * Transform the slice splice (for contact-resolution side-effects) and
+   * enqueue the eventual processing and firing of the splice once all contacts
+   * have been resolved.
+   */
+  _transformAndEnqueueSingleSplice: function(msg, splice, slice) {
+   var transformedItems = this._transform_sliceSplice(splice, slice);
+   var fake = false;
     // It's possible that a transformed representation is depending on an async
     // call to mozContacts.  In this case, we don't want to surface the data to
     // the UI until the contacts are fully resolved in order to avoid the UI
     // flickering or just triggering reflows that could otherwise be avoided.
-    if (ContactCache.pendingLookupCount) {
-      ContactCache.callbacks.push(function contactsResolved() {
-        this._fire_sliceSplice(msg, slice, transformedItems, fake);
-        this._doneProcessingMessage(msg);
-      }.bind(this));
-      return false;
+    // Since we could be processing multiple updates, just batch everything here
+    // and we'll check later to see if any of our splices requires a contact
+    // lookup
+    this._spliceFireFuncs.push(function singleSpliceUpdate() {
+      this._fireSplice(splice, slice, transformedItems, fake);
+    }.bind(this));
+  },
+
+  /**
+   * Perform the actual splice, generating notifications.
+   */
+  _fireSplice: function(splice, slice, transformedItems, fake) {
+    var i, stopIndex, items, tempMsg;
+
+    // - generate slice 'onsplice' notification
+    if (slice.onsplice) {
+      try {
+        slice.onsplice(splice.index, splice.howMany, transformedItems,
+                       splice.requested, splice.moreExpected, fake);
+      }
+      catch (ex) {
+        reportClientCodeError('onsplice notification error', ex,
+                              '\n', ex.stack);
+      }
     }
-    else {
-      this._fire_sliceSplice(msg, slice, transformedItems, fake);
-      return true;
+    // - generate item 'onremove' notifications
+    if (splice.howMany) {
+      try {
+        stopIndex = splice.index + splice.howMany;
+        for (i = splice.index; i < stopIndex; i++) {
+          var item = slice.items[i];
+          if (slice.onremove)
+            slice.onremove(item, i);
+          if (item.onremove)
+            item.onremove(item, i);
+          // the item needs a chance to clean up after itself.
+          item.__die();
+        }
+      }
+      catch (ex) {
+        reportClientCodeError('onremove notification error', ex,
+                              '\n', ex.stack);
+      }
+    }
+    // - perform actual splice
+    slice.items.splice.apply(
+      slice.items,
+      [splice.index, splice.howMany].concat(transformedItems));
+
+    // - generate item 'onadd' notifications
+    if (slice.onadd) {
+      try {
+        stopIndex = splice.index + transformedItems.length;
+        for (i = splice.index; i < stopIndex; i++) {
+          slice.onadd(slice.items[i], i);
+        }
+      }
+      catch (ex) {
+        reportClientCodeError('onadd notification error', ex,
+                              '\n', ex.stack);
+      }
+    }
+
+    // - generate 'oncomplete' notification
+    if (splice.requested && !splice.moreExpected) {
+      slice._growing = 0;
+      if (slice.pendingRequestCount)
+        slice.pendingRequestCount--;
+
+      if (slice.oncomplete) {
+        var completeFunc = slice.oncomplete;
+        // reset before calling in case it wants to chain.
+        slice.oncomplete = null;
+        try {
+          // Maybe defer here?
+          completeFunc(splice.newEmailCount);
+        }
+        catch (ex) {
+          reportClientCodeError('oncomplete notification error', ex,
+                                '\n', ex.stack);
+        }
+      }
     }
   },
 
-  _transform_sliceSplice: function ma__transform_sliceSplice(msg, slice) {
-    var addItems = msg.addItems, transformedItems = [], i;
+  _transform_sliceSplice: function ma__transform_sliceSplice(splice, slice) {
+    var addItems = splice.addItems, transformedItems = [], i;
     switch (slice._ns) {
       case 'accounts':
         for (i = 0; i < addItems.length; i++) {
@@ -2484,118 +2764,6 @@ MailAPI.prototype = {
     return transformedItems;
   },
 
-  _fire_sliceSplice: function ma__fire_sliceSplice(msg, slice,
-                                                   transformedItems, fake) {
-    var i, stopIndex, items, tempMsg;
-    // - generate namespace-specific notifications
-    slice.atTop = msg.atTop;
-    slice.atBottom = msg.atBottom;
-    slice.userCanGrowUpwards = msg.userCanGrowUpwards;
-    slice.userCanGrowDownwards = msg.userCanGrowDownwards;
-    if (msg.status &&
-        (slice.status !== msg.status ||
-         slice.syncProgress !== msg.progress)) {
-      slice.status = msg.status;
-      slice.syncProgress = msg.progress;
-      if (slice.onstatus)
-        slice.onstatus(slice.status);
-    }
-
-    // - generate slice 'onsplice' notification
-    if (slice.onsplice) {
-      try {
-        slice.onsplice(msg.index, msg.howMany, transformedItems,
-                       msg.requested, msg.moreExpected, fake);
-      }
-      catch (ex) {
-        reportClientCodeError('onsplice notification error', ex,
-                              '\n', ex.stack);
-      }
-    }
-    // - generate item 'onremove' notifications
-    if (msg.howMany) {
-      try {
-        stopIndex = msg.index + msg.howMany;
-        for (i = msg.index; i < stopIndex; i++) {
-          var item = slice.items[i];
-          if (slice.onremove)
-            slice.onremove(item, i);
-          if (item.onremove)
-            item.onremove(item, i);
-          // the item needs a chance to clean up after itself.
-          item.__die();
-        }
-      }
-      catch (ex) {
-        reportClientCodeError('onremove notification error', ex,
-                              '\n', ex.stack);
-      }
-    }
-    // - perform actual splice
-    slice.items.splice.apply(slice.items,
-                             [msg.index, msg.howMany].concat(transformedItems));
-    // - generate item 'onadd' notifications
-    if (slice.onadd) {
-      try {
-        stopIndex = msg.index + transformedItems.length;
-        for (i = msg.index; i < stopIndex; i++) {
-          slice.onadd(slice.items[i], i);
-        }
-      }
-      catch (ex) {
-        reportClientCodeError('onadd notification error', ex,
-                              '\n', ex.stack);
-      }
-    }
-
-    // - generate 'oncomplete' notification
-    if (msg.requested && !msg.moreExpected) {
-      slice._growing = 0;
-      if (slice.pendingRequestCount)
-        slice.pendingRequestCount--;
-
-      if (slice.oncomplete) {
-        var completeFunc = slice.oncomplete;
-        // reset before calling in case it wants to chain.
-        slice.oncomplete = null;
-        try {
-          completeFunc(msg.newEmailCount);
-        }
-        catch (ex) {
-          reportClientCodeError('oncomplete notification error', ex,
-                                '\n', ex.stack);
-        }
-      }
-    }
-  },
-
-  _recv_sliceUpdate: function ma__recv_sliceUpdate(msg) {
-    var slice = this._slices[msg.handle];
-    if (!slice) {
-      unexpectedBridgeDataError('Received message about a nonexistent slice:',
-                                msg.handle);
-      return true;
-    }
-
-    var updates = msg.updates;
-    try {
-      for (var i = 0; i < updates.length; i += 2) {
-        var idx = updates[i], wireRep = updates[i + 1],
-            itemObj = slice.items[idx];
-        itemObj.__update(wireRep);
-        if (slice.onchange)
-          slice.onchange(itemObj, idx);
-        if (itemObj.onchange)
-          itemObj.onchange(itemObj, idx);
-      }
-    }
-    catch (ex) {
-      reportClientCodeError('onchange notification error', ex,
-                            '\n', ex.stack);
-    }
-    return true;
-  },
-
   _recv_sliceDead: function(msg) {
     var slice = this._slices[msg.handle];
     delete this._slices[msg.handle];
@@ -2607,7 +2775,6 @@ MailAPI.prototype = {
   },
 
   _getBodyForMessage: function(header, options, callback) {
-
     var downloadBodyReps = false, withBodyReps = false;
 
     if (options && options.downloadBodyReps) {
@@ -2673,38 +2840,17 @@ MailAPI.prototype = {
       return true;
     }
 
-    if (body.onchange) {
-      // there may be many kinds of updates we want to support but we only
-      // support updating the bodyReps reference currently.
-      if (msg.detail.changeDetails) {
-        for (var which in msg.detail.changeDetails) {
-          var indexes = msg.detail.changeDetails[which];
-          for (var i = 0; i < indexes.length; i++) {
-            var idx = indexes[i];
-            switch(which) {
-            case 'bodyReps':
-              body.bodyReps[idx] = msg.bodyInfo.bodyReps[idx];
-              break;
-            case 'attachments':
-              var bodyAtt = body.attachments[idx];
-              var wireAtt = msg.bodyInfo.attachments[idx];
-              bodyAtt.sizeEstimateInBytes = wireAtt.sizeEstimate;
-              bodyAtt._file = wireAtt.file;
-              break;
-            case 'relatedParts':
-              // not used currently
-              break;
-            case 'detachedAttachments':
-              // TODO: for streaming patch
-              break;
-            }
-          }
-        }
-      }
+    var wireRep = msg.bodyInfo;
+    // We update the body representation regardless of whether there is an
+    // onchange listener because the body may contain Blob handles that need to
+    // be updated so that in-memory blobs that have been superseded by on-disk
+    // Blobs can be garbage collected.
+    body.__update(wireRep, msg.detail);
 
+    if (body.onchange) {
       body.onchange(
         msg.detail,
-        msg.bodyInfo
+        body
       );
     }
 
@@ -2751,19 +2897,10 @@ MailAPI.prototype = {
     }
     delete this._pendingRequests[msg.handle];
 
-    // What will have changed are the attachment lists, so update them.
-    if (msg.bodyInfo) {
-      if (req.relParts)
-        req.body._relatedParts = msg.bodyInfo.relatedParts;
-      if (req.attachments) {
-        var wireAtts = msg.bodyInfo.attachments;
-        for (var i = 0; i < wireAtts.length; i++) {
-          var wireAtt = wireAtts[i], bodyAtt = req.body.attachments[i];
-          bodyAtt.sizeEstimateInBytes = wireAtt.sizeEstimate;
-          bodyAtt._file = wireAtt.file;
-        }
-      }
-    }
+    // We used to update the attachment representations here.  This is now
+    // handled by `bodyModified` notifications which are guaranteed to occur
+    // prior to this callback being invoked.
+
     if (req.callback)
       req.callback.call(null, req.body);
     return true;
@@ -2808,6 +2945,9 @@ MailAPI.prototype = {
    *   @case['bad-user-or-pass']{
    *     The username and password didn't check out.  We don't know which one
    *     is wrong, just that one of them is wrong.
+   *   }
+   *   @case['bad-address']{
+   *     The e-mail address provided was rejected by the SMTP probe.
    *   }
    *   @case['pop-server-not-great']{
    *     The POP3 server doesn't support IDLE and TOP, so we can't use it.
@@ -3201,7 +3341,7 @@ MailAPI.prototype = {
    * It will return null on a parse failure.
    *
    * @param {String} email A email address.
-   * @return {Object} An object of the form { name, address }. 
+   * @return {Object} An object of the form { name, address }.
    */
   parseMailbox: function(email) {
     try {
@@ -3398,6 +3538,76 @@ MailAPI.prototype = {
     return true;
   },
 
+  _composeAttach: function(draftHandle, attachmentDef, callback) {
+    if (!draftHandle) {
+      return;
+    }
+    var draftReq = this._pendingRequests[draftHandle];
+    if (!draftReq) {
+      return;
+    }
+    var callbackHandle = this._nextHandle++;
+    this._pendingRequests[callbackHandle] = {
+      type: 'attachBlobToDraft',
+      callback: callback
+    };
+    this.__bridgeSend({
+      type: 'attachBlobToDraft',
+      handle: callbackHandle,
+      draftHandle: draftHandle,
+      attachmentDef: attachmentDef
+    });
+  },
+
+  _recv_attachedBlobToDraft: function(msg) {
+    var callbackReq = this._pendingRequests[msg.handle];
+    var draftReq = this._pendingRequests[msg.draftHandle];
+    if (!callbackReq) {
+      return true;
+    }
+    delete this._pendingRequests[msg.handle];
+
+    if (callbackReq.callback && draftReq && draftReq.composer) {
+      callbackReq.callback(msg.err, draftReq.composer);
+    }
+    return true;
+  },
+
+  _composeDetach: function(draftHandle, attachmentIndex, callback) {
+    if (!draftHandle) {
+      return;
+    }
+    var draftReq = this._pendingRequests[draftHandle];
+    if (!draftReq) {
+      return;
+    }
+    var callbackHandle = this._nextHandle++;
+    this._pendingRequests[callbackHandle] = {
+      type: 'detachAttachmentFromDraft',
+      callback: callback
+    };
+    this.__bridgeSend({
+      type: 'detachAttachmentFromDraft',
+      handle: callbackHandle,
+      draftHandle: draftHandle,
+      attachmentIndex: attachmentIndex
+    });
+  },
+
+  _recv_detachedAttachmentFromDraft: function(msg) {
+    var callbackReq = this._pendingRequests[msg.handle];
+    var draftReq = this._pendingRequests[msg.draftHandle];
+    if (!callbackReq) {
+      return true;
+    }
+    delete this._pendingRequests[msg.handle];
+
+    if (callbackReq.callback && draftReq && draftReq.composer) {
+      callbackReq.callback(msg.err, draftReq.composer);
+    }
+    return true;
+  },
+
   _composeDone: function(handle, command, state, callback) {
     if (!handle)
       return;
@@ -3544,10 +3754,13 @@ MailAPI.prototype = {
   // Diagnostics / Test Hacks
 
   /**
-   * Send a 'ping' to the bridge which will send a 'pong' back, notifying the
-   * provided callback.  This is intended to be hack to provide a way to ensure
-   * that some function only runs after all of the notifications have been
-   * received and processed by the back-end.
+   * After a setZeroTimeout, send a 'ping' to the bridge which will send a
+   * 'pong' back, notifying the provided callback.  This is intended to be hack
+   * to provide a way to ensure that some function only runs after all of the
+   * notifications have been received and processed by the back-end.
+   *
+   * Note that ping messages are always processed as they are received; they do
+   * not get deferred like other messages.
    */
   ping: function(callback) {
     var handle = this._nextHandle++;
@@ -3555,10 +3768,20 @@ MailAPI.prototype = {
       type: 'ping',
       callback: callback,
     };
-    this.__bridgeSend({
-      type: 'ping',
-      handle: handle,
-    });
+
+    // With the introduction of slice batching, we now wait to send the ping.
+    // This is reasonable because there are conceivable situations where the
+    // caller really wants to wait until all related callbacks fire before
+    // dispatching.  And the ping method is already a hack to ensure correctness
+    // ordering that should be done using better/more specific methods, so this
+    // change is not any less of a hack/evil, although it does cause misuse to
+    // potentially be more capable of causing intermittent failures.
+    window.setZeroTimeout(function() {
+      this.__bridgeSend({
+        type: 'ping',
+        handle: handle,
+      });
+    }.bind(this));
   },
 
   _recv_pong: function(msg) {
@@ -4654,96 +4877,309 @@ MailDB.prototype = {
 return self;
 });
 
-define('mailapi/worker-support/net-main',[],function() {
-  'use strict';
+define('mailapi/async_blob_fetcher',
+  [
+    'exports'
+  ],
+  function(
+    exports
+  ) {
 
-  function debug(str) {
-    //dump('NetSocket: ' + str + '\n');
-  }
-
-  // Maintain a list of active sockets
-  var socks = {};
-
-  function open(uid, host, port, options) {
-    var socket = navigator.mozTCPSocket;
-    var sock = socks[uid] = socket.open(host, port, options);
-
-    sock.onopen = function(evt) {
-      //debug('onopen ' + uid + ": " + evt.data.toString());
-      self.sendMessage(uid, 'onopen');
-    };
-
-    sock.onerror = function(evt) {
-      //debug('onerror ' + uid + ": " + new Uint8Array(evt.data));
-      var err = evt.data;
-      var wrappedErr;
-      if (err && typeof(err) === 'object') {
-        wrappedErr = {
-          name: err.name,
-          type: err.type,
-          message: err.message
-        };
-      }
-      else {
-        wrappedErr = err;
-      }
-      self.sendMessage(uid, 'onerror', wrappedErr);
-    };
-
-    sock.ondata = function(evt) {
-      var buf = evt.data;
-      self.sendMessage(uid, 'ondata', buf, [buf]);
-    };
-
-    sock.onclose = function(evt) {
-      //debug('onclose ' + uid + ": " + evt.data.toString());
-      self.sendMessage(uid, 'onclose');
-    };
-  }
-
-  function close(uid) {
-    var sock = socks[uid];
-    if (!sock)
+/**
+ * Asynchronously fetch the contents of a Blob, returning a Uint8Array.
+ * Exists because there is no FileReader in Gecko workers and this totally
+ * works.  In discussion, it sounds like :sicking wants to deprecate the
+ * FileReader API anyways.
+ *
+ * Our consumer in this case is our specialized base64 encode that wants a
+ * Uint8Array since that is more compactly represented than a binary string
+ * would be.
+ *
+ * @param blob {Blob}
+ * @param callback {Function(err, Uint8Array)}
+ */
+function asyncFetchBlobAsUint8Array(blob, callback) {
+  var blobUrl = URL.createObjectURL(blob);
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', blobUrl, true);
+  xhr.responseType = 'arraybuffer';
+  xhr.onload = function() {
+    // blobs currently result in a status of 0 since there is no server.
+    if (xhr.status !== 0 && (xhr.status < 200 || xhr.status >= 300)) {
+      callback(xhr.status);
       return;
-    sock.close();
-    sock.onopen = null;
-    sock.onerror = null;
-    sock.ondata = null;
-    sock.onclose = null;
-    delete socks[uid];
+    }
+    callback(null, new Uint8Array(xhr.response));
+  };
+  xhr.onerror = function() {
+    callback('error');
+  };
+  try {
+    xhr.send();
   }
-
-  function upgradeToSecure(uid) {
-    socks[uid].upgradeToSecure();
+  catch(ex) {
+    console.error('XHR send() failure on blob');
+    callback('error');
   }
+  URL.revokeObjectURL(blobUrl);
+}
 
-  function write(uid, data, offset, length) {
-    // XXX why are we doing this? ask Vivien or try to remove...
-    socks[uid].send(data, offset, length);
-  }
+return {
+  asyncFetchBlobAsUint8Array: asyncFetchBlobAsUint8Array
+};
 
-  var self = {
-    name: 'netsocket',
-    sendMessage: null,
-    process: function(uid, cmd, args) {
-      debug('process ' + cmd);
-      switch (cmd) {
-        case 'open':
-          open(uid, args[0], args[1], args[2]);
-          break;
-        case 'close':
-          close(uid);
-          break;
-        case 'write':
-          write(uid, args[0], args[1], args[2]);
-          break;
-        case 'upgradeToSecure':
-          upgradeToSecure(uid);
-          break;
-      }
+}); // end define
+;
+/**
+ * The main-thread counterpart to our node-net.js wrapper.
+ *
+ * Provides the smarts for streaming the content of blobs.  An alternate
+ * implementation would be to provide a decorating proxy to implement this
+ * since smart Blob transmission is on the W3C raw-socket hit-list (see
+ * http://www.w3.org/2012/sysapps/raw-sockets/), but we're already acting like
+ * node.js's net implementation on the other side of the equation and a totally
+ * realistic implementation is more work and complexity than our needs require.
+ *
+ * Important implementation notes that affect us:
+ *
+ * - mozTCPSocket generates ondrain notifications when the send buffer is
+ *   completely empty, not when when we go below the target buffer level.
+ *
+ * - bufferedAmount in the child process mozTCPSocket implementation only gets
+ *   updated when the parent process relays a messages to the child process.
+ *   When we are performing bulks sends, this means we will only see
+ *   bufferedAmount go down when we receive an 'ondrain' notification and the
+ *   buffer has hit zero.  As such, trying to do anything clever involving
+ *   bufferedAmount other than seeing if it's at zero is not going to do
+ *   anything useful.
+ *
+ * Leading to our strategy:
+ *
+ * - Always have a pre-fetched block of disk I/O to hand to the socket when we
+ *   get a drain event so that disk I/O does not stall our pipeline.
+ *   (Obviously, if the network is faster than our disk, there is very little
+ *   we can do.)
+ *
+ * - Pick a page-size so that in the case where the network is extremely fast
+ *   we are able to maintain good throughput even when our IPC overhead
+ *   dominates.  We just pick one page-size; we intentionally avoid any
+ *   excessively clever buffering regimes because those could back-fire and
+ *   such effort is better spent on enhancing TCPSocket.
+ */
+define('mailapi/worker-support/net-main',['require','mailapi/async_blob_fetcher'],function(require) {
+'use strict';
+
+var asyncFetchBlobAsUint8Array =
+      require('mailapi/async_blob_fetcher').asyncFetchBlobAsUint8Array;
+
+// Active sockets
+var sockInfoByUID = {};
+
+function open(uid, host, port, options) {
+  var socket = navigator.mozTCPSocket;
+  var sock = socket.open(host, port, options);
+
+  var sockInfo = sockInfoByUID[uid] = {
+    uid: uid,
+    sock: sock,
+    // Are we in the process of sending a blob?  The blob if so.
+    activeBlob: null,
+    // Current offset into the blob, if any
+    blobOffset: 0,
+    queuedData: null,
+    // Queued write() calls that are ordering dependent on the Blob being
+    // fully sent first.
+    backlog: [],
+  };
+
+  sock.onopen = function(evt) {
+    self.sendMessage(uid, 'onopen');
+  };
+
+  sock.onerror = function(evt) {
+    var err = evt.data;
+    var wrappedErr;
+    if (err && typeof(err) === 'object') {
+      wrappedErr = {
+        name: err.name,
+        type: err.type,
+        message: err.message
+      };
+    }
+    else {
+      wrappedErr = err;
+    }
+    self.sendMessage(uid, 'onerror', wrappedErr);
+  };
+
+  sock.ondata = function(evt) {
+    var buf = evt.data;
+    self.sendMessage(uid, 'ondata', buf, [buf]);
+  };
+
+  sock.ondrain = function(evt) {
+    // If we have an activeBlob and data already to send, then send it.
+    // If we have an activeBlob but no data, then fetchNextBlobChunk has
+    // an outstanding chunk fetch and it will issue the write directly.
+    if (sockInfo.activeBlob && sockInfo.queuedData) {
+      console.log('net-main(' + sockInfo.uid + '): Socket drained, sending.');
+      sock.send(sockInfo.queuedData.buffer, 0, sockInfo.queuedData.byteLength);
+      sockInfo.queuedData = null;
+      // fetch the next chunk or close out the blob; this method does both
+      fetchNextBlobChunk(sockInfo);
     }
   };
-  return self;
+
+  sock.onclose = function(evt) {
+    self.sendMessage(uid, 'onclose');
+  };
+}
+
+function beginBlobSend(sockInfo, blob) {
+  console.log('net-main(' + sockInfo.uid + '): Blob send of', blob.size,
+              'bytes');
+  sockInfo.activeBlob = blob;
+  sockInfo.blobOffset = 0;
+  sockInfo.queuedData = null;
+  fetchNextBlobChunk(sockInfo);
+}
+
+/**
+ * Fetch the next portion of the Blob we are currently sending.  Once the read
+ * completes we will either send the data immediately if the socket's buffer is
+ * empty or queue it up for sending once the buffer does drain.
+ *
+ * This logic is used both in the starting case and to help us reach a steady
+ * state where (ideally) we always have a pre-fetched buffer of data ready for
+ * when we hear the next drain event.
+ *
+ * We are also responsible for noticing that we're all done sending the Blob.
+ */
+function fetchNextBlobChunk(sockInfo) {
+  // We are all done if the next fetch would be beyond the end of the blob
+  if (sockInfo.blobOffset >= sockInfo.activeBlob.size) {
+    console.log('net-main(' + sockInfo.uid + '): Blob send completed.',
+                'backlog length:', sockInfo.backlog.length);
+    sockInfo.activeBlob = null;
+
+    // Drain as much of the backlog as possible.
+    var backlog = sockInfo.backlog;
+    while (backlog.length) {
+      var sendArgs = backlog.shift();
+      var data = sendArgs[0];
+      if (data instanceof Blob) {
+        beginBlobSend(sockInfo, data);
+        return;
+      }
+      sockInfo.sock.send(data, sendArgs[1], sendArgs[2]);
+    }
+    // (the backlog is now empty)
+    return;
+  }
+
+  var nextOffset =
+        Math.min(sockInfo.blobOffset + self.BLOB_BLOCK_READ_SIZE,
+                 sockInfo.activeBlob.size);
+  console.log('net-main(' + sockInfo.uid + '): Fetching bytes',
+              sockInfo.blobOffset, 'through', nextOffset, 'of',
+              sockInfo.activeBlob.size);
+  var blobSlice = sockInfo.activeBlob.slice(
+                    sockInfo.blobOffset,
+                    nextOffset);
+  sockInfo.blobOffset = nextOffset;
+
+  function gotChunk(err, binaryDataU8) {
+    console.log('net-main(' + sockInfo.uid + '): Retrieved chunk');
+    if (err) {
+      // I/O errors are fatal to the connection; our abstraction does not let us
+      // bubble the error.  The good news is that errors are highly unlikely.
+      sockInfo.sock.close();
+      return;
+    }
+
+    // If the socket has already drained its buffer, then just send the data
+    // right away and re-schedule ourselves.
+    if (sockInfo.sock.bufferedAmount === 0) {
+      console.log('net-main(' + sockInfo.uid + '): Sending chunk immediately.');
+      sockInfo.sock.send(binaryDataU8.buffer, 0, binaryDataU8.byteLength);
+      fetchNextBlobChunk(sockInfo);
+      return;
+    }
+
+    sockInfo.queuedData = binaryDataU8;
+  };
+  asyncFetchBlobAsUint8Array(blobSlice, gotChunk);
+}
+
+function close(uid) {
+  var sockInfo = sockInfoByUID[uid];
+  if (!sockInfo)
+    return;
+  var sock = sockInfo.sock;
+  sock.close();
+  sock.onopen = null;
+  sock.onerror = null;
+  sock.ondata = null;
+  sock.ondrain = null;
+  sock.onclose = null;
+  delete sockInfoByUID[uid];
+}
+
+function write(uid, data, offset, length) {
+  var sockInfo = sockInfoByUID[uid];
+
+  // If there is an activeBlob, then the write must be queued or we would end up
+  // mixing this write in with our Blob and that would be embarassing.
+  if (sockInfo.activeBlob) {
+    sockInfo.backlog.push([data, offset, length]);
+    return;
+  }
+
+  if (data instanceof Blob) {
+    beginBlobSend(sockInfo, data);
+  }
+  else {
+    sockInfo.sock.send(data, offset, length);
+  }
+}
+
+
+function upgradeToSecure(uid) {
+  var sockInfo = sockInfoByUID[uid];
+  if (!sockInfo)
+    return;
+  sockInfo.sock.upgradeToSecure();
+}
+
+
+var self = {
+  name: 'netsocket',
+  sendMessage: null,
+
+  /**
+   * What size bites (in bytes) should we take of the Blob for streaming
+   * purposes?  See the file header for the sizing rationale.
+   */
+  BLOB_BLOCK_READ_SIZE: 96 * 1024,
+
+  process: function(uid, cmd, args) {
+    switch (cmd) {
+      case 'open':
+        open(uid, args[0], args[1], args[2]);
+        break;
+      case 'close':
+        close(uid);
+        break;
+      case 'write':
+        write(uid, args[0], args[1], args[2]);
+        break;
+      case 'upgradeToSecure':
+        upgradeToSecure(uid);
+        break;
+    }
+  }
+};
+return self;
 });
 
 /**

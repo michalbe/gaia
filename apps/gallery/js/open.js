@@ -40,12 +40,20 @@ window.addEventListener('localized', function() {
 
       // And register event handlers for gestures
       frame = new MediaFrame($('frame'), false);
+
+      if (CONFIG_REQUIRED_EXIF_PREVIEW_WIDTH) {
+        frame.setMinimumPreviewSize(CONFIG_REQUIRED_EXIF_PREVIEW_WIDTH,
+                                    CONFIG_REQUIRED_EXIF_PREVIEW_HEIGHT);
+      }
+
       var gestureDetector = new GestureDetector(frame.container);
       gestureDetector.startDetecting();
       frame.container.addEventListener('dbltap', handleDoubleTap);
       frame.container.addEventListener('transform', handleTransform);
       frame.container.addEventListener('pan', handlePan);
       frame.container.addEventListener('swipe', handleSwipe);
+
+      window.addEventListener('resize', frame.resize.bind(frame));
 
       // Report errors if we're passed an invalid image
       frame.onerror = function invalid() {

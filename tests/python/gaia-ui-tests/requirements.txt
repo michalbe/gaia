@@ -1,0 +1,5 @@
+marionette_client==0.7.3
+mozdevice
+requests
+moztest>=0.3
+yoctopuce==1.01.12553

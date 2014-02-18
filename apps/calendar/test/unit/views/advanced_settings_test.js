@@ -4,7 +4,6 @@ requireLib('store/setting.js');
 requireElements('calendar/elements/advanced_settings.html');
 
 suiteGroup('Views.AdvancedSettings', function() {
-
   var subject;
   var template;
   var app;

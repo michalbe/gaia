@@ -83,7 +83,7 @@ var Settings = (function() {
 
       ConfigManager.observe('lastDataUsage',
         function _updateDataUsage(stats, old, key, settings) {
-          updateDataUsage(stats, settings.lastDataReset);
+          updateDataUsage(stats, settings.lastCompleteDataReset);
         },
         true
       );
@@ -102,11 +102,25 @@ var Settings = (function() {
         closeSettings();
       });
 
+      function _setResetTimeToDefault(value, old, key, settings) {
+        var firstWeekDay = parseInt(navigator.mozL10n.get('weekStartsOnMonday'),
+                                    10);
+        var defaultResetTime = (settings.trackingPeriod === 'weekly') ?
+                                                                  firstWeekDay :
+                                                                  1;
+        if (settings.resetTime !== defaultResetTime) {
+          ConfigManager.setOption({ resetTime: defaultResetTime });
+        } else {
+          updateNextReset(settings.trackingPeriod, settings.resetTime);
+        }
+      }
+
       function _updateNextReset(value, old, key, settings) {
         updateNextReset(settings.trackingPeriod, settings.resetTime);
       }
+
       ConfigManager.observe('resetTime', _updateNextReset, true);
-      ConfigManager.observe('trackingPeriod', _updateNextReset, true);
+      ConfigManager.observe('trackingPeriod', _setResetTimeToDefault, true);
 
       initialized = true;
 
@@ -258,7 +272,7 @@ var Settings = (function() {
       };
       costcontrol.request(requestObj, function _onDataStats(result) {
         var stats = result.data;
-        updateDataUsage(stats, settings.lastDataReset);
+        updateDataUsage(stats, settings.lastCompleteDataReset);
       });
 
       switch (mode) {
@@ -274,7 +288,7 @@ var Settings = (function() {
   }
 
   // Update data usage view on settings
-  function updateDataUsage(datausage, lastDataReset) {
+  function updateDataUsage(datausage, lastCompleteDataReset) {
     var mobileUsage = document.querySelector('#mobile-data-usage > span');
     var data = roundData(datausage.mobile.total);
     mobileUsage.textContent = formatData(data);
@@ -285,7 +299,8 @@ var Settings = (function() {
 
     var timestamp = document.querySelector('#wifi-data-usage + .meta');
     timestamp.innerHTML = '';
-    timestamp.appendChild(formatTimeHTML(lastDataReset, datausage.timestamp));
+    timestamp.appendChild(formatTimeHTML(lastCompleteDataReset,
+                                         datausage.timestamp));
   }
 
   // Update balance view on settings
@@ -316,7 +331,16 @@ var Settings = (function() {
   }
 
   return {
-    initialize: configureUI,
+    initialize: function() {
+      var SCRIPTS_NEEDED = [
+        'js/views/BalanceLowLimitView.js',
+        'js/settings/limitdialog.js',
+        'js/settings/autosettings.js',
+        'js/view_manager.js',
+        'js/views/BalanceView.js'
+      ];
+      LazyLoader.load(SCRIPTS_NEEDED, configureUI);
+    },
     updateUI: updateUI
   };
 

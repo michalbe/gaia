@@ -1,5 +1,5 @@
-/*global MockL10n, Utils, MockContact, FixturePhones,
-         MockContacts, MockMozPhoneNumberService */
+/*global MockL10n, Utils, MockContact, FixturePhones, MockContactPhotoHelper,
+         MockContacts, MockMozPhoneNumberService, MocksHelper */
 
 'use strict';
 
@@ -7,9 +7,17 @@ requireApp('sms/test/unit/mock_contact.js');
 requireApp('sms/test/unit/mock_contacts.js');
 requireApp('sms/test/unit/mock_l10n.js');
 requireApp('sms/test/unit/mock_navigator_mozphonenumberservice.js');
+require('/shared/test/unit/mocks/mock_contact_photo_helper.js');
 requireApp('sms/js/utils.js');
 
+var MocksHelperForUtilsUnitTest = new MocksHelper([
+  'ContactPhotoHelper'
+]).init();
+
+
 suite('Utils', function() {
+  MocksHelperForUtilsUnitTest.attachTestHelpers();
+
   var nativeMozL10n = navigator.mozL10n;
   var nmpns = navigator.mozPhoneNumberService;
 
@@ -252,9 +260,8 @@ suite('Utils', function() {
 
     test('(number, contact, { photoURL: true })', function() {
       var contact = new MockContact();
-      contact.photo = [
-        new Blob(['foo'], { type: 'text/plain' })
-      ];
+      var blob = new Blob(['foo'], { type: 'text/plain' });
+      this.sinon.stub(MockContactPhotoHelper, 'getThumbnail').returns(blob);
 
       var details = Utils.getContactDetails('999', contact, {
         photoURL: true
@@ -588,6 +595,18 @@ suite('Utils', function() {
       );
     });
 
+    test('one number is undefined', function() {
+      assert.isFalse(
+        Utils.probablyMatches(undefined, '8889995555')
+      );
+    });
+
+    test('both numbers are undefined', function() {
+      assert.isFalse(
+        Utils.probablyMatches(undefined, undefined)
+      );
+    });
+
     suite('Varied Cases', function() {
       FixturePhones.forEach(function(fixture) {
         var title = fixture.title;
@@ -619,6 +638,57 @@ suite('Utils', function() {
         });
       });
     });
+
+    suite('Multirecipient comparisons', function() {
+      var reference = ['800 555 1212', '636 555 3226', '800 867 5309'];
+
+      test('Same array', function() {
+        assert.ok(
+          Utils.multiRecipientMatch(reference, reference)
+        );
+      });
+      test('Shuffled', function() {
+        assert.ok(
+          Utils.multiRecipientMatch(reference, [].concat(reference).reverse())
+        );
+      });
+      test('With holes', function() {
+        var copy = [].concat(reference);
+        assert.isFalse(
+          Utils.multiRecipientMatch(
+            reference,
+            copy.splice(1, 1, undefined)
+          )
+        );
+        assert.isFalse(
+          Utils.multiRecipientMatch(
+            reference,
+            copy.splice(1, 1, null)
+          )
+        );
+      });
+      test('Different lengths', function() {
+        assert.isFalse(
+          // longer
+          Utils.multiRecipientMatch(reference, reference.concat('800 867 5309'))
+        );
+        assert.isFalse(
+          //shorter
+          Utils.multiRecipientMatch(reference, reference.slice(-2))
+        );
+      });
+      test('Array and string', function() {
+        assert.isFalse(
+          // String and array length are the same
+          Utils.multiRecipientMatch(reference, '123')
+        );
+        // Single value array and string
+        assert.ok(
+          Utils.multiRecipientMatch(reference[0], [reference[0]])
+        );
+      });
+    });
+
   });
 
 
@@ -637,7 +707,6 @@ suite('Utils', function() {
     };
 
     suiteSetup(function(done) {
-      this.timeout(5000);
       // load test blobs for image resize testing
       var assetsNeeded = 0;
 

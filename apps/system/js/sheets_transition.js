@@ -4,26 +4,40 @@ var SheetsTransition = {
   _current: null,
   _new: null,
 
+  init: function st_init() {
+    window.addEventListener('stackchanged', this.stackChanged.bind(this));
+
+    SettingsListener.observe('edgesgesture.enabled', false,
+                             this._settingUpdate.bind(this));
+  },
+
   begin: function st_begin(direction) {
+    // Ask Homescreen App to fade out when sheets begin moving.
+    // Homescreen App would fade in next time it's opened automatically.
+    var home = HomescreenLauncher.getHomescreen();
+    home && home.fadeOut();
     var currentSheet = StackManager.getCurrent();
     var newSheet = (direction == 'ltr') ?
       StackManager.getPrev() : StackManager.getNext();
 
-    this._current = currentSheet ? currentSheet.frame : null;
-    this._new = newSheet ? newSheet.frame : null;
+    this._current = currentSheet ? currentSheet.element : null;
+    this._new = newSheet ? newSheet.element : null;
 
     if (this._current) {
+      this._setDuration(this._current, 0);
       this._current.classList.add('inside-edges');
-      this._current.style.transition = 'transform';
     }
 
     if (this._new) {
+      this._setDuration(this._new, 0);
+
       this._new.classList.toggle('outside-edges-left', (direction == 'ltr'));
       this._new.classList.toggle('outside-edges-right', (direction == 'rtl'));
       if (direction == 'rtl') {
         this._new.dataset.zIndexLevel = 'top-app';
+      } else {
+        this._new.dataset.zIndexLevel = 'bottom-app';
       }
-      this._new.style.transition = 'transform';
     }
   },
 
@@ -42,6 +56,12 @@ var SheetsTransition = {
 
     this._setTranslate(this._current, progress * currentFactor * 100);
     this._setTranslate(this._new, (progress - 1) * newFactor * 100);
+
+    if (direction == 'ltr') {
+      this._setOpacity(this._new, 0.25 + progress * 0.75);
+    } else if (!overflowing) {
+      this._setOpacity(this._current, 1 - progress * 0.75);
+    }
   },
 
   end: function st_end(callback) {
@@ -75,6 +95,7 @@ var SheetsTransition = {
       }
 
       sheet.style.transform = '';
+      sheet.style.opacity = '';
 
       sheet.addEventListener('transitionend', function trWait() {
         sheet.removeEventListener('transitionend', trWait);
@@ -87,7 +108,8 @@ var SheetsTransition = {
   },
 
   snapInPlace: function st_snapInPlace() {
-    var duration = 300 - (300 * (1 - this._lastProgress));
+    var TIMEOUT = 300;
+    var duration = TIMEOUT - (TIMEOUT * (1 - this._lastProgress));
     duration = Math.max(duration, 90);
 
     this._setDuration(this._current, duration);
@@ -100,6 +122,18 @@ var SheetsTransition = {
 
   snapForward: function st_snapForward(speed) {
     this._snapAway(speed, 'outside-edges-left');
+  },
+
+  stackChanged: function st_stackChanged(e) {
+    var sheets = e.detail.sheets;
+    var position = e.detail.position;
+    for (var i = 0; i < sheets.length; i++) {
+      var sheet = sheets[i].element;
+      var candidate = (this._edgesEnabled) && (position !== null) &&
+                      (i >= (position - 1) && i <= (position + 1));
+
+      sheet.classList.toggle('edge-candidate', candidate);
+    }
   },
 
   _snapAway: function st_snapAway(speed, outClass) {
@@ -136,11 +170,27 @@ var SheetsTransition = {
     sheet.style.transform = 'translateX(' + percentage + '%)';
   },
 
+  _setOpacity: function st_setOpacity(sheet, opacity) {
+    if (!sheet) {
+      return;
+    }
+
+    sheet.style.opacity = opacity;
+  },
+
   _setDuration: function st_setDuration(sheet, ms) {
     if (!sheet) {
       return;
     }
 
-    sheet.style.transition = 'transform ' + ms + 'ms linear';
+    sheet.style.transition = 'transform ' + ms + 'ms linear,' +
+                             'opacity ' + ms + 'ms linear';
+  },
+
+  _edgesEnabled: false,
+  _settingUpdate: function st_settingUpdate(enabled) {
+    this._edgesEnabled = enabled;
   }
 };
+
+SheetsTransition.init();

@@ -5,40 +5,65 @@
     <meta charset="utf-8">
     <title>Messages</title>
     <!-- Stable Building blocks -->
-    <link rel="stylesheet" type="text/css" href="shared/style/headers.css">
-    <link rel="stylesheet" type="text/css" href="shared/style/edit_mode.css">
+    <link rel="stylesheet" type="text/css" href="shared/style/action_menu.css">
     <link rel="stylesheet" type="text/css" href="shared/style/buttons.css">
-    <link rel="stylesheet" type="text/css" href="shared/style_unstable/lists.css">
-    <!--
+    <link rel="stylesheet" type="text/css" href="shared/style/confirm.css">
+    <link rel="stylesheet" type="text/css" href="shared/style/edit_mode.css">
+    <link rel="stylesheet" type="text/css" href="shared/style/headers.css">
     <link rel="stylesheet" type="text/css" href="shared/style/input_areas.css">
     <link rel="stylesheet" type="text/css" href="shared/style/switches.css">
-    <link rel="stylesheet" type="text/css" href="shared/style/confirm.css">
-    <link rel="stylesheet" type="text/css" href="shared/style_unstable/progress_activity.css">
-    <link rel="stylesheet" type="text/css" href="shared/style_unstable/lists.css">
-    <link rel="stylesheet" type="text/css" href="shared/style/switches.css">
-    <link rel="stylesheet" type="text/css" href="shared/style/confirm.css">
-    <link rel="stylesheet" type="text/css" href="shared/style_unstable/progress_activity.css">
-    <link rel="stylesheet" type="text/css" href="/shared/style/action_menu.css">
-    -->
+    <link rel="stylesheet" type="text/css" href="shared/style/lists.css">
+    <link rel="stylesheet" type="text/css" href="shared/style/progress_activity.css">
+    <link rel="stylesheet" type="text/css" href="shared/style/status.css">
     <!-- App styles -->
     <link rel="stylesheet" type="text/css" href="style/root.css">
     <link rel="stylesheet" type="text/css" href="style/common.css">
     <link rel="stylesheet" type="text/css" href="style/sms.css">
+    <link rel="stylesheet" type="text/css" href="style/notification.css">
+    <link rel="stylesheet" type="text/css" href="style/report_view.css">
     <link rel="stylesheet" type="text/css" href="style/attachment.css">
     <!-- Localization -->
     <link rel="resource" type="application/l10n" href="locales/locales.ini">
     <link rel="resource" type="application/l10n" href="shared/locales/date.ini">
     <!-- Shared code -->
-    <script defer src="shared/js/l10n.js"></script>
-    <!--
-    <script defer src="shared/js/l10n_date.js"></script>
     <script defer src="shared/js/async_storage.js"></script>
+    <script defer src="shared/js/l10n.js"></script>
+    <script defer src="shared/js/l10n_date.js"></script>
     <script defer src="shared/js/notification_helper.js"></script>
     <script defer src="shared/js/gesture_detector.js"></script>
     <script defer src="shared/js/settings_url.js"></script>
     <script defer src="shared/js/template.js"></script>
     <script defer src="shared/js/mime_mapper.js"></script>
-    -->
+    <script defer src="shared/js/contact_photo_helper.js"></script>
+    <script defer src="js/dialog.js"></script>
+    <script defer src="js/blacklist.js"></script>
+    <script defer src="js/contacts.js"></script>
+    <script defer src="js/drafts.js"></script>
+    <script defer src="js/recipients.js"></script>
+    <script defer src="js/threads.js"></script>
+    <script defer src="js/message_manager.js"></script>
+    <script defer src="js/attachment.js"></script>
+    <script defer src="js/attachment_menu.js"></script>
+    <script defer src="js/thread_list_ui.js"></script>
+    <script defer src="js/thread_ui.js"></script>
+    <script defer src="js/compose.js"></script>
+    <script defer src="js/waiting_screen.js"></script>
+    <script defer src="js/utils.js"></script>
+    <script defer src="js/time_headers.js"></script>
+    <script defer src="js/activity_picker.js"></script>
+    <script defer src="js/wbmp.js"></script>
+    <script defer src="js/smil.js"></script>
+    <script defer src="js/link_helper.js"></script>
+    <script defer src="js/action_menu.js"></script>
+    <script defer src="js/link_action_handler.js"></script>
+    <script defer src="js/settings.js"></script>
+    <script defer src="js/notify.js"></script>
+    <script defer src="js/activity_handler.js"></script>
+    <script defer src="js/contact_renderer.js"></script>
+    <script defer src="js/information.js"></script>
+    <script defer src="shared/js/fb/fb_request.js"></script>
+    <script defer src="shared/js/fb/fb_data_reader.js"></script>
+    <script defer src="shared/js/fb/fb_reader_utils.js"></script>
     <script defer src="shared/js/lazy_loader.js"></script>
     <script defer src="js/startup.js"></script>
   </head>
@@ -51,15 +76,14 @@
             <a href="#new" id="icon-add">
               <span class="icon icon-compose"></span>
             </a>
-            <a id="threads-edit-icon">
-              <span class="icon icon-edit"></span>
+            <a id="threads-options-icon">
+              <span class="icon icon-options"></span>
             </a>
           </menu>
           <h1 data-l10n-id="messages">Messages</h1>
         </header>
         <article id="threads-container" class="view-body" data-type="list">
         </article>
-        <div id="threads-header-container" class="fixed-title no-fixed-header"></div>
 
         <div id="threads-no-messages" class="hide">
           <div id="no-result-message">
@@ -89,6 +113,10 @@
             </button>
           </menu>
         </form>
+
+        <section id="threads-draft-saved-banner" class="hide" role="status">
+          <p data-l10n-id="message-draft-saved">Message saved as draft</p>
+        </section>
       </section>
 
       <section id="thread-messages" class="panel" role="region">
@@ -131,15 +159,15 @@
           <div id="contact-carrier" data-l10n-id="carrier-unknown" class="carrier-wrapper">
             Carrier unknown
           </div>
-          <section id="messages-max-length-notice"
-                  role="notification"
-                  class="hide">
-            <p></p>
-          </section>
           <!-- Notifications in this container will be rendered on top of the
           Compose field. These notifications should be hidden automatically so
           they do not prevent the user from inputting text. -->
           <div class="overlay">
+            <section id="messages-max-length-notice"
+                     role="notification"
+                     class="hide">
+              <p></p>
+            </section>
             <section id="messages-convert-notice"
                     role="notification"
                     class="hide">
@@ -153,25 +181,42 @@
             <section id="messages-new-message-notice"
                     role="notification"
                     class="hide">
-              <div id="new-message-notice-content">
-                <div id="new-message-notice-container-1">
-                  <div id="new-message-notice-text" data-l10n-id="new-message-notice-text">You have new messages</div>
-                  <div id="new-message-notice-contact">Contact</div>
-                </div>
-                <div id="new-message-notice-container-2">
-                  <a role="button" data-l10n-id="new-message-notice-a-text">read it</a>
-                </div>
+              <div>
+                <div data-l10n-id="new-message-notice-text">You have new messages</div>
+                <div class="contact">Contact</div>
+              </div>
+              <div>
+                <a role="button" data-l10n-id="new-message-notice-a-text">read it</a>
               </div>
             </section>
           </div>
         </div>
         <article id="messages-container" class="view-body article-list" data-type="list">
         </article>
-        <article id="messages-participants" class="view-body article-list hide" data-type="list">
-          <ul id="messages-participants-list" class="contact-list"></ul>
+        <article id="information-participants" class="view-body article-list hide" data-type="list">
+          <ul class="contact-list"></ul>
+        </article>
+        <article id="information-report" class="view-body article-list report-view hide" data-type="list">
+          <div class="description">
+            <p class="type"></p>
+            <p class="subject"></p>
+            <p class="datetime l10n-contains-date"></p>
+          </div>
+          <div class="status-container">
+            <span class="status"></span>
+            <aside></aside>
+          </div>
+          <span class="contact-title"></span>
+          <ul class="contact-list"></ul>
+          <div class="size-block">
+            <span data-l10n-id="message-size-was"></span>
+            <span class="size"></span>
+          </div>
         </article>
         <form role="search" id="messages-compose-form" class="bottom messages-compose-form" data-message-type="sms">
           <button id="messages-send-button" disabled data-l10n-id="send" type="submit">Send</button>
+          <textarea id="messages-subject-input" placeholder="Subject" name="subject"
+            data-l10n-id="composeSubject" class="hide" maxlength="40"></textarea>
           <!-- The <br> is needed because of 414223, which is a WONTFIX. It's just because of how contentEditable works. https://bugzilla.mozilla.org/show_bug.cgi?id=414223 -->
           <div id="messages-input" contentEditable="true" name="message"
             data-l10n-id="composeMessage" x-inputmode="-moz-sms"><br></div>
@@ -229,25 +274,45 @@
       -  Templates
       -->
 
-    <div id="messages-contact-tmpl" class="hide">
+    <div id="contact-suggestion-tmpl" class="hide">
       <!--
-      <a class="suggestion"
-        data-number="${number}" data-source="contacts" data-name="${name}"
-        data-type="${type}" data-separator="${separator}" data-carrier="${carrier}">
-        ${photoHTML}
-        <p class="name">${nameHTML}</p>
-        <p class="number">
-          <span data-l10n-id="${type}">${type}</span>${separator}${carrier}${numberHTML}
-        </p>
-      </a>
+      <li>
+        <a class="suggestion"
+          data-number="${number}" data-source="contacts" data-name="${name}"
+          data-type="${type}" data-separator="${separator}" data-carrier="${carrier}">
+          ${photoHTML}
+          <p class="name">${nameHTML}</p>
+          <p class="number">
+            <span data-l10n-id="${type}">${type}</span>${separator}${carrier}${numberHTML}
+          </p>
+        </a>
+      </li>
       -->
     </div>
 
-    <div id="messages-contact-photo-tmpl" class="hide">
+    <div id="contact-prompt-tmpl" class="hide">
+      <!--
+      <div class="contact-header">
+        ${photoHTML}
+        <p class="name">${name}</p>
+        <p class="details">
+          <span data-l10n-id="${type}">${type}</span>${separator}${carrier}${number}
+        </p>
+      </div>
+      -->
+    </div>
+
+    <div id="contact-photo-tmpl" class="hide">
       <!--
       <aside class="pack-end">
-        <img src="${photoURL}">
+        <img src="${photoURL}" alt="">
       </aside>
+      -->
+    </div>
+
+    <div id="contact-highlight-tmpl" class="hide">
+      <!--
+      <span class="highlight">${str}</span>
       -->
     </div>
 
@@ -259,20 +324,33 @@
       -->
     </div>
 
+    <div id="information-report-tmpl" class="hide">
+      <!--
+      <p class="${deliveryClass}">
+        <span data-l10n-id="message-delivered"></span>
+        <span class="l10n-contains-date" data-l10n-id="${deliveryL10n}"
+              data-l10n-date="${deliveryTimestamp}"
+              data-l10n-date-format="${messageL10nDateFormat}"
+              >${deliveryDateL10n}</span>
+      </p>
+      <p class="${readClass}">
+        <span data-l10n-id="message-read-title"></span>
+        <span class="l10n-contains-date" data-l10n-id="${readL10n}"
+              data-l10n-date="${readTimestamp}"
+              data-l10n-date-format="${messageL10nDateFormat}"
+              >${readDateL10n}</span>
+      </p>
+      -->
+    </div>
+
     <div id="messages-not-downloaded-tmpl" class="hide">
       <!--
-      <span class="not-downloaded-message"
+      <span class="not-downloaded-message l10n-contains-date"
             data-l10n-id="${messageL10nId}"
             data-l10n-args="${messageL10nArgs}"
             data-l10n-date="${messageL10nDate}"
             data-l10n-date-format="${messageL10nDateFormat}"></span>
       <form><button class="download" data-l10n-id="${downloadL10nId}"></button></form>
-      -->
-    </div>
-
-    <div id="messages-highlight-tmpl" class="hide">
-      <!--
-      <span class="highlight">${str}</span>
       -->
     </div>
 
@@ -286,10 +364,12 @@
         <h1 class="subject">
           ${subject}
         </h1>
-        <aside class="pack-end">
-          <progress></progress>
-        </aside>
-        <p>${bodyHTML}</p>
+        <div class="message-content">
+          <aside class="pack-end">
+            <progress></progress>
+          </aside>
+          <p>${bodyHTML}</p>
+        </div>
       </section>
       -->
     </div>
@@ -297,17 +377,17 @@
     <div id="messages-thread-tmpl" class="hide">
       <!--
       <label class="pack-checkbox danger">
-        <input type="checkbox" value="${id}">
+        <input type="checkbox" value="${id}" data-mode="${mode}">
         <span></span>
       </label>
-      <a href="#thread=${id}">
-        <aside class="icon icon-unread">unread</aside>
+      <a href="${hash}">
+        <aside class="icon icon-unread icon-draft">icon</aside>
         <aside class="pack-end">
           <img src="">
         </aside>
-        <p class="name">${number}</p>
-        <p>
-          <time>${formattedDate}</time>
+        <p class="name" data-l10n-id="no-recipient">${number}</p>
+        <p class="summary">
+          <time data-time-update="true" data-time-only="true" data-time="${timestamp}"></time>
           <span class="mms-icon">MMS</span>
           <span class="body-text">${bodyHTML}</span>
         </p>

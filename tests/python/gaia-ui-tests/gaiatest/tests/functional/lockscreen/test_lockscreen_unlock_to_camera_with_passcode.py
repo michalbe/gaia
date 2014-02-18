@@ -15,28 +15,33 @@ class TestCameraUnlockWithPasscode(GaiaTestCase):
         GaiaTestCase.setUp(self)
 
         # Turn off geolocation prompt
-        self.apps.set_permission('System', 'geolocation', 'deny')
+        self.apps.set_permission('Camera', 'geolocation', 'deny')
 
         self.data_layer.set_setting('lockscreen.passcode-lock.code', self._input_passcode)
         self.data_layer.set_setting('lockscreen.passcode-lock.enabled', True)
 
         # this time we need it locked!
-        self.lockscreen.lock()
-        self.lock_screen = LockScreen(self.marionette)
+        self.device.lock()
 
     def test_unlock_to_camera_with_passcode(self):
-        # https://github.com/mozilla/gaia-ui-tests/issues/479
+        """https://moztrap.mozilla.org/manage/case/2460/"""
 
-        camera = self.lock_screen.unlock_to_camera()
-        self.lock_screen.wait_for_lockscreen_not_visible()
+        lock_screen = LockScreen(self.marionette)
+        camera = lock_screen.unlock_to_camera()
 
-        self.assertFalse(self.lockscreen.is_locked)
+        # Bug 965806 - test_lockscreen_unlock_to_camera_with_passcode.TestCameraUnlockWithPasscode is failing after Bug 951978
+        # lock_screen.wait_for_lockscreen_not_visible()
+
+        self.assertTrue(self.device.is_locked)
 
         camera.switch_to_camera_frame()
+        camera.take_photo()
 
-        self.assertFalse(camera.is_gallery_button_visible)
+        # Check that Filmstrip is visible
+        self.assertTrue(camera.is_filmstrip_visible)
 
-        camera.tap_switch_source()
-        camera.wait_for_capture_ready()
+        # Check that picture saved to SD cards
+        self.wait_for_condition(lambda m: len(self.data_layer.picture_files) == 1)
+        self.assertEqual(len(self.data_layer.picture_files), 1)
 
         self.assertFalse(camera.is_gallery_button_visible)

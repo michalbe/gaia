@@ -41,8 +41,8 @@
   TutorialSteps.tiny = {};
   TutorialSteps.large = {};
 
-  TutorialSteps.tiny.stepsCount = 5 + 1;
-  TutorialSteps.large.stepsCount = 5 + 1;
+  TutorialSteps.tiny.stepsCount = 6 + 1;
+  TutorialSteps.large.stepsCount = 4 + 1;
 
   for (var supportLayout in TutorialSteps) {
     for (var stepIndex = 1; stepIndex <
@@ -52,11 +52,24 @@
       var imagePathSuffix = (supportLayout === 'tiny') ?
           '.png' : '_' + supportLayout + '.png';
 
+      // Because we may change wordings on FTU, we need a specific suffix
+      // used to concate distinct l10n id in different layout.
+      //
+      // NOTE: If you change any related wordings in properties file, remember
+      // to change the suffix here
+      var l10nKeySuffix = (supportLayout === 'tiny') ? '' : '-2';
+
       TutorialSteps[supportLayout][stepIndex] = {
         hash: '#step' + stepIndex,
-        key: 'tutorial-step' + stepIndex + '-' + supportLayout,
+        key: 'tutorial-step' + stepIndex + '-' + supportLayout + l10nKeySuffix,
         image: 'css/images/tutorial/' + stepIndex + imagePathSuffix
       };
+      // Add setting key to the last tutorial step
+      // You can add a 'setting' key to add a condition to the step
+      if (stepIndex === TutorialSteps[supportLayout].stepsCount - 1) {
+        TutorialSteps[supportLayout][stepIndex]['setting'] =
+          'edgesgesture.enabled';
+      }
     }
     delete TutorialSteps[supportLayout].stepsCount;
   }

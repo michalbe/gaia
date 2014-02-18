@@ -19,22 +19,21 @@ class TestContacts(GaiaTestCase):
         self.push_resource('IMG_0001.jpg', destination='DCIM/100MZLLA')
 
     def test_add_photo_from_gallery_to_contact(self):
-        # https://moztrap.mozilla.org/manage/case/5551/
+        """https://moztrap.mozilla.org/manage/case/5551/"""
 
         contacts_app = Contacts(self.marionette)
         contacts_app.launch()
         contacts_app.wait_for_contacts()
 
-        contact_details = contacts_app.contact(self.contact['givenName'][0]).tap()
+        contact_details = contacts_app.contact(self.contact['givenName']).tap()
 
-        full_name = ' '.join([self.contact['givenName'][0], self.contact['familyName'][0]])
+        full_name = ' '.join([self.contact['givenName'], self.contact['familyName']])
 
         self.assertEqual(full_name, contact_details.full_name)
 
         saved_contact_image_style = contact_details.image_style
 
         edit_contact = contact_details.tap_edit()
-        self.assertEqual('Edit contact', edit_contact.title)
 
         saved_picture_style = edit_contact.picture_style
 
@@ -52,8 +51,6 @@ class TestContacts(GaiaTestCase):
         # fall back to the contacts app
         self.wait_for_condition(lambda m: self.apps.displayed_app.name == contacts_app.name)
         self.apps.switch_to_displayed_app()
-
-        self.assertEqual('Edit contact', edit_contact.title)
 
         edit_contact.wait_for_image_to_load()
 

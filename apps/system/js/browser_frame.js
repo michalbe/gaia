@@ -15,26 +15,17 @@
  * @class  BrowserFrame
  */
 
-var BrowserFrame = (function invocation() {
+(function(window) {
   var nextId = 0;
-
-  // This force-enable APZ setting is temporary, so that we can turn it
-  // on and hammer out the bugs that result. Once APZ is enabled by default
-  // this setting can be removed.
-  var apzSetting = 'apz.force-enable';
-  var forceEnableApz = SettingsListener.getSettingsLock().get(apzSetting);
-  SettingsListener.observe(apzSetting, false, function(value) {
-    forceEnableApz = value;
-  });
-
-  function BrowserFrame() { // This constructor function is a local variable.
+  window.BrowserFrame = function BrowserFrame() {
     this.element = null;
     this._id = nextId++;
     // All arguments are values to createFrame
     createFrame.apply(this, arguments);
-  }
+    return this;
+  };
 
-  BrowserFrame.className = 'browser';
+  BrowserFrame.prototype.CLASS_NAME = 'browser';
 
   // These are helper functions and variables used by the methods above
   // They're not part of the public API of the module, but they're hidden
@@ -57,10 +48,15 @@ var BrowserFrame = (function invocation() {
     if (config.oop)
       browser.setAttribute('remote', 'true');
 
-    if (config.manifestURL)
+    if (config.manifestURL) {
       browser.setAttribute('mozapp', config.manifestURL);
 
-    if (config.useAsyncPanZoom || forceEnableApz) {
+      // Only app with manifest could get system message.
+      browser.setAttribute('expecting-system-message',
+                            'expecting-system-message');
+    }
+
+    if (config.useAsyncPanZoom) {
       // XXX: Move this dataset assignment into app window object.
       browser.dataset.useAsyncPanZoom = true;
       browser.setAttribute('mozasyncpanzoom', 'true');
@@ -68,14 +64,19 @@ var BrowserFrame = (function invocation() {
 
     setMozAppType(browser, config);
 
-    if (config.url)
+    if (config.url) {
       browser.src = config.url;
+      // XXX: This one is for some failing python tests using
+      // iframe[data-url*=XXX] to locate. But we shall change it later.
+      browser.dataset.url = config.url;
+    }
 
-    browser.id = BrowserFrame.className + this._id;
+    browser.id = this.CLASS_NAME + this._id;
 
-    browser.classList.add(BrowserFrame.className);
+    browser.classList.add(this.CLASS_NAME);
 
-    // Store the element
+    this.config = config;
+
     this.element = browser;
   };
 
@@ -99,13 +100,5 @@ var BrowserFrame = (function invocation() {
        */
       iframe.setAttribute('mozapptype', 'homescreen');
     }
-  };
-
-  // The public API for this module is the Browser() constructor function.
-  // We need to export that function from this private namespace so that
-  // it can be used on the outside. In this case, we export the constructor
-  // by returning it. It becomes the value of the assignment expression
-  // on the first line above.
-  return BrowserFrame;
-}()); // Invoke the function immediately after defining it.
-
+  }
+}(this));

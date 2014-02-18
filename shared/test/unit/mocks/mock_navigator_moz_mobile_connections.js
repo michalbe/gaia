@@ -2,14 +2,20 @@
 
 (function() {
   function MockMobileconnection() {
-    var props = ['voice', 'data'];
+    var props = ['voice', 'data', 'iccId', 'radioState', 'iccInfo'];
     var eventListeners = null;
+    var radioEnabledReq = null;
 
     function mnmmc_init() {
       props.forEach(function(prop) {
         _mock[prop] = null;
       });
-      eventListeners = { 'iccinfochange': [] };
+      eventListeners = {
+        'voicechange': [],
+        'iccinfochange': [],
+        'radiostatechange': []
+      };
+      radioEnabledReq = {};
     }
 
     function mnmmc_addEventListener(type, callback) {
@@ -43,11 +49,19 @@
       }
     }
 
+    function mnmmc_setRadioEnabled() {
+      return radioEnabledReq;
+    }
+
     var _mock = {
       addEventListener: mnmmc_addEventListener,
       removeEventListener: mnmmc_removeEventListener,
       triggerEventListeners: mnmmc_triggerEventListeners,
+      setRadioEnabled: mnmmc_setRadioEnabled,
       mTeardown: mnmmc_init,
+      get mCachedRadioEnabledReq() {
+        return radioEnabledReq;
+      },
       get mEventListeners() {
         return eventListeners;
       }
@@ -64,6 +78,7 @@
     function _mAddMobileConnection(newConn, index) {
       if (newConn) {
         _mobileConnections.splice(index, 0, newConn);
+        _mock[index] = newConn;
       } else {
         var conn = MockMobileconnection();
         _mock[_mobileConnections.length] = conn;
@@ -72,13 +87,24 @@
     }
 
     function _mRemoveMobileConnection(index) {
-      _mobileConnections.splice(index, 1);
+      if (!_mobileConnections.length)
+        return;
+
+      if (index) {
+        _mobileConnections.splice(index, 1);
+        _mock[index] = null;
+      } else {
+        _mobileConnections.splice(_mobileConnections.length - 1, 1);
+        _mock[_mobileConnections.length - 1] = null;
+      }
     }
 
     function _mTeardown() {
-      _mobileConnections.forEach(function(conn) {
+      _mobileConnections.every(function(conn, index) {
         conn.mTeardown();
       });
+      _mobileConnections = [];
+      _mAddMobileConnection();
     }
 
     var _mock = {
@@ -95,5 +121,6 @@
     return _mock;
   }
 
+  window.MockMobileconnection = MockMobileconnection;
   window.MockNavigatorMozMobileConnections = MockMobileConnections();
 })();

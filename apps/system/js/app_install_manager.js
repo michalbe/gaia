@@ -13,6 +13,7 @@ var AppInstallManager = {
   },
 
   init: function ai_init() {
+    this.systemBanner = new SystemBanner();
     this.dialog = document.getElementById('app-install-dialog');
     this.msg = document.getElementById('app-install-message');
     this.size = document.getElementById('app-install-size');
@@ -194,6 +195,15 @@ var AppInstallManager = {
   handleInstallSuccess: function ai_handleInstallSuccess(app) {
     var manifest = app.manifest || app.updateManifest;
     var role = manifest.role;
+
+    // We must stop 3rd-party keyboard app from being installed
+    // if the feature is not enabled.
+    if (role === 'input' && !KeyboardManager.isOutOfProcessEnabled) {
+      navigator.mozApps.mgmt.uninstall(app);
+
+      return;
+    }
+
     if (this.configurations[role]) {
       this.setupQueue.push(app);
       this.checkSetupQueue();
@@ -215,7 +225,7 @@ var AppInstallManager = {
     var name = appManifest.name;
     var _ = navigator.mozL10n.get;
     var msg = _('app-install-success', { appName: name });
-    SystemBanner.show(msg);
+    this.systemBanner.show(msg);
   },
 
   checkSetupQueue: function ai_checkSetupQueue() {
@@ -248,6 +258,7 @@ var AppInstallManager = {
     navigator.mozL10n.localize(this.setupAppName,
                               'app-install-success', { appName: appName });
     this.setupInstalledAppDialog.classList.add('visible');
+    window.dispatchEvent(new CustomEvent('applicationsetupdialogshow'));
   },
 
   handleSetupCancelAction: function ai_handleSetupCancelAction() {
@@ -345,7 +356,7 @@ var AppInstallManager = {
 
         var key = this.mapDownloadErrorsToMessage[errorName] || 'generic-error';
         var msg = _('app-install-' + key, { appName: name });
-        SystemBanner.show(msg);
+        this.systemBanner.show(msg);
     }
 
     this.onDownloadStop(app);

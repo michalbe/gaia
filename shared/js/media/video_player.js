@@ -43,6 +43,9 @@ function VideoPlayer(container) {
   var elapsedBar = newelt(progress, 'div', 'videoPlayerElapsedBar');
   var playHead = newelt(progress, 'div', 'videoPlayerPlayHead');
   var durationText = newelt(slider, 'span', 'videoPlayerDurationText');
+  // expose fullscreen button, so that client can manipulate it directly
+  var fullscreenButton = newelt(slider, 'button',
+                          'videoPlayerFullscreenButton');
 
   this.poster = poster;
   this.player = player;
@@ -182,6 +185,15 @@ function VideoPlayer(container) {
     if (this.onplaying)
       this.onplaying();
   };
+
+  fullscreenButton.addEventListener('tap', function(e) {
+    if (self.onfullscreentap) {
+      // If the event propagate to controller, videoplayer will hide
+      // the toolbar, so we stopPropagation here.
+      e.stopPropagation();
+      self.onfullscreentap();
+    }
+  });
 
   // Hook up the play button
   playbutton.addEventListener('tap', function(e) {
@@ -433,23 +445,17 @@ function VideoPlayer(container) {
   });
 
   function formatTime(time) {
-    function padLeft(num, length) {
-      var r = String(num);
-      while (r.length < length) {
-        r = '0' + r;
-      }
-      return r;
-    }
-
     time = Math.round(time);
     var minutes = Math.floor(time / 60);
     var seconds = time % 60;
     if (minutes < 60) {
-      return padLeft(minutes, 2) + ':' + padLeft(seconds, 2);
+      return Format.padLeft(minutes, 2, '0') + ':' +
+        Format.padLeft(seconds, 2, '0');
     } else {
       var hours = Math.floor(minutes / 60);
       minutes = Math.round(minutes % 60);
-      return hours + ':' + padLeft(minutes, 2) + ':' + padLeft(seconds, 2);
+      return hours + ':' + Format.padLeft(minutes, 2, '0') + ':' +
+        Format.padLeft(seconds, 2, '0');
     }
     return '';
   }

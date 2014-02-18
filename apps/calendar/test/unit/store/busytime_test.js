@@ -5,7 +5,6 @@ requireLib('store/busytime.js');
 requireLib('store/alarm.js');
 
 suite('store/busytime', function() {
-
   var app;
   var subject;
   var db;
@@ -56,7 +55,6 @@ suite('store/busytime', function() {
   }
 
   setup(function(done) {
-    this.timeout(5000);
     id = 0;
     app = testSupport.calendar.app();
     db = app.db;

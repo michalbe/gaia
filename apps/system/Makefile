@@ -1,10 +1,13 @@
-all: copy-camera-app
+-include $(PWD)/build/common.mk
 
-# This make target copies the camera app to System app
-# and use it as the secure camera.
-.PHONY: copy-camera-app
-copy-camera-app:
+BUILD_DIR=$(PWD)/build_stage/system
+
+.PHONY: all clean
+all: clean
+	@echo Building system app to build_stage...
+	@mkdir -p $(BUILD_DIR)
+	@cp -r * $(BUILD_DIR)
+	@$(call run-app-js-command, build)
+clean:
 	@rm -rf ./camera
-	@cp -r ../camera ./camera
-	@rm ./camera/manifest.webapp
-	@rm -rf ./camera/test
+	@rm -rf $(BUILD_DIR)

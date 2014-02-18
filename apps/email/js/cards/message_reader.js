@@ -13,6 +13,7 @@ var MimeMapper,
                          require('tmpl!./msg/attachment_disabled_confirm.html'),
     common = require('mail_common'),
     model = require('model'),
+    headerCursor = require('header_cursor').cursor,
     evt = require('evt'),
     iframeShims = require('iframe_shims'),
     Marquee = require('marquee'),
@@ -55,61 +56,18 @@ function MessageReaderCard(domNode, mode, args) {
   this.domNode = domNode;
   this.messageSuid = args.messageSuid;
 
-  if (args.header) {
-    this._setHeader(args.header);
-  } else {
-    // This assumes latest folder is the one of interest.
-    model.latestOnce('folder', function(folder) {
-      var messagesSlice = model.api.viewFolderMessages(folder);
-
-      function clear() {
-        messagesSlice.die();
-        messagesSlice = null;
-      }
-
-      messagesSlice.onsplice = (function(index, howMany, addedItems,
-                                         requested, moreExpected) {
-
-        // Avoid doing work if get called while in the process of
-        // shutting down.
-        if (!messagesSlice)
-          return;
-
-        if (!this.header && addedItems && addedItems.length) {
-          addedItems.some(function(item) {
-              if (item.id === this.messageSuid) {
-                this._setHeader(item);
-                clear();
-                return true;
-              }
-          }.bind(this));
-
-          // If at the top, and no message was found, then if the UI
-          // wants to go back on missing message, do that now. This
-          // card may have been created from obsolete data, like an
-          // old notification for a message that no longer exists.
-          // This stops atTop since the most likely case for this
-          // entry point is either clicking on a message that is
-          // at the top of the inbox in the HTML cache, or from a
-          // notification for a new message, which would be near
-          // the top.
-          if (messagesSlice && messagesSlice.atTop &&
-              !this.header &&
-              args.backOnMissingMessage) {
-            clear();
-            this.onBack();
-          }
-        }
-
-      }).bind(this);
-    }.bind(this));
-  }
+  this.previousBtn = domNode.getElementsByClassName('msg-up-btn')[0];
+  this.previousIcon = domNode.getElementsByClassName('icon-up')[0];
+  this.nextBtn = domNode.getElementsByClassName('msg-down-btn')[0];
+  this.nextIcon = this.domNode.getElementsByClassName('icon-down')[0];
 
   // The body elements for the (potentially multiple) iframes we created to hold
   // HTML email content.
   this.htmlBodyNodes = [];
 
   this._on('msg-back-btn', 'click', 'onBack', true);
+  this._on('msg-up-btn', 'click', 'onPrevious');
+  this._on('msg-down-btn', 'click', 'onNext');
   this._on('msg-reply-btn', 'click', 'onReplyMenu');
   this._on('msg-delete-btn', 'click', 'onDelete');
   this._on('msg-star-btn', 'click', 'onToggleStar');
@@ -121,12 +79,23 @@ function MessageReaderCard(domNode, mode, args) {
 
   this.scrollContainer =
     domNode.getElementsByClassName('scrollregion-below-header')[0];
-
-  // event handler for body change events...
-  this.handleBodyChange = this.handleBodyChange.bind(this);
+  this.loadBar =
+    this.domNode.getElementsByClassName('msg-reader-load-infobar')[0];
+  this.rootBodyNode = domNode.getElementsByClassName('msg-body-container')[0];
 
   // whether or not we've built the body DOM the first time
   this._builtBodyDom = false;
+
+  // Bind some methods to this so they can be used as event listeners
+  this.handleBodyChange = this.handleBodyChange.bind(this);
+  this.onMessageSuidNotFound = this.onMessageSuidNotFound.bind(this);
+  this.onCurrentMessage = this.onCurrentMessage.bind(this);
+
+  headerCursor.on('messageSuidNotFound', this.onMessageSuidNotFound);
+  headerCursor.latest('currentMessage', this.onCurrentMessage);
+
+  // This should handle the case where we jump right into the reader.
+  headerCursor.setCurrentMessage(this.header);
 }
 MessageReaderCard.prototype = {
   _contextMenuType: {
@@ -164,6 +133,82 @@ MessageReaderCard.prototype = {
   },
 
   postInsert: function() {
+    this._inDom = true;
+
+    // If have a message that is waiting for the DOM, finish
+    // out the display work.
+    if (this._afterInDomMessage) {
+      this.onCurrentMessage(this._afterInDomMessage);
+      this._afterInDomMessage = null;
+    }
+  },
+
+  told: function(args) {
+    if (args.messageSuid) {
+      this.messageSuid = args.messageSuid;
+    }
+  },
+
+  handleBodyChange: function(evt) {
+    this.buildBodyDom(evt.changeDetails);
+  },
+
+  onBack: function(event) {
+    Cards.removeCardAndSuccessors(this.domNode, 'animate');
+  },
+
+  /**
+   * Broadcast that we need to move previous if there's a previous sibling.
+   *
+   * @param {Event} event previous arrow click event.
+   */
+  onPrevious: function(event) {
+    headerCursor.advance('previous');
+  },
+
+  /**
+   * Broadcast that we need to move next if there's a next sibling.
+   *
+   * @param {Event} event next arrow click event.
+   */
+  onNext: function(event) {
+    headerCursor.advance('next');
+  },
+
+  onMessageSuidNotFound: function(messageSuid) {
+    // If no message was found, then go back. This card
+    // may have been created from obsolete data, like an
+    // old notification for a message that no longer exists.
+    // This stops atTop since the most likely case for this
+    // entry point is either clicking on a message that is
+    // at the top of the inbox in the HTML cache, or from a
+    // notification for a new message, which would be near
+    // the top.
+    if (this.messageSuid === messageSuid) {
+      this.onBack();
+    }
+  },
+
+  /**
+   * Set the message we're reading.
+   *
+   * @param {MessageCursor.CurrentMessage} currentMessage representation of the
+   *     email we're currently reading.
+   */
+  onCurrentMessage: function(currentMessage) {
+    // If the card is not in the DOM yet, do not proceed, as
+    // the iframe work needs to happen once DOM is available.
+    if (!this._inDom) {
+      this._afterInDomMessage = currentMessage;
+      return;
+    }
+
+    // Set our current message.
+    this.messageSuid = null;
+    this._setHeader(currentMessage.header);
+    this.clearDom();
+
+    // Display the header and fetch the body for display.
     this.latestOnce('header', function() {
       // iframes need to be linked into the DOM tree before their
       // contentDocument can be instantiated.
@@ -184,14 +229,17 @@ MessageReaderCard.prototype = {
         //
       }.bind(this));
     }.bind(this));
-  },
 
-  handleBodyChange: function(evt) {
-    this.buildBodyDom(evt.changeDetails);
-  },
+    // Previous.
+    var hasPrevious = currentMessage.siblings.hasPrevious;
+    this.previousBtn.disabled = !hasPrevious;
+    this.previousIcon.classList[hasPrevious ? 'remove' : 'add'](
+      'icon-disabled');
 
-  onBack: function(event) {
-    Cards.removeCardAndSuccessors(this.domNode, 'animate');
+    // Next.
+    var hasNext = currentMessage.siblings.hasNext;
+    this.nextBtn.disabled = !hasNext;
+    this.nextIcon.classList[hasNext ? 'remove' : 'add']('icon-disabled');
   },
 
   reply: function() {
@@ -251,11 +299,13 @@ MessageReaderCard.prototype = {
     });
 
     var otherAddresses = (this.header.to || []).concat(this.header.cc || []);
-    if (this.header.replyTo) {
+    if (this.header.replyTo && this.header.replyTo.author) {
       otherAddresses.push(this.header.replyTo.author);
     }
     for (var i = 0; i < otherAddresses.length; i++) {
-      if (myAddresses.indexOf(otherAddresses[i].address) == -1) {
+      var otherAddress = otherAddresses[i];
+      if (otherAddress.address &&
+          myAddresses.indexOf(otherAddress.address) == -1) {
         return true;
       }
     }
@@ -286,11 +336,6 @@ MessageReaderCard.prototype = {
       return false;
     }).bind(this);
     contents.addEventListener('submit', formSubmit);
-
-    if (!this.canForward()) {
-      contents.querySelector('.msg-reply-menu-forward')
-        .classList.add('collapsed');
-    }
 
     if (!this.canReplyAll()) {
       contents.querySelector('.msg-reply-menu-reply-all')
@@ -468,8 +513,7 @@ MessageReaderCard.prototype = {
 
   onLoadBarClick: function(event) {
     var self = this;
-    var loadBar =
-          this.domNode.getElementsByClassName('msg-reader-load-infobar')[0];
+    var loadBar = this.loadBar;
     if (!this.body.embeddedImagesDownloaded) {
       this.body.downloadEmbeddedImages(function() {
         // this gets nulled out when we get killed, so use this to bail.
@@ -666,6 +710,9 @@ MessageReaderCard.prototype = {
         return;
       }
 
+      // Make sure it is not hidden from a next/prev action.
+      lineNode.classList.remove('collapsed');
+
       // Because we can avoid having to do multiple selector lookups, we just
       // mutate the template in-place...
       var peepTemplate = msgPeepBubbleNode;
@@ -694,6 +741,33 @@ MessageReaderCard.prototype = {
                    header);
   },
 
+  clearDom: function() {
+    var domNode = this.domNode;
+    if (!domNode) {
+      // Nothing to do!
+      return;
+    }
+
+    // Clear header emails.
+    Array.slice(domNode.querySelectorAll('.msg-peep-bubble')).forEach(
+      function(node) {
+        node.parentNode.removeChild(node);
+      }
+    );
+
+    // Nuke rendered attachments.
+    var attachmentsContainer =
+      domNode.getElementsByClassName('msg-attachments-container')[0];
+    attachmentsContainer.innerHTML = '';
+
+    // Nuke existing body, show progress while waiting
+    // for message to load.
+    this.rootBodyNode.innerHTML = '<progress></progress>';
+
+    // Make sure load bar is not shown between loads too.
+    this.loadBar.classList.add('collapsed');
+  },
+
   /**
    * Render the DOM nodes for bodyReps and the attachments container.
    * If we have information on which parts of the message changed,
@@ -704,10 +778,9 @@ MessageReaderCard.prototype = {
    * @param {array} changeDetails.attachments An array of changed item indexes.
    */
   buildBodyDom: function(/* optional */ changeDetails) {
-    var body = this.body;
-    var domNode = this.domNode;
-
-    var rootBodyNode = domNode.getElementsByClassName('msg-body-container')[0],
+    var body = this.body,
+        domNode = this.domNode,
+        rootBodyNode = this.rootBodyNode,
         reps = body.bodyReps,
         hasExternalImages = false,
         showEmbeddedImages = body.embeddedImageCount &&
@@ -783,7 +856,7 @@ MessageReaderCard.prototype = {
     // The image logic checks embedded image counts, so this should be
     // able to run every time:
     // -- HTML-referenced Images
-    var loadBar = domNode.getElementsByClassName('msg-reader-load-infobar')[0];
+    var loadBar = this.loadBar;
     if (body.embeddedImageCount && !body.embeddedImagesDownloaded) {
       loadBar.classList.remove('collapsed');
       loadBar.textContent =
@@ -811,6 +884,10 @@ MessageReaderCard.prototype = {
     var attachmentsContainer =
       domNode.getElementsByClassName('msg-attachments-container')[0];
     if (body.attachments && body.attachments.length) {
+      // If buildBodyDom is called multiple times, the attachment
+      // state might change, so we must ensure the attachment list is
+      // not collapsed if we now have attachments.
+      attachmentsContainer.classList.remove('collapsed');
       // We need MimeMapper to help us determining the downloadable attachments
       // but it might not be loaded yet, so load before use it
       require(['shared/js/mime_mapper'], function(mapper) {
@@ -842,6 +919,8 @@ MessageReaderCard.prototype = {
 
           if (attachment.isDownloaded)
             state = 'downloaded';
+          else if (!attachment.isDownloadable)
+            state = 'nodownload';
           else if (MimeMapper.isSupportedType(attachment.mimetype) ||
                    MimeMapper.isSupportedExtension(extension))
             state = 'downloadable';
@@ -883,6 +962,10 @@ MessageReaderCard.prototype = {
   },
 
   die: function() {
+    headerCursor.removeListener('messageSuidNotFound',
+                                this.onMessageSuidNotFound);
+    headerCursor.removeListener('currentMessage', this.onCurrentMessage);
+
     // Our header was makeCopy()d from the message-list and so needs to be
     // explicitly removed since it is not part of a slice.
     if (this.header) {

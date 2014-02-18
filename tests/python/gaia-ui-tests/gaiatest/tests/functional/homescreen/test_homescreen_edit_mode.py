@@ -12,7 +12,8 @@ class TestEditMode(GaiaTestCase):
         GaiaTestCase.setUp(self)
 
         self.homescreen = Homescreen(self.marionette)
-        self.homescreen.switch_to_homescreen_frame()
+        self.apps.switch_to_displayed_app()
+        self.homescreen.wait_for_homescreen_to_load()
 
     def test_access_and_leave_edit_mode(self):
 
@@ -25,6 +26,6 @@ class TestEditMode(GaiaTestCase):
         self.assertTrue(self.homescreen.is_edit_mode_active, "Edit mode should be active")
 
         # Tap home button and verify that edit mode is no longer active
-        self.homescreen.touch_home_button()
+        self.device.touch_home_button()
 
         self.assertFalse(self.homescreen.is_edit_mode_active, "Edit mode should not be active")

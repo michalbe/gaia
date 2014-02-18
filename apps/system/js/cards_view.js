@@ -16,7 +16,6 @@ var CardsView = (function() {
   // by dragging it upwards
   var MANUAL_CLOSING = true;
 
-  var DEVICE_RATIO = window.devicePixelRatio || 1;
   var cardsView = document.getElementById('cards-view');
   var screenElement = document.getElementById('screen');
   var cardsList = cardsView.firstElementChild;
@@ -44,6 +43,8 @@ var CardsView = (function() {
   var cardsViewShown = false;
 
   var windowWidth = window.innerWidth;
+
+  var lastInTimeCapture;
 
   // init events
   var gd = new GestureDetector(cardsView);
@@ -89,28 +90,57 @@ var CardsView = (function() {
     return stringHTML;
   }
 
+  function fireCardViewClosed() {
+    setTimeout(function nextTick() {
+      window.dispatchEvent(new CustomEvent('cardviewclosed'));
+    });
+  }
+
   // Build and display the card switcher overlay
   // Note that we rebuild the switcher each time we need it rather
   // than trying to keep it in sync with app launches.  Performance is
   // not an issue here given that the user has to hold the HOME button down
   // for one second before the switcher will appear.
-  function showCardSwitcher(inTimeCapture) {
+  // The second parameter, inRocketbar, determines how to display the
+  // cardswitcher inside of the rocketbar. Both modes are necessary until
+  // Rocketbar is enabled by default, then this will go away.
+  function showCardSwitcher(inRocketbar) {
+
+    var inTimeCapture = lastInTimeCapture;
+    lastInTimeCapture = false;
+
     if (cardSwitcherIsShown())
       return;
 
     // events to handle
     window.addEventListener('lock', CardsView);
 
+    screenElement.classList.add('cards-view');
+
     // Close utility tray if it is opened.
     UtilityTray.hide(true);
 
     // Apps info from WindowManager
-    displayedApp = WindowManager.getDisplayedApp();
+    displayedApp = AppWindowManager.getDisplayedApp();
     currentDisplayed = 0;
-    runningApps = WindowManager.getRunningApps();
+    runningApps = AppWindowManager.getRunningApps();
+
+    // Return early if inRocketbar and there are no apps besides homescreen
+    if (Object.keys(runningApps).length < 2 && inRocketbar) {
+      // Fire a cardchange event to notify the rocketbar that there are no cards
+      fireCardViewClosed();
+      return;
+    } else if (inRocketbar) {
+      screenElement.classList.add('task-manager');
+      CC_SCALE = 0.6;
+      SC_SCALE = 0.5;
+    } else {
+      CC_SCALE = 0.8;
+      SC_SCALE = 0.6;
+    }
 
     // Switch to homescreen
-    WindowManager.launch(null);
+    AppWindowManager.display(null, null, 'to-cardview');
     cardsViewShown = true;
 
     // If user is not able to sort apps manualy,
@@ -136,7 +166,6 @@ var CardsView = (function() {
       // First add an item to the cardsList for each running app
       for (var origin in runningApps) {
         addCard(origin, runningApps[origin], function showCards() {
-          screenElement.classList.add('cards-view');
           cardsView.classList.add('active');
         });
       }
@@ -180,7 +209,7 @@ var CardsView = (function() {
     }
 
     // Make sure we're in default orientation
-    screen.mozLockOrientation(ScreenLayout.defaultOrientation);
+    screen.mozLockOrientation(OrientationManager.defaultOrientation);
 
     // If there is a displayed app, take keyboard focus away
     if (displayedApp)
@@ -189,8 +218,8 @@ var CardsView = (function() {
     placeCards();
     // At the beginning only the current card can listen to tap events
     currentCardStyle.pointerEvents = 'auto';
-
     window.addEventListener('tap', CardsView);
+    window.addEventListener('opencurrentcard', CardsView);
 
     function addCard(origin, app, displayedAppCallback) {
       // Display card switcher background first to make user focus on the
@@ -199,7 +228,7 @@ var CardsView = (function() {
         setTimeout(displayedAppCallback);
       }
       // Not showing homescreen
-      if (app.frame.classList.contains('homescreen')) {
+      if (app.isHomescreen) {
         return;
       }
 
@@ -261,6 +290,7 @@ var CardsView = (function() {
         card.classList.add('trustedui');
       } else if (attentionScreenApps.indexOf(origin) == -1) {
         var closeButton = document.createElement('div');
+        closeButton.setAttribute('role', 'button');
         closeButton.classList.add('close-card');
         card.appendChild(closeButton);
       }
@@ -307,14 +337,17 @@ var CardsView = (function() {
         // (instead of -moz-element backgrounds)
         // Only take a new screenshot if is the active app
         if (!cachedLayer || (
-          typeof frameForScreenshot.getScreenshot === 'function' &&
           origin === displayedApp && !inTimeCapture)) {
+          if (typeof frameForScreenshot.getScreenshot !== 'function') {
+            return;
+          }
+
           // rect is the final size (considering CSS transform) of the card.
           var rect = card.getBoundingClientRect();
           var width = isLandscape ? rect.height : rect.width;
           var height = isLandscape ? rect.width : rect.height;
           frameForScreenshot.getScreenshot(
-            width * DEVICE_RATIO, height * DEVICE_RATIO).onsuccess =
+            width, height).onsuccess =
             function gotScreenshot(screenshot) {
               var blob = screenshot.target.result;
               if (blob) {
@@ -346,13 +379,13 @@ var CardsView = (function() {
       cardsList.removeChild(element);
       closeApp(element, true);
     } else if ('origin' in e.target.dataset) {
-      WindowManager.launch(e.target.dataset.origin);
+      AppWindowManager.display(e.target.dataset.origin, 'from-cardview', null);
     }
   }
 
   function closeApp(element, removeImmediately) {
     // Stop the app itself
-    WindowManager.kill(element.dataset.origin);
+    AppWindowManager.kill(element.dataset.origin);
 
     // Fix for non selectable cards when we remove the last card
     // Described in https://bugzilla.mozilla.org/show_bug.cgi?id=825293
@@ -413,6 +446,7 @@ var CardsView = (function() {
     // events to handle
     window.removeEventListener('lock', CardsView);
     window.removeEventListener('tap', CardsView);
+    window.removeEventListener('opencurrentcard', CardsView);
 
     if (removeImmediately) {
       cardsView.classList.add('no-transition');
@@ -428,6 +462,7 @@ var CardsView = (function() {
       cardsList.innerHTML = '';
       prevCardStyle = currentCardStyle = nextCardStyle = currentCard =
       prevCard = nextCard = deltaX = null;
+      screenElement.classList.remove('task-manager');
     }
     if (removeImmediately) {
       removeCards();
@@ -435,6 +470,8 @@ var CardsView = (function() {
     } else {
       cardsView.addEventListener('transitionend', removeCards);
     }
+
+    fireCardViewClosed();
   }
 
   function cardSwitcherIsShown() {
@@ -839,6 +876,14 @@ var CardsView = (function() {
     },
   false);
 
+  function maybeShowInRocketbar() {
+    if (Rocketbar.enabled) {
+      Rocketbar.render(true);
+    } else {
+      showCardSwitcher();
+    }
+  }
+
   function cv_handleEvent(evt) {
     switch (evt.type) {
       case 'mousedown':
@@ -858,6 +903,11 @@ var CardsView = (function() {
         manualOrderStart(evt);
         break;
 
+      case 'opencurrentcard':
+        AppWindowManager.display(currentCard.dataset.origin,
+          'from-cardview', null);
+        break;
+
       case 'tap':
         tap(evt);
         break;
@@ -865,6 +915,8 @@ var CardsView = (function() {
       case 'home':
         if (!cardSwitcherIsShown())
           return;
+
+        window.dispatchEvent(new CustomEvent('cardviewclosedhome'));
 
         evt.stopImmediatePropagation();
         hideCardSwitcher();
@@ -880,18 +932,26 @@ var CardsView = (function() {
         attentionScreenApps = AttentionScreen.getAttentionScreenOrigins();
         break;
 
+      case 'taskmanagershow':
+        showCardSwitcher(true);
+        break;
+
+      case 'taskmanagerhide':
+        hideCardSwitcher();
+        break;
+
       case 'holdhome':
-        if (LockScreen.locked)
+        if (window.lockScreen && window.lockScreen.locked)
           return;
 
         SleepMenu.hide();
-        var currentApp = WindowManager.getDisplayedApp();
-        var app = WindowManager.getRunningApps()[currentApp];
+        var app = AppWindowManager.getActiveApp();
         if (!app) {
-          showCardSwitcher();
+          maybeShowInRocketbar();
         } else {
           app.getScreenshot(function onGettingRealtimeScreenshot() {
-            showCardSwitcher(true);
+            lastInTimeCapture = true;
+            maybeShowInRocketbar();
           });
         }
         break;
@@ -916,6 +976,8 @@ var CardsView = (function() {
 
 window.addEventListener('attentionscreenshow', CardsView);
 window.addEventListener('attentionscreenhide', CardsView);
+window.addEventListener('taskmanagershow', CardsView);
+window.addEventListener('taskmanagerhide', CardsView);
 window.addEventListener('holdhome', CardsView);
 window.addEventListener('home', CardsView);
 window.addEventListener('appopen', CardsView);

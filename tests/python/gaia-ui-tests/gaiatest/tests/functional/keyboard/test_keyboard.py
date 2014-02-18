@@ -10,7 +10,7 @@ from gaiatest.mocks.mock_contact import MockContact
 
 class TestKeyboard(GaiaTestCase):
 
-    _string = "aG1D2s3~!=@.#$^aśZïd".decode("UTF-8")
+    _string = "aG1 2Ds3~!=@.#$^aśZïd".decode("UTF-8")
 
     def test_keyboard_basic(self):
         # Use the contacts app to enter some text
@@ -19,7 +19,7 @@ class TestKeyboard(GaiaTestCase):
         contacts_app.launch()
 
         new_contact_form = contacts_app.tap_new_contact()
-        new_contact_form.type_phone(contact['tel'][0]['value'])
+        new_contact_form.type_phone(contact['tel']['value'])
         new_contact_form.type_comment('')
 
         # initialize the keyboard app

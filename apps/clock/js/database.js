@@ -1,5 +1,8 @@
-(function(exports) {
+define(function(require) {
   'use strict';
+  /* global LazyLoader */
+
+  var Utils = require('utils');
 
   // ===========================================================
   // SchemaVersion Object
@@ -165,16 +168,9 @@
   // ===========================================================
   // Database Singletons
 
-  var databaseSingletons = new Map();
-
-  Database.singleton = function(options) {
-    var db = databaseSingletons.get(options.name);
-    if (!db) {
-      db = new Database(options);
-      databaseSingletons.set(options.name, db);
-    }
-    return db;
-  };
+  Database.singleton = Utils.singleton(Database, function(args) {
+    return args[0].name;
+  });
 
   // ===========================================================
   // Database Object Private Methods
@@ -416,7 +412,7 @@
        * there is no upgrade path defined, we default to destroying the
        * existing database and initializing a new one of this.version.
        */
-      var mutators, direction;
+      var mutators, direction, i;
       if (newVersion === oldVersion) {
         return;
       } else if (newVersion > oldVersion) {
@@ -438,7 +434,7 @@
             return m.version > version;
           }
         };
-        for (var i = first.index;
+        for (i = first.index;
              i >= 0 && i < mutators.length &&
                isApplicableMutator(mutators[i], direction, newVersion);
              i += direction) {
@@ -474,8 +470,10 @@
           });
         }
       }).bind(this);
-      var last = finalizer;
-      for (var i = plan.length - 1; i >= 0; i--) {
+      last = finalizer;
+      // Ignore that we put a function in a loop.
+      /*jshint loopfunc: true */
+      for (i = plan.length - 1; i >= 0; i--) {
         last = (function(converter, version, cb) {
           // de-duplicate the callbacks
           var dedup = Utils.async.namedParallel(['converter'], cb);
@@ -487,8 +485,8 @@
             this.requestMutatorTransaction(function(err, transaction) {
               try {
                 converter.call(transaction, transaction, dedup.converter);
-              } catch (err) {
-                dedup.converter(err);
+              } catch (e) {
+                dedup.converter(e);
               } finally {
                 transaction.db.close();
               }
@@ -552,7 +550,8 @@
     }
   };
 
-  exports.SchemaVersion = SchemaVersion;
-  exports.Database = Database;
-
-})(this);
+  return {
+    SchemaVersion: SchemaVersion,
+    Database: Database
+  };
+});
