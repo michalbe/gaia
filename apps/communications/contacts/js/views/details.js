@@ -71,8 +71,11 @@ contacts.Details = (function() {
   };
 
   var handleDetailsBack = function handleDetailsBack() {
-    // disable NFC listeners
-    contacts.NFC.stopListening();
+    // disable NFC listeners if NFC is available
+    if ('mozNfc' in navigator) {
+      contacts.NFC.stopListening();
+    }
+
     if (ActivityHandler.currentlyHandling) {
       ActivityHandler.postCancel();
       Contacts.navigation.home();
