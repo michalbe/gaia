@@ -39,13 +39,13 @@ contacts.NFC = (function() {
             vCardContact = vcard;
           },
           function success() {
-            sendContacts();
+            sendContact();
           }
         );
       });
   };
 
-  var sendContacts = function() {
+  var sendContact = function() {
      var NDEFRecord = new MozNDEFRecord(
        0x02,
        createBuffer('text/vcard'),
