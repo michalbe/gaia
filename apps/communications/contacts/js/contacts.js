@@ -257,8 +257,12 @@ var Contacts = (function() {
   var contactListClickHandler = function originalHandler(id) {
     initDetails(function onDetailsReady() {
       contactsList.getContactById(id, function findCb(contact, fbContact) {
-        // Enable NFC listening
-        contacts.NFC.startListening(contact);
+
+        // Enable NFC listening is available
+        if ('mozNfc' in navigator) {
+          contacts.NFC.startListening(contact);
+        }
+
         currentContact = contact;
         currentFbContact = fbContact;
         if (ActivityHandler.currentlyHandling) {
@@ -679,9 +683,13 @@ var Contacts = (function() {
       '/contacts/js/utilities/sdcard.js',
       '/contacts/js/utilities/vcard_parser.js',
       '/contacts/js/utilities/status.js',
-      '/contacts/js/utilities/dom.js',
-      '/contacts/js/nfc.js'
+      '/contacts/js/utilities/dom.js'
     ];
+
+    // Lazyload nfc.js if NFC is available
+    if ('mozNfc' in navigator) {
+      lazyLoadFiles.push('/contacts/js/nfc.js');
+    }
 
     LazyLoader.load(lazyLoadFiles, function() {
       var handling = ActivityHandler.currentlyHandling;
