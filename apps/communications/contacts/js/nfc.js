@@ -32,17 +32,17 @@ contacts.NFC = (function() {
 
   var handlePeerReady = function(event) {
     mozNfcPeer = mozNfc.getNFCPeer(event.detail);
-        LazyLoader.load('/shared/js/contact2vcard.js', function() {
-          ContactToVcard(
-            [currentContact],
-            function append(vcard) {
-              vCardContact = vcard;
-            },
-            function success() {
-              sendContacts();
-            }
-          );
-        });
+      LazyLoader.load('/shared/js/contact2vcard.js', function() {
+        ContactToVcard(
+          [currentContact],
+          function append(vcard) {
+            vCardContact = vcard;
+          },
+          function success() {
+            sendContacts();
+          }
+        );
+      });
   };
 
   var sendContacts = function() {
