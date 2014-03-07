@@ -179,7 +179,7 @@ contacts.Form = (function() {
       }
 
     });
-
+    console.log('addinddddd');
     // Add listeners
     utils.listeners.add({
       //'#cancel-edit': Contacts.cancel, // Cancel edition
@@ -513,6 +513,7 @@ contacts.Form = (function() {
   }
 
   var saveContact = function saveContact() {
+    console.log('------save!');
     saveButton.setAttribute('disabled', 'disabled');
     showThrobber();
 
@@ -769,6 +770,7 @@ contacts.Form = (function() {
   };
 
   var doSave = function doSave(contact, noTransition) {
+    console.log('----save2');
     var request = navigator.mozContacts.save(getContact(contact));
 
     request.onsuccess = function onsuccess() {
@@ -1123,6 +1125,7 @@ contacts.Form = (function() {
 })();
 
 window.addEventListener('localized', function() {
+  console.log('------ LOKALIZED FORM');
   Contacts.loadFacebook(contacts.Form.init);
   //contacts.Form.render(null, function() {});
 });

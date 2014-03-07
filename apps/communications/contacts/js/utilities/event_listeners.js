@@ -9,6 +9,7 @@ if (!utils.listeners) {
     Listeners.add = function(config) {
       try {
         for (var id in config) {
+          console.log('----- LIstener for ', id);
           var handler = config[id];
           var nodes = document.querySelectorAll(id);
           for (var i = 0; i < nodes.length; i++) {
