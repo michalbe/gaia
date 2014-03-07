@@ -71,7 +71,7 @@ function navigationStack(currentView) {
   };
 
   this.go = function go(nextView, transition) {
-    console.log('------ OPEN!');
+    console.log('------ OPEN!', nextView);
     if (nextView.indexOf('view-contact-form') !== -1) {
       var id = nextView.split('#')[1];
       if (id) {
@@ -85,6 +85,9 @@ function navigationStack(currentView) {
     }
     if (nextView === 'view-settings') {
       window.open('settings.html');
+    }
+    if (nextView === 'import-settings') {
+      window.open('import.html');
     }
   };
 
