@@ -1,5 +1,8 @@
 'use strict';
 
+// I don't know why '_' is not visible from here, temp hack
+_ = navigator.mozL10n.get;
+
 // Generates the DOM for each button, depending
 // on different variables
 function generateButton(singleSim, sim, index) {
