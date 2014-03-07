@@ -114,6 +114,7 @@ var utils = this.utils || {};
     set: function(cancelCb) {
       if (typeof cancelCb === 'function') {
         cancelButton.onclick = function on_cancel(e) {
+          console.log('---cancel;');
           delete cancelButton.onclick;
           cancelCb();
           return false;

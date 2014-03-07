@@ -71,6 +71,7 @@ function navigationStack(currentView) {
   };
 
   this.go = function go(nextView, transition) {
+    console.log('------ OPEN!');
     if (nextView.indexOf('view-contact-form') !== -1) {
       var id = nextView.split('#')[1];
       if (id) {
@@ -88,6 +89,7 @@ function navigationStack(currentView) {
   };
 
   this.back = function back(callback) {
+    console.log('------- BACK!');
     window.close();
     // var self = this;
     //

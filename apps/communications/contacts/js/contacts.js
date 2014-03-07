@@ -457,14 +457,18 @@ var Contacts = (function() {
 
   var loadFacebook = function loadFacebook(callback) {
     if (!fbLoader.loaded) {
-      fb.init(function onInitFb() {
-        window.addEventListener('facebookLoaded', function onFbLoaded() {
-          window.removeEventListener('facebookLoaded', onFbLoaded);
-          callback();
-        });
-        fbLoader.load();
-      });
-    } else {
+          console.log('----1');
+          fb.init(function onInitFb() {
+                  console.log('----2');
+            window.addEventListener('facebookLoaded', function onFbLoaded() {
+                    console.log('----3');
+              window.removeEventListener('facebookLoaded', onFbLoaded);
+              callback();
+            });
+            fbLoader.load();
+          });
+        } else {
+                console.log('----4');
       callback();
     }
   };
