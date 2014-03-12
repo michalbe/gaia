@@ -84,7 +84,6 @@ contacts.Details = (function() {
           contactData = contact;
           var mergedContact = enrichedContact || contact;
           contacts.Details.render(mergedContact, null, enrichedContact);
-                   event.reason);
       });
     }
   };
