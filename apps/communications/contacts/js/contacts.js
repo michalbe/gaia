@@ -704,21 +704,6 @@ var Contacts = (function() {
     var currView = navigation.currentView();
     switch (event.reason) {
       case 'update':
-        if (currView == 'view-contact-details' && currentContact != null &&
-          currentContact.id == event.contactID) {
-          utils.getContactById(event.contactID,
-            function success(contact, enrichedContact) {
-              currentContact = contact;
-              var mergedContact = enrichedContact || contact;
-              contactsDetails.render(mergedContact, null, enrichedContact);
-              contactsList.refresh(mergedContact, checkPendingChanges,
-                                   event.reason);
-          });
-        } else {
-          contactsList.refresh(event.contactID, checkPendingChanges,
-            event.reason);
-        }
-        break;
       case 'create':
         contactsList.refresh(event.contactID, checkPendingChanges,
           event.reason);
