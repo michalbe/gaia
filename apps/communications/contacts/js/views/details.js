@@ -91,8 +91,8 @@ contacts.Details = (function() {
           // contactsList.refresh(mergedContact, checkPendingChanges,
           //                      event.reason);
       });
-    };
-  }
+    }
+  };
 
   var handleDetailsBack = function handleDetailsBack() {
     if (ActivityHandler.currentlyHandling) {
