@@ -73,7 +73,26 @@ contacts.Details = (function() {
         render(contact, TAG_OPTIONS, fbContact);
       }
     );
+
+    navigator.mozContacts.oncontactchange = onContactChange;
   };
+
+  var onContactChange = function(event) {
+    console.log('--weszlo w ', contactData.id);
+
+    if (contactData.id == event.contactID) {
+      console.log('--- no i TRUE;');
+
+      utils.getContactById(event.contactID,
+        function success(contact, enrichedContact) {
+          contactData = contact;
+          var mergedContact = enrichedContact || contact;
+          contacts.Details.render(mergedContact, null, enrichedContact);
+          // contactsList.refresh(mergedContact, checkPendingChanges,
+          //                      event.reason);
+      });
+    };
+  }
 
   var handleDetailsBack = function handleDetailsBack() {
     if (ActivityHandler.currentlyHandling) {
