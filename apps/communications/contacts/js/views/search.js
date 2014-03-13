@@ -119,9 +119,6 @@ contacts.Search = (function() {
   var exitSearchMode = function exitSearchMode(evt) {
     evt.preventDefault();
     searchView.classList.remove('insearchmode');
-    if (window.Contacts && Contacts.navigation) {
-      Contacts.navigation.back();
-    }
 
     window.setTimeout(function exit_search() {
       hideProgressResults();
