@@ -55,7 +55,8 @@ var subject,
     mockContact,
     fbButtons,
     linkButtons,
-    realContactsList;
+    realContactsList,
+    mozL10nGetSpy;
 
 var SCALE_RATIO = 1;
 
@@ -103,6 +104,11 @@ suite('Render contact', function() {
 
     realFormatDate = utils.misc.formatDate;
     utils.misc.formatDate = function(date) {
+    mozL10nGetSpy = sinon.spy(navigator.mozL10n, 'get');
+
+    realMisc = utils.misc;
+    utils.misc = {
+      formatDate: function(date) {
         var offset = date.getTimezoneOffset() * 60 * 1000;
         var normalizedDate = new Date(date.getTime() + offset);
         return normalizedDate.toString();
@@ -157,7 +163,10 @@ suite('Render contact', function() {
     window.Contacts = realContacts;
     contacts.List = realContactsList;
     window.fb = realFb;
+
+    mozL10nGetSpy.restore();
     window.mozL10n = realL10n;
+
     if (realOnLine) {
       Object.defineProperty(navigator, 'onLine', realOnLine);
     }
@@ -174,6 +183,7 @@ suite('Render contact', function() {
 
   teardown(function() {
     container.innerHTML = '';
+    mozL10nGetSpy.reset();
   });
 
   suite('Render name', function() {
@@ -338,9 +348,15 @@ suite('Render contact', function() {
       assert.include(container.innerHTML, mockContact.tel[0].value);
       assert.include(container.innerHTML, mockContact.tel[0].carrier);
       assert.include(container.innerHTML, mockContact.tel[0].type);
+      assert.include(
+        container.querySelector('h2').innerHTML,
+        mockContact.tel[0].carrier
+      );
+      assert.isTrue(mozL10nGetSpy.calledWith('separator'));
     });
 
     test('with 1 phone and carrier undefined', function() {
+
       var contactNoCarrier = new MockContactAllFields(true);
       contactNoCarrier.tel = [
         {
@@ -353,8 +369,9 @@ suite('Render contact', function() {
       var phoneButton = container.querySelector('#call-or-pick-0');
       assert.equal(phoneButton.querySelector('b').textContent,
                     contactNoCarrier.tel[0].value);
-      var carrierContent = phoneButton.querySelector('em').textContent;
+      var carrierContent = container.querySelector('.carrier').textContent;
       assert.lengthOf(carrierContent, 0);
+
     });
 
     test('with no phones', function() {
