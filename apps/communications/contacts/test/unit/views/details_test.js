@@ -102,13 +102,10 @@ suite('Render contact', function() {
       }
     };
 
-    realFormatDate = utils.misc.formatDate;
-    utils.misc.formatDate = function(date) {
     mozL10nGetSpy = sinon.spy(navigator.mozL10n, 'get');
 
-    realMisc = utils.misc;
-    utils.misc = {
-      formatDate: function(date) {
+    realFormatDate = utils.misc.formatDate;
+    utils.misc.formatDate = function(date) {
         var offset = date.getTimezoneOffset() * 60 * 1000;
         var normalizedDate = new Date(date.getTime() + offset);
         return normalizedDate.toString();
