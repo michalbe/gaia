@@ -533,7 +533,7 @@ var Contacts = (function() {
       Contacts.view('Form', function viewLoaded() {
         goToForm();
         console.log('Iframe with form loaded!');
-      })
+      });
   };
 
   //
@@ -900,9 +900,11 @@ var Contacts = (function() {
             }
           });
       } else {
-        var iframe = document.querySelector('#' + elementMapping[name] + ' iframe');
+        var iframe = document.querySelector(
+          '#' + elementMapping[name] + ' iframe'
+        );
         iframe.onload = callback;
-        iframe.src = name + '.html'
+        iframe.src = name + '.html';
       }
     }
 

@@ -144,7 +144,7 @@ contacts.Form = (function() {
   var init = function cf_init(tags, currentDom) {
     dom = currentDom || document;
     _ = navigator.mozL10n.get;
-    
+
     TAG_OPTIONS = {
       'phone-type' : [
         {type: 'mobile', value: _('mobile')},
@@ -1347,5 +1347,5 @@ contacts.Form = (function() {
 
 window.addEventListener('localized', function() {
   contacts.Form.init();
-  contacts.Form.render(null, function(){});
+  contacts.Form.render(null, function() {});
 });
