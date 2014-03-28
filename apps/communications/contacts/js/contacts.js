@@ -12,6 +12,7 @@ var Contacts = (function() {
   var navigation = new navigationStack('view-contacts-list');
 
   var goToForm = function edit() {
+    console.log('ELO!');
     navigation.go('view-contact-form', 'popup');
   };
 
@@ -525,6 +526,16 @@ var Contacts = (function() {
       callback();
     }
   };
+
+
+  var initForm = function c_initForm(callback) {
+    console.log('?');
+      Contacts.view('Form', function viewLoaded() {
+        goToForm();
+        console.log('Iframe with form loaded!');
+      })
+  };
+
   //
   // var initForm = function c_initForm(callback) {
   //   if (formReady) {
@@ -867,21 +878,32 @@ var Contacts = (function() {
      */
     function doLoad() {
       var name = file.toLowerCase();
-      var toLoad = ['js/' + type + '/' + name + '.js'];
+      // in temporary navigation model we don't want to load any JS,
+      // just HTML5 files and include them into the porper iframes
+      // Only search-view is in contacts list
+      if (name === 'search') {
+        var toLoad = ['js/' + type + '/' + name + '.js'];
+        console.log('NAME: ', name);
 
-      var node = document.getElementById(elementMapping[name]);
-      if (node) {
-        toLoad.unshift(node);
+        //var toLoad = [name + '.html'];
+        var node = document.getElementById(elementMapping[name]);
+        if (node) {
+          toLoad.unshift(node);
+        }
+
+        LazyLoader.load(toLoad, function() {
+            if (node) {
+              navigator.mozL10n.translate(node);
+            }
+            if (callback) {
+              callback();
+            }
+          });
+      } else {
+        var iframe = document.querySelector('#' + elementMapping[name] + ' iframe');
+        iframe.onload = callback;
+        iframe.src = name + '.html'
       }
-
-      LazyLoader.load(toLoad, function() {
-          if (node) {
-            navigator.mozL10n.translate(node);
-          }
-          if (callback) {
-            callback();
-          }
-        });
     }
 
     if (dependencies[type][file]) {
