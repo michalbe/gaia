@@ -1,7 +1,11 @@
+/* exported navigationStack */
+
 'use strict';
 
 function navigationStack(currentView) {
-  this.back = function() {
-    window.top.postMessage('back', location.origin);
-  }
+  return {
+    back: function() {
+      window.top.postMessage('back', location.origin);
+    }
+  };
 }

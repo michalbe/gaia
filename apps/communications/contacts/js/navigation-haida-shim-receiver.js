@@ -1,3 +1,7 @@
+/* global Contacts */
+
+'use strict';
+
 var NavigationShim = {
   handleEvent: function(event) {
     if (event.type === 'message') {
@@ -9,6 +13,6 @@ var NavigationShim = {
         }
     }
   }
-}
+};
 
-window.addEventListener("message", NavigationShim);
+window.addEventListener('message', NavigationShim);
