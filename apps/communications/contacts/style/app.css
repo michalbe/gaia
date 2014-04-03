@@ -192,7 +192,7 @@ menu, nav, section, video, audio, canvas, progress, meter, time {
 
 .view:not(.view-noscroll) {
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
 }
 
 .view-right {

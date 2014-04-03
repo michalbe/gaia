@@ -223,7 +223,6 @@ var Contacts = (function() {
     initContainers();
     initEventListeners();
     window.addEventListener('hashchange', checkUrl);
-
     // If the migration is not complete
     var config = utils.cookie.load();
     if (!config || !config.fbMigrated) {
@@ -903,8 +902,14 @@ var Contacts = (function() {
         var iframe = document.querySelector(
           '#' + elementMapping[name] + ' iframe'
         );
-        iframe.onload = callback;
-        iframe.src = name + '.html';
+
+        if (iframe.src === '') {
+          iframe.onload = callback;
+          iframe.src = name + '.html';
+        } else {
+          // View already loaded
+          callback();
+        }
       }
     }
 
