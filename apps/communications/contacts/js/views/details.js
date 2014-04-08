@@ -63,6 +63,8 @@ contacts.Details = (function() {
     wrapper = dom.querySelector('#contact-detail-wrapper');
     initPullEffect(cover);
 
+    console.log('INITED!');
+
     utils.listeners.add({
       '#toggle-favorite': toggleFavorite,
       '#details-back': handleDetailsBack,
@@ -721,3 +723,18 @@ contacts.Details = (function() {
     'defaultTelType' : DEFAULT_TEL_TYPE
   };
 })();
+
+//window.addEventListener('localized', function() {
+window.addEventListener('message', function(evt) {
+  if ('contactId' in evt.data) {
+    console.log('ID', evt.data.contactId);
+    Contacts.loadFacebook(function(){
+      contacts.List.getContactById(evt.data.contactId, function findCb(contact, fbContact) {
+        contacts.Details.init();
+        contacts.Details.render(contact, TAG_OPTIONS, fbContact);
+      })
+    });
+  }
+});
+
+//});

@@ -279,24 +279,33 @@ var Contacts = (function() {
 
 
   var contactListClickHandler = function originalHandler(id) {
-    initDetails(function onDetailsReady() {
-      contactsList.getContactById(id, function findCb(contact, fbContact) {
-        currentContact = contact;
-        currentFbContact = fbContact;
-        if (ActivityHandler.currentlyHandling) {
-          if (ActivityHandler.activityName == 'pick') {
-            ActivityHandler.dataPickHandler(currentFbContact || currentContact);
-          }
-          return;
-        }
-        contactsDetails.render(currentContact, TAG_OPTIONS, currentFbContact);
-        if (contacts.Search && contacts.Search.isInSearchMode()) {
-          navigation.go('view-contact-details', 'go-deeper-search');
-        } else {
-          navigation.go('view-contact-details', 'go-deeper');
-        }
-      });
+
+    // initDetails(function onDetailsReady() {
+    //   contactsList.getContactById(id, function findCb(contact, fbContact) {
+    //     console.log('inside!');
+    //     currentContact = contact;
+    //     currentFbContact = fbContact;
+    //     if (ActivityHandler.currentlyHandling) {
+    //       if (ActivityHandler.activityName == 'pick') {
+    //         ActivityHandler.dataPickHandler(currentFbContact || currentContact);
+    //       }
+    //       return;
+    //     }
+    //     contactsDetails.render(currentContact, TAG_OPTIONS, currentFbContact);
+    Contacts.view('Details', function viewLoaded() {
+
+      // XXX: There is probably smarter way to do this...
+      var detailsIframe = document.querySelector('#view-contact-details iframe');
+      detailsIframe.contentWindow.postMessage({contactId: id }, location.origin);
+
+      if (contacts.Search && contacts.Search.isInSearchMode()) {
+        navigation.go('view-contact-details', 'go-deeper-search');
+      } else {
+        navigation.go('view-contact-details', 'go-deeper');
+      }
     });
+    //   });
+    // });
   };
 
   var updateContactDetail = function updateContactDetail(id) {

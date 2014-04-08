@@ -180,9 +180,11 @@
 
     <section is="search-view" id="search-view" class="view"></section>
     <section is="view-screenshot" id='view-screenshot' role="region" class="view hide"></section>
-    <section is="view-contact-details" id='view-contact-details' role="region" class="view view-right view-contact-profile view-noscroll"></section>
+    <section id='view-contact-details' role="region" class="view view-right view-contact-profile view-noscroll">
+      <iframe class="view-iframe"></iframe>
+    </section>
     <section id='view-contact-form' role="region" class="view view-bottom view-edit-contact">
-      <iframe style="width:100%; height:100%; border: none;"></iframe>
+      <iframe class="view-iframe"></iframe>
     </section>
     <section is="view-select-tag" id="view-select-tag" role="region" class="view view-right view-select-tag"></section>
     <article is="settings" id="settings-wrapper"></article>

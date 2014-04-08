@@ -190,6 +190,12 @@ menu, nav, section, video, audio, canvas, progress, meter, time {
   transform: translate(0, 0);
 }
 
+.view-iframe {
+  width:100%;
+  height:100%;
+  border: none;
+}
+
 .view:not(.view-noscroll) {
   overflow-x: hidden;
   overflow-y: hidden;

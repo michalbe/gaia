@@ -10,7 +10,7 @@ contacts.Form = (function() {
     'date': 0,
     'note': 0
   };
-  var TAG_OPTIONS;
+
   var currentContact = {};
   var dom,
       deleteContactButton,
@@ -143,36 +143,6 @@ contacts.Form = (function() {
 
   var init = function cf_init(tags, currentDom) {
     dom = currentDom || document;
-    _ = navigator.mozL10n.get;
-
-    TAG_OPTIONS = {
-      'phone-type' : [
-        {type: 'mobile', value: _('mobile')},
-        {type: 'home', value: _('home')},
-        {type: 'work', value: _('work')},
-        {type: 'personal', value: _('personal')},
-        {type: 'faxHome', value: _('faxHome')},
-        {type: 'faxOffice', value: _('faxOffice')},
-        {type: 'faxOther', value: _('faxOther')},
-        {type: 'other', value: _('other')}
-      ],
-      'email-type' : [
-        {type: 'personal', value: _('personal')},
-        {type: 'home', value: _('home')},
-        {type: 'work', value: _('work')},
-        {type: 'other', value: _('other')}
-      ],
-      'address-type' : [
-        {type: 'current', value: _('current')},
-        {type: 'home', value: _('home')},
-        {type: 'work', value: _('work')}
-      ],
-      'date-type': [
-        {type: 'birthday', value: _('birthday')},
-        {type: 'anniversary', value: _('anniversary')}
-      ]
-    };
-
     _ = navigator.mozL10n.get;
     initContainers();
 
