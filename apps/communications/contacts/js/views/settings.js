@@ -975,3 +975,7 @@ contacts.Settings = (function() {
     'importFromSDCard': onSdImport
   };
 })();
+
+window.addEventListener('localized', function() {
+  Contacts.loadFacebook(contacts.Settings.init);
+});

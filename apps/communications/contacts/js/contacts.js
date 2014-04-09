@@ -568,12 +568,12 @@ var Contacts = (function() {
       callback();
     } else {
       Contacts.view('Settings', function viewLoaded() {
-        LazyLoader.load(['/contacts/js/utilities/sim_dom_generator.js',
-          '/contacts/js/utilities/icc_handler.js'], function() {
+        // LazyLoader.load(['/contacts/js/utilities/sim_dom_generator.js',
+        //   '/contacts/js/utilities/icc_handler.js'], function() {
           settingsReady = true;
-          contacts.Settings.init();
+          //contacts.Settings.init();
           callback();
-        });
+        //});
       });
     }
   };
@@ -653,7 +653,7 @@ var Contacts = (function() {
   var showSettings = function showSettings() {
     initSettings(function onSettingsReady() {
       // The number of FB Friends has to be recalculated
-      contacts.Settings.refresh();
+      //contacts.Settings.refresh();
       navigation.go('view-settings', 'popup');
     });
   };
@@ -873,7 +873,8 @@ var Contacts = (function() {
   var elementMapping = {
     details: 'view-contact-details',
     form: 'view-contact-form',
-    settings: 'settings-wrapper',
+    //settings: 'settings-wrapper',
+    settings: 'view-settings',
     search: 'search-view',
     overlay: 'loading-overlay',
     confirm: 'confirmation-message'
