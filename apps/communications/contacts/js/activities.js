@@ -68,6 +68,7 @@ var ActivityHandler = {
         Contacts.navigation.home();
         break;
       case 'import':
+        console.log('1. HANDLING....');
         this.importContactsFromFile(activity);
         break;
     }
@@ -79,16 +80,30 @@ var ActivityHandler = {
     if (activity.source &&
         activity.source.data &&
         activity.source.data.blob) {
+          console.log('2. Tu weszlo....');
       LazyLoader.load([
+        document.querySelector('#loading-overlay'),
         '/shared/js/contacts/import/utilities/import_from_vcard.js',
         '/shared/js/contacts/import/utilities/overlay.js'
       ], function loaded() {
-        utils.importFromVcard(activity.source.data.blob, function imported(id) {
-          if (id) {
-            activity.source.data.params = {id: id};
+        console.log('3. Tu weszlo....');
+        utils.importFromVcard(activity.source.data.blob,
+          function imported(numberOfContacts, id) {
+            console.log('4. Tu weszlo....');
+            console.log(numberOfContacts, id);
+            if (numberOfContacts === 1) {
+
+              activity.source.data.params = {id: id};
+              self.launch_activity(activity, 'view-contact-details');
+
+            } else {
+
+              self.launch_activity(activity, 'view-contact-list');
+
+            }
+
           }
-          self.launch_activity(activity, 'view-contact-details');
-        });
+        );
       });
     } else {
       this._currentActivity.postError('wrong parameters');

@@ -57,8 +57,9 @@ utils.importFromVcard = function(file, callback) {
       importer.onread = import_read;
       importer.onimported = imported_contact;
       importer.onerror = import_error;
-
+      console.log('tuszenelo tesz');
       importer.process(function import_finish(result) {
+        console.log(' --- result', result);
         utils.overlay.hide();
         if (!cancelled) {
           utils.status.show(
@@ -68,7 +69,7 @@ utils.importFromVcard = function(file, callback) {
         }
 
         if (result && result.length) {
-          callback(result[0].id);
+          callback(result.length, result[0].id);
         } else {
           callback();
         }

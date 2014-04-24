@@ -598,27 +598,36 @@ var VCFReader = (function _VCFReader() {
      * change in case there are vcards with syntax errors or that our processor
      * can't parse.
      */
+
+     console.log('proces 1');
     var match = this.contents.match(/end:vcard/gi);
     // If there are no matches, then this probably isn't a vcard and we should
     // stop processing.
     if (!match) {
+      console.log('proces 2');
       if (cb) {
+        console.log('proces 3');
         cb();
       }
+      console.log('proces 4');
       return;
     }
+
+    this.importedContacts = [];
     this.total = match.length;
     this.onread && this.onread(this.total);
     this.ondone = cb;
 
+    console.log('proces 5');
     LazyLoader.load(['/shared/js/simple_phone_matcher.js',
       '/shared/js/contacts/import/utilities/misc.js',
-      '/contacts/js/contacts_matcher.js',
-      '/contacts/js/contacts_merger.js',
-      '/contacts/js/utilities/image_thumbnail.js',
-      '/contacts/js/merger_adapter.js',
-      '/contacts/js/utilities/http_rest.js'
+      '/shared/js/contacts/contacts_matcher.js',
+      '/shared/js/contacts/contacts_merger.js',
+      '/shared/js/contacts/utilities/image_thumbnail.js',
+      '/shared/js/contacts/merger_adapter.js',
+      '/shared/js/contacts/utilities/http_rest.js'
     ], function() {
+      console.log('proces 6');
       // Start processing the text
       // The data pump flows as follows:
       //  1) splitlines() reads char-by-char to split the text into lines
@@ -644,9 +653,11 @@ var VCFReader = (function _VCFReader() {
    */
   VCFReader.prototype.onParsed = function(err, ct) {
     this.processed += 1;
+    this.importedContacts.push(ct);
+
     this.onimported && this.onimported(ct && ct.name);
     if (this.finished || this.processed === this.total) {
-      this.ondone(this.total);
+      this.ondone(this.importedContacts);
       return;
     }
 
