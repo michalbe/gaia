@@ -38,7 +38,8 @@ contacts.Search = (function() {
       imgLoader,
       searchEnabled = false,
       source = null,
-      navigationController = null;
+      navigationController = null,
+      highlightClass = 'highlight';
 
   // The _source argument should be an adapter object that provides access
   // to the contact nodes in the app.  This is done by defining the following
@@ -398,16 +399,29 @@ contacts.Search = (function() {
       state.searchDoneCb();
     }
 
+    var clearHighlights = function() {
+      var highlights = searchList.getElementsByClassName(highlightClass);
+      while(highlights.length) {
+        var parent = highlights[0].parentNode;
+        while(highlights[0].firstChild) {
+            parent.insertBefore(highlights[0].firstChild, highlights[0]);
+        }
+        parent.removeChild(highlights[0]);
+      }
+    };
+
     var highlightNode = function(contactNode) {
+      //clearHighlights(contactNode);
       var hRegEx = new RegExp('(' + searchText + ')(?=[^>]*<)', 'gi');
       contactNode.innerHTML = contactNode.innerHTML.replace(
         hRegEx,
-        '<span style="color:#f0f">$1</span>'
+        '<span class="' + highlightClass + '">$1</span>'
       );
     };
 
     // If we finished searching, start highlighting
     if (c === contacts.length) {
+      clearHighlights();
       // NodeList has no forEach method , so we use
       // one from the Array
       Array.prototype.forEach.call(
