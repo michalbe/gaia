@@ -400,7 +400,7 @@ contacts.Search = (function() {
 
     var highlightNode = function(contactNode) {
       console.log(searchText, contactNode.innerHTML);
-    }
+    };
 
     // If we finished searching, start highlighting
     if (c === contacts.length) {
