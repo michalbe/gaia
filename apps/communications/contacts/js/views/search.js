@@ -399,13 +399,21 @@ contacts.Search = (function() {
     }
 
     var highlightNode = function(contactNode) {
-      console.log(searchText, contactNode.innerHTML);
+      var hRegEx = new RegExp("(" + searchText + ")(?=[^>]*<)", "gi");
+      contactNode.innerHTML = contactNode.innerHTML.replace(
+        hRegEx,
+        '<span style="color:#f0f">$1</span>'
+      );
     };
 
     // If we finished searching, start highlighting
     if (c === contacts.length) {
-      // NodeList has no forEach, so we use one from the Array
-      Array.prototype.forEach.call(searchList.children, highlightNode);
+      // NodeList has no forEach method , so we use
+      // one from the Array
+      Array.prototype.forEach.call(
+        searchList.children,
+        highlightNode
+      );
     }
 
   }
