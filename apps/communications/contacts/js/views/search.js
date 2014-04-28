@@ -399,7 +399,7 @@ contacts.Search = (function() {
     }
 
     var highlightNode = function(contactNode) {
-      var hRegEx = new RegExp("(" + searchText + ")(?=[^>]*<)", "gi");
+      var hRegEx = new RegExp('(' + searchText + ')(?=[^>]*<)', 'gi');
       contactNode.innerHTML = contactNode.innerHTML.replace(
         hRegEx,
         '<span style="color:#f0f">$1</span>'
