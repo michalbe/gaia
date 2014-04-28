@@ -397,7 +397,19 @@ contacts.Search = (function() {
     if (typeof state.searchDoneCb === 'function') {
       state.searchDoneCb();
     }
+
+    var highlightNode = function(contactNode) {
+      console.log(searchText, contactNode.innerHTML);
+    }
+
+    // If we finished searching, start highlighting
+    if (c === contacts.length) {
+      // NodeList has no forEach, so we use one from the Array
+      Array.prototype.forEach.call(searchList.children, highlightNode);
+    }
+
   }
+
 
   var enableSearch = function enableSearch() {
     if (searchEnabled) {
