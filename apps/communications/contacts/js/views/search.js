@@ -129,6 +129,11 @@ contacts.Search = (function() {
     });
   };
 
+  var appendToSearchList = function(node) {
+    console.log('CTTS', currentTextToSearch);
+    searchList.appendChild(node);
+  };
+
   var updateSearchList = function updateSearchList(cb) {
     if (!inSearchMode) {
       if (cb) {
@@ -206,7 +211,7 @@ contacts.Search = (function() {
     }
 
     if (fragment.hasChildNodes()) {
-      searchList.appendChild(fragment);
+      appendToSearchList(fragment);
       imgLoader.reload();
     }
 
@@ -244,7 +249,7 @@ contacts.Search = (function() {
     }
 
     if (fragment.hasChildNodes()) {
-      searchList.appendChild(fragment);
+      appendToSearchList(fragment);
     }
   }
 
@@ -342,7 +347,7 @@ contacts.Search = (function() {
             !(contact.dataset.uuid in currentSet)) {
           var clonedNode = getClone(contact);
           currentSet[contact.dataset.uuid] = clonedNode;
-          searchList.appendChild(clonedNode);
+          appendToSearchList(clonedNode);
         }
 
         state.searchables.push({
@@ -400,6 +405,9 @@ contacts.Search = (function() {
     }
 
     var clearHighlights = function() {
+      // We travers the DOM tree and remove highlighting spans.
+      // getElements instead of querySelector here because of
+      // performance.
       var highlights = searchList.getElementsByClassName(highlightClass);
       while(highlights.length) {
         var parent = highlights[0].parentNode;
@@ -411,7 +419,6 @@ contacts.Search = (function() {
     };
 
     var highlightNode = function(contactNode) {
-      //clearHighlights(contactNode);
       var hRegEx = new RegExp('(' + searchText + ')(?=[^>]*<)', 'gi');
       contactNode.innerHTML = contactNode.innerHTML.replace(
         hRegEx,
@@ -421,6 +428,7 @@ contacts.Search = (function() {
 
     // If we finished searching, start highlighting
     if (c === contacts.length) {
+      // clear previous highlights first.
       clearHighlights();
       // NodeList has no forEach method , so we use
       // one from the Array
