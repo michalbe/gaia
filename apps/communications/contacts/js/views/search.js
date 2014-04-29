@@ -130,25 +130,25 @@ contacts.Search = (function() {
   };
 
   var appendToSearchList = function(node) {
-    if (currentTextToSearch)
+    if (node.innerHTML) {
       highlightNode(node);
-
+    }
     searchList.appendChild(node);
   };
 
-  var clearHighlights = function(node) {
-    // We travers the DOM tree and remove highlighting spans.
-    // getElements instead of querySelector here because of
-    // performance.
-    var highlights = node.getElementsByClassName(highlightClass);
-    while(highlights.length) {
-      var parent = highlights[0].parentNode;
-      while(highlights[0].firstChild) {
-          parent.insertBefore(highlights[0].firstChild, highlights[0]);
-      }
-      parent.removeChild(highlights[0]);
-    }
-  };
+  // var clearHighlights = function(node) {
+  //   // We travers the DOM tree and remove highlighting spans.
+  //   // getElements instead of querySelector here because of
+  //   // performance.
+  //   var highlights = node.getElementsByClassName(highlightClass);
+  //   while(highlights.length) {
+  //     var parent = highlights[0].parentNode;
+  //     while(highlights[0].firstChild) {
+  //         parent.insertBefore(highlights[0].firstChild, highlights[0]);
+  //     }
+  //     parent.removeChild(highlights[0]);
+  //   }
+  // };
 
   var highlightNode = function(node) {
     // XXX: move this somewhere where it will be executed once (?)
