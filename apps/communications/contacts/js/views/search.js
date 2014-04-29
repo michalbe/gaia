@@ -130,8 +130,33 @@ contacts.Search = (function() {
   };
 
   var appendToSearchList = function(node) {
-    console.log('CTTS', currentTextToSearch);
+    if (currentTextToSearch)
+      highlightNode(node);
+
     searchList.appendChild(node);
+  };
+
+  var clearHighlights = function(node) {
+    // We travers the DOM tree and remove highlighting spans.
+    // getElements instead of querySelector here because of
+    // performance.
+    var highlights = node.getElementsByClassName(highlightClass);
+    while(highlights.length) {
+      var parent = highlights[0].parentNode;
+      while(highlights[0].firstChild) {
+          parent.insertBefore(highlights[0].firstChild, highlights[0]);
+      }
+      parent.removeChild(highlights[0]);
+    }
+  };
+
+  var highlightNode = function(node) {
+    // XXX: move this somewhere where it will be executed once (?)
+    var hRegEx = new RegExp('(' + currentTextToSearch + ')(?=[^>]*<)', 'gi');
+    node.innerHTML = node.innerHTML.replace(
+      hRegEx,
+      '<span class="' + highlightClass + '">$1</span>'
+    );
   };
 
   var updateSearchList = function updateSearchList(cb) {
@@ -404,39 +429,17 @@ contacts.Search = (function() {
       state.searchDoneCb();
     }
 
-    var clearHighlights = function() {
-      // We travers the DOM tree and remove highlighting spans.
-      // getElements instead of querySelector here because of
-      // performance.
-      var highlights = searchList.getElementsByClassName(highlightClass);
-      while(highlights.length) {
-        var parent = highlights[0].parentNode;
-        while(highlights[0].firstChild) {
-            parent.insertBefore(highlights[0].firstChild, highlights[0]);
-        }
-        parent.removeChild(highlights[0]);
-      }
-    };
-
-    var highlightNode = function(contactNode) {
-      var hRegEx = new RegExp('(' + searchText + ')(?=[^>]*<)', 'gi');
-      contactNode.innerHTML = contactNode.innerHTML.replace(
-        hRegEx,
-        '<span class="' + highlightClass + '">$1</span>'
-      );
-    };
-
     // If we finished searching, start highlighting
-    if (c === contacts.length) {
-      // clear previous highlights first.
-      clearHighlights();
-      // NodeList has no forEach method , so we use
-      // one from the Array
-      Array.prototype.forEach.call(
-        searchList.children,
-        highlightNode
-      );
-    }
+    // if (c === contacts.length) {
+    //   // clear previous highlights first.
+    //   clearHighlights();
+    //   // NodeList has no forEach method , so we use
+    //   // one from the Array
+    //   Array.prototype.forEach.call(
+    //     searchList.children,
+    //     highlightNode
+    //   );
+    // }
 
   }
 
