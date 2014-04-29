@@ -129,26 +129,19 @@ contacts.Search = (function() {
     });
   };
 
-  var appendToSearchList = function(node) {
-    if (node.innerHTML) {
-      highlightNode(node);
+  var clearHighlights = function(node) {
+    // We travers the DOM tree and remove highlighting spans.
+    // getElements instead of querySelector here because of
+    // performance.
+    var highlights = node.getElementsByClassName(highlightClass);
+    while(highlights.length) {
+      var parent = highlights[0].parentNode;
+      while(highlights[0].firstChild) {
+          parent.insertBefore(highlights[0].firstChild, highlights[0]);
+      }
+      parent.removeChild(highlights[0]);
     }
-    searchList.appendChild(node);
   };
-
-  // var clearHighlights = function(node) {
-  //   // We travers the DOM tree and remove highlighting spans.
-  //   // getElements instead of querySelector here because of
-  //   // performance.
-  //   var highlights = node.getElementsByClassName(highlightClass);
-  //   while(highlights.length) {
-  //     var parent = highlights[0].parentNode;
-  //     while(highlights[0].firstChild) {
-  //         parent.insertBefore(highlights[0].firstChild, highlights[0]);
-  //     }
-  //     parent.removeChild(highlights[0]);
-  //   }
-  // };
 
   var highlightNode = function(node) {
     // XXX: move this somewhere where it will be executed once (?)
@@ -236,7 +229,7 @@ contacts.Search = (function() {
     }
 
     if (fragment.hasChildNodes()) {
-      appendToSearchList(fragment);
+      searchList.appendChild(fragment);
       imgLoader.reload();
     }
 
@@ -274,7 +267,7 @@ contacts.Search = (function() {
     }
 
     if (fragment.hasChildNodes()) {
-      appendToSearchList(fragment);
+      searchList.appendChild(fragment);
     }
   }
 
@@ -372,7 +365,12 @@ contacts.Search = (function() {
             !(contact.dataset.uuid in currentSet)) {
           var clonedNode = getClone(contact);
           currentSet[contact.dataset.uuid] = clonedNode;
-          appendToSearchList(clonedNode);
+          searchList.appendChild(clonedNode);
+        }
+
+        if (currentSet[contact.dataset.uuid]) {
+          clearHighlights(currentSet[contact.dataset.uuid]);
+          highlightNode(currentSet[contact.dataset.uuid]);
         }
 
         state.searchables.push({
@@ -428,18 +426,6 @@ contacts.Search = (function() {
     if (typeof state.searchDoneCb === 'function') {
       state.searchDoneCb();
     }
-
-    // If we finished searching, start highlighting
-    // if (c === contacts.length) {
-    //   // clear previous highlights first.
-    //   clearHighlights();
-    //   // NodeList has no forEach method , so we use
-    //   // one from the Array
-    //   Array.prototype.forEach.call(
-    //     searchList.children,
-    //     highlightNode
-    //   );
-    // }
 
   }
 
