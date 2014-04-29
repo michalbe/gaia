@@ -224,6 +224,7 @@ contacts.Search = (function() {
     for (var i = from; i < hardLimit && i < nodes.length; i++) {
       var node = nodes[i].node;
       var clon = getClone(node);
+      highlightNode(clon);
       fragment.appendChild(clon);
       currentSet[node.dataset.uuid] = clon;
     }
@@ -261,6 +262,7 @@ contacts.Search = (function() {
     var contact = startNode;
     for (var i = 0; i < number && contact; i++) {
       var clonedNode = getClone(contact);
+      //highlightNode(clonedNode);
       fragment.appendChild(clonedNode);
       currentSet[contact.dataset.uuid] = clonedNode;
       contact = source.getNextNode(contact);
