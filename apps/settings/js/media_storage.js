@@ -404,6 +404,7 @@ require([
           var option = document.createElement('option');
           option.value = volume.name;
           var l10nId = volume.getL10nId(true);
+          console.log('ELO', l10nId, volume.name);
           option.dataset.l10nId = l10nId;
           option.textContent = _(l10nId);
           selectionMenu.appendChild(option);

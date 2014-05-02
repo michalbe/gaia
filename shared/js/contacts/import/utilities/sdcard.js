@@ -12,15 +12,23 @@ if (!utils.sdcard) {
   };
 
   SdCard.status = SdCard.NOT_INITIALIZED;
-  //SdCard.deviceStorage = navigator.getDeviceStorage('sdcard');
 
-  navigator.getDeviceStorages('sdcard').forEach(function(volume) {
-    if (volume.storageName === 'sdcard') {
-      SdCard.deviceStorage = volume;
-      console.log('znaleziono, giciorek');
-      return;
-    }
-  });
+  var defaultMediaVolumeKey = 'device.storage.writable.name';
+      SettingsListener.observe(defaultMediaVolumeKey, 'sdcard',
+  function onDefaultMediaVolumeChange(defaultName) {
+    console.log("DEFAULNAME", defaultName)
+    navigator.getDeviceStorages('sdcard').forEach(function(volume) {
+      if (volume.storageName === defaultName) {
+        SdCard.deviceStorage = volume;
+        console.log('znaleziono, giciorek');
+        return;
+      }
+    });
+      //SdCard.deviceStorage = navigator.getDeviceStorage(defaultName);
+
+      SdCard.deviceStorage.freeSpace().onsuccess = function() {
+        console.log('fs el:', this.result);
+      }
 
   SdCard._toStatus = function toStatus(state) {
     switch (state) {
@@ -172,4 +180,5 @@ if (!utils.sdcard) {
       return false;
     }
   };
+});
 }
