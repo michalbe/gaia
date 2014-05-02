@@ -12,7 +12,15 @@ if (!utils.sdcard) {
   };
 
   SdCard.status = SdCard.NOT_INITIALIZED;
-  SdCard.deviceStorage = navigator.getDeviceStorage('sdcard');
+  //SdCard.deviceStorage = navigator.getDeviceStorage('sdcard');
+
+  navigator.getDeviceStorages('sdcard').forEach(function(volume) {
+    if (volume.storageName === 'sdcard') {
+      SdCard.deviceStorage = volume;
+      console.log('znaleziono, giciorek');
+      return;
+    }
+  });
 
   SdCard._toStatus = function toStatus(state) {
     switch (state) {
