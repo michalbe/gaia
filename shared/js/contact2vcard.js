@@ -129,9 +129,6 @@
   }
 
   function joinFields(fields) {
-    fields.forEach(function(field){
-      console.log(field);
-    });
     return fields.filter(function(f) { return !!f; }).join(CRLF);
   }
 
