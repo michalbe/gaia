@@ -12,6 +12,8 @@
 /* global PerformanceTestingHelper */
 /* global SmsIntegration */
 /* global utils */
+/* global TAG_OPTIONS */
+
 /* exported COMMS_APP_ORIGIN */
 /* exported SCALE_RATIO */
 /* jshint nonew: false */

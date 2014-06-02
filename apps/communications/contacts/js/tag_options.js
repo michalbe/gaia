@@ -1,3 +1,6 @@
+'use strict';
+/* exported TAG_OPTIONS */
+
 var _ = navigator.mozL10n.get;
 
 var TAG_OPTIONS = {
