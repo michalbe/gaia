@@ -9,6 +9,7 @@
 /* global MozActivity */
 /* global Normalizer */
 /* global utils */
+/* global TAG_OPTIONS */
 
 var contacts = window.contacts || {};
 

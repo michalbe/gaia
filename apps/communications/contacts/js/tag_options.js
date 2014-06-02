@@ -1,4 +1,5 @@
 'use strict';
+/* global _ */
 /* exported TAG_OPTIONS */
 
 console.log('TAG OPTIONS FILE LOADED');
@@ -14,8 +15,8 @@ var GET_TAG_OPTIONS = function() {
         {type: 'faxHome', value: _('faxHome')},
         {type: 'faxOffice', value: _('faxOffice')},
         {type: 'faxOther', value: _('faxOther')},
-        {type: 'other', value: _('other')}
-      ]
+        {type: 'other', value: _('other') }
+      ];
     },
     get 'email-type'() {
       return [
@@ -23,22 +24,22 @@ var GET_TAG_OPTIONS = function() {
         {type: 'home', value: _('home')},
         {type: 'work', value: _('work')},
         {type: 'other', value: _('other')}
-      ]
+      ];
     },
     get 'address-type'() {
       return [
         {type: 'current', value: _('current')},
         {type: 'home', value: _('home')},
         {type: 'work', value: _('work')}
-      ]
+      ];
     },
     get 'date-type'() {
       return [
         {type: 'birthday', value: _('birthday')},
         {type: 'anniversary', value: _('anniversary')}
-      ]
+      ];
     }
-  }
+  };
 };
 
 var TAG_OPTIONS = GET_TAG_OPTIONS();
