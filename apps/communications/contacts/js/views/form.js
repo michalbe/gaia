@@ -155,6 +155,7 @@ contacts.Form = (function() {
 
   var init = function cf_init(tags, currentDom) {
     dom = currentDom || document;
+  
     _ = navigator.mozL10n.get;
     initContainers();
 

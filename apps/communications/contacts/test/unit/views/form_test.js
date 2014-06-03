@@ -86,7 +86,7 @@ suite('Render contact form', function() {
       currentlyHandling: false
     };
 
-    subject.init(Contacts.getTags());
+    subject.init();
   });
 
   suiteTeardown(function() {

@@ -90,7 +90,7 @@ var Contacts = (function() {
           var id = params.id;
           cList.getContactById(id, function onSuccess(savedContact) {
             currentContact = savedContact;
-            contactsDetails.render(currentContact, TAG_OPTIONS);
+            contactsDetails.render(currentContact);
             if (params.tel) {
 
               contactsDetails.reMark(
@@ -296,7 +296,7 @@ var Contacts = (function() {
           }
           return;
         }
-        contactsDetails.render(currentContact, TAG_OPTIONS, currentFbContact);
+        contactsDetails.render(currentContact, currentFbContact);
         if (contacts.Search && contacts.Search.isInSearchMode()) {
           navigation.go('view-contact-details', 'go-deeper-search');
         } else {
@@ -309,7 +309,7 @@ var Contacts = (function() {
   var updateContactDetail = function updateContactDetail(id) {
     contactsList.getContactById(id, function findCallback(contact) {
       currentContact = contact;
-      contactsDetails.render(currentContact, TAG_OPTIONS);
+      contactsDetails.render(currentContact);
     });
   };
 
@@ -778,7 +778,7 @@ var Contacts = (function() {
             function success(contact, enrichedContact) {
               currentContact = contact;
               if (contactsDetails) {
-                contactsDetails.render(currentContact, null, enrichedContact);
+                contactsDetails.render(currentContact, enrichedContact);
               }
               if (contactsList) {
                 contactsList.refresh(enrichedContact || currentContact,

@@ -162,10 +162,9 @@ contacts.Details = (function() {
     cover.addEventListener('touchstart', onTouchStart, true);
   };
 
-  var render = function cd_render(currentContact, tags, fbContactData) {
+  var render = function cd_render(currentContact, fbContactData) {
     contactData = currentContact || contactData;
 
-    //TAG_OPTIONS = tags || TAG_OPTIONS;
     isFbContact = fb.isFbContact(contactData);
     isFbLinked = fb.isFbLinked(contactData);
 
