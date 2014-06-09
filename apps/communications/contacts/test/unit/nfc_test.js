@@ -1,7 +1,6 @@
 'use strict';
 
 /* global MockMozNfc */
-/* global Mockfb */
 /* global contacts */
 /* global MocksHelper */
 /* global Contacts */
@@ -18,7 +17,6 @@ if (!window.contacts) {
   window.contacts = null;
 }
 
-var MockContacts;
 var mocksHelperForNFC = new MocksHelper([
   'fb', 'Contacts', 'LazyLoader'
 ]);
