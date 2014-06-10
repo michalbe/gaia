@@ -3,15 +3,6 @@
           MockSettingsListener, MockLockScreen, HomescreenLauncher */
 'use strict';
 
-mocha.globals(['SettingsListener', 'removeEventListener', 'addEventListener',
-      'dispatchEvent', 'ActivityWindow',
-      'AppWindowManager', 'Applications', 'ManifestHelper',
-      'KeyboardManager', 'StatusBar', 'HomescreenWindow',
-      'SoftwareButtonManager', 'AttentionScreen', 'AppWindow',
-      'lockScreen', 'OrientationManager', 'BrowserFrame',
-      'BrowserConfigHelper', 'System', 'BrowserMixin', 'TransitionMixin',
-      'homescreenLauncher', 'layoutManager', 'lockscreen']);
-
 requireApp('system/shared/test/unit/mocks/mock_manifest_helper.js');
 requireApp('system/test/unit/mock_lock_screen.js');
 requireApp('system/test/unit/mock_orientation_manager.js');
@@ -172,6 +163,13 @@ suite('system/AppWindowManager', function() {
       assert.isTrue(stubBroadcastMessage.calledWith('homegesture-disabled'));
     });
 
+    test('Orientation change', function() {
+      var stubBroadcastMessage =
+        this.sinon.stub(AppWindowManager, 'broadcastMessage');
+      AppWindowManager.handleEvent({ type: 'orientationchange' });
+      assert.isTrue(stubBroadcastMessage.calledWith('orientationchange'));
+    });
+
     test('Press home on home displayed', function() {
       injectRunningApps(home);
       var stubEnsure = this.sinon.stub(home, 'ensure');
@@ -237,6 +235,32 @@ suite('system/AppWindowManager', function() {
 
       AppWindowManager.handleEvent({ type: 'system-resize' });
       assert.isTrue(stubResize.called);
+    });
+
+    suite('when a document is fullscreen', function() {
+      var realFullScreen;
+
+      setup(function() {
+        realFullScreen = document.mozFullScreen;
+        Object.defineProperty(document, 'mozFullScreen', {
+          configurable: true,
+          get: function() { return true; }
+        });
+      });
+
+      teardown(function() {
+        Object.defineProperty(document, 'mozFullScreen', {
+          configurable: true,
+          get: function() { return realFullScreen; }
+        });
+      });
+
+      test('should exit fullscreen when the sheet transition starts',
+      function() {
+        var cancelSpy = this.sinon.spy(document, 'mozCancelFullScreen');
+        AppWindowManager.handleEvent({ type: 'sheetstransitionstart' });
+        sinon.assert.calledOnce(cancelSpy);
+      });
     });
 
     test('app request to close', function() {
@@ -399,6 +423,15 @@ suite('system/AppWindowManager', function() {
       AppWindowManager._activeApp = app2;
       AppWindowManager._updateActiveApp(app1.instanceID);
       assert.deepEqual(AppWindowManager._activeApp, app1);
+    });
+
+    test('should resize the new active app', function() {
+      injectRunningApps(app1, app2, app3, app4);
+      AppWindowManager._activeApp = app2;
+
+      var resizeSpy = this.sinon.spy(app1, 'resize');
+      AppWindowManager._updateActiveApp(app1.instanceID);
+      sinon.assert.calledOnce(resizeSpy);
     });
   });
 

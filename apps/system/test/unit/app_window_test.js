@@ -1,20 +1,13 @@
 /* global AppWindow, ScreenLayout, MockOrientationManager,
-      LayoutManager, MocksHelper, MockAttentionScreen,
-          AppChrome, ActivityWindow, PopupWindow, layoutManager */
+      LayoutManager, MocksHelper, MockAttentionScreen, MockContextMenu,
+      AppChrome, ActivityWindow, PopupWindow, layoutManager */
 'use strict';
-
-mocha.globals(['SettingsListener', 'removeEventListener', 'addEventListener',
-      'dispatchEvent', 'Applications', 'ManifestHelper',
-      'KeyboardManager', 'StatusBar', 'BrowserMixin',
-      'SoftwareButtonManager', 'AppWindow', 'AppChrome',
-      'OrientationManager', 'SettingsListener', 'BrowserFrame',
-      'BrowserConfigHelper', 'System', 'layoutManager', 'ActivityWindow',
-      'AppTransitionController', 'AppWindowManager', 'PopupWindow']);
 
 requireApp('system/test/unit/mock_orientation_manager.js');
 requireApp('system/shared/test/unit/mocks/mock_manifest_helper.js');
 requireApp('system/shared/test/unit/mocks/mock_settings_helper.js');
 requireApp('system/shared/test/unit/mocks/mock_settings_listener.js');
+requireApp('system/test/unit/mock_context_menu.js');
 requireApp('system/test/unit/mock_applications.js');
 requireApp('system/test/unit/mock_layout_manager.js');
 requireApp('system/test/unit/mock_app_chrome.js');
@@ -22,11 +15,13 @@ requireApp('system/test/unit/mock_screen_layout.js');
 requireApp('system/test/unit/mock_popup_window.js');
 requireApp('system/test/unit/mock_attention_screen.js');
 requireApp('system/test/unit/mock_activity_window.js');
+requireApp('system/test/unit/mock_statusbar.js');
 
 var mocksForAppWindow = new MocksHelper([
   'OrientationManager', 'Applications', 'SettingsListener',
   'ManifestHelper', 'LayoutManager', 'ActivityWindow',
-  'ScreenLayout', 'AppChrome', 'PopupWindow', 'AttentionScreen'
+  'ScreenLayout', 'AppChrome', 'PopupWindow', 'AttentionScreen',
+  'StatusBar'
 ]).init();
 
 suite('system/AppWindow', function() {
@@ -182,7 +177,7 @@ suite('system/AppWindow', function() {
 
     test('Resize if we are not fullscreen', function() {
       var stubIsFullScreen = this.sinon.stub(app1, 'isFullScreen');
-      stubIsFullScreen.returns(true);
+      stubIsFullScreen.returns(false);
       var stubIsActive = this.sinon.stub(app1, 'isActive');
       stubIsActive.returns(true);
       app1.resize();
@@ -205,6 +200,24 @@ suite('system/AppWindow', function() {
       stubIsActive.returns(true);
       app1.resize();
       assert.isTrue(stubbroadcast.calledWith('withkeyboard'));
+    });
+
+    test('Reset the screenshot overlay visibilty', function() {
+      app1.screenshotOverlay.style.visibility = 'hidden';
+      var stubIsActive = this.sinon.stub(app1, 'isActive');
+      stubIsActive.returns(true);
+      app1.resize();
+      assert.equal(app1.screenshotOverlay.style.visibility, '');
+    });
+
+    test('Reset the iframe inline size', function() {
+      app1.iframe.style.width = '480px';
+      app1.iframe.style.height = '320px';
+      var stubIsActive = this.sinon.stub(app1, 'isActive');
+      stubIsActive.returns(true);
+      app1.resize();
+      assert.equal(app1.iframe.style.width, '');
+      assert.equal(app1.iframe.style.height, '');
     });
 
     test('Would get the height of chrome\'s button bar', function() {
@@ -247,6 +260,15 @@ suite('system/AppWindow', function() {
     test('display screenshot for apps launched in background', function() {
       new AppWindow(fakeAppConfigBackground); // jshint ignore:line
       sinon.assert.calledWith(visibleSpy, false, true);
+    });
+
+    test('homescreen is launched at background', function() {
+      var renderSpy = this.sinon.stub(AppWindow.prototype, 'render');
+      var app = new AppWindow(fakeAppConfig1);
+      renderSpy.restore();
+      app.isHomescreen = true;
+      app.render();
+      sinon.assert.calledWith(visibleSpy, false);
     });
   });
 
@@ -1012,6 +1034,82 @@ suite('system/AppWindow', function() {
     });
   });
 
+  suite('apply and unapplyStyle', function() {
+    test('applyStyle', function() {
+      var app = new AppWindow(fakeAppConfig1);
+      app.element.style.opacity = '0.5';
+
+      app.applyStyle({
+        MozTransform: 'scale(2)',
+        fontSize: 'large'
+      });
+      assert.equal(app.element.style.MozTransform, 'scale(2)');
+      assert.equal(app.element.style.fontSize, 'large');
+      // is non-destructive
+      assert.equal(app.element.style.opacity, '0.5');
+    });
+    test('unapplyStyle', function() {
+      var app = new AppWindow(fakeAppConfig1);
+      app.applyStyle({
+        MozTransform: 'scale(2)',
+        fontSize: 'large',
+        scale: '0.5'
+      });
+      app.unapplyStyle({ MozTransform: true, fontSize: true });
+      assert.ok(!app.element.style.MozTransform);
+      assert.ok(!app.element.style.fontSize);
+      assert.equal(app.element.style.scale, '0.5');
+    });
+
+  });
+
+  suite('enter/leaveTaskManager', function() {
+    test('class gets added and removed', function() {
+      var app = new AppWindow(fakeAppConfig1);
+      assert.isFalse(app.element.classList.contains('in-task-manager'));
+      app.enterTaskManager();
+      assert.isTrue(app.element.classList.contains('in-task-manager'));
+      app.leaveTaskManager();
+      assert.isFalse(app.element.classList.contains('in-task-manager'));
+    });
+
+    test('leaveTaskManager: element.style cleanup', function() {
+      var app = new AppWindow(fakeAppConfig1);
+      var unapplyStyleStub = sinon.stub(app, 'unapplyStyle');
+      app.applyStyle({
+        fontSize: '11',
+        MozTransform: 'scale(2)'
+      });
+      app.applyStyle({
+        pointerEvents: 'none'
+      });
+      app.leaveTaskManager();
+
+      // ensure unapplyStyle gets called with aggregated property list
+      assert.isTrue(unapplyStyleStub.calledOnce);
+      var unapplyProps = unapplyStyleStub.getCall(0).args[0];
+      assert.equal(Object.keys(unapplyProps).length, 3);
+      assert.ok('fontSize' in unapplyProps);
+      assert.ok('MozTransform' in unapplyProps);
+      assert.ok('pointerEvents' in unapplyProps);
+    });
+  });
+
+  suite('transform', function(){
+    test('transform composes correct string value', function(){
+      var app = new AppWindow(fakeAppConfig1);
+      var transformProps = {
+        scale: 0.5,
+        translateX: '10px',
+        rotateY: '10deg'
+      };
+      // although order isn't important, it should come out looking like this:
+      var expectedStr = 'scale(0.5) translateX(10px) rotateY(10deg)';
+      app.transform(transformProps);
+      assert.equal(app.element.style.MozTransform, expectedStr);
+    });
+  });
+
   suite('Event handlers', function() {
     test('ActivityDone event', function() {
       var app1 = new AppWindow(fakeAppConfig1);
@@ -1217,6 +1315,78 @@ suite('system/AppWindow', function() {
     assert.equal(app1.identificationTitle.textContent, 'Mon Application');
     });
 
+    test('Orientation change event on app', function() {
+      var app1 = new AppWindow(fakeAppConfig1);
+      this.sinon.stub(app1, 'isActive').returns(false);
+      app1.width = 320;
+      app1.height = 460;
+      layoutManager.width = 480;
+      layoutManager.height = 300;
+
+      app1.handleEvent({
+        type: '_orientationchange'
+      });
+
+      assert.equal(app1.element.style.width, '480px');
+      assert.equal(app1.element.style.height, '300px');
+      assert.equal(app1.iframe.style.width, '320px');
+      assert.equal(app1.iframe.style.height, '460px');
+
+      assert.equal(app1.screenshotOverlay.style.visibility, 'hidden');
+    });
+
+    test('Orientation change event on app with match orientation', function() {
+      var app1 = new AppWindow(fakeAppConfig1);
+      this.sinon.stub(app1, 'isActive').returns(false);
+      app1.width = 320;
+      app1.height = 460;
+      layoutManager.width = 320;
+      layoutManager.height = 460;
+
+      app1.screenshotOverlay.style.visibility = 'hidden';
+
+      app1.handleEvent({
+        type: '_orientationchange'
+      });
+
+      assert.equal(app1.screenshotOverlay.style.visibility, '');
+    });
+
+    test('Orientation change event on active app', function() {
+      var app1 = new AppWindow(fakeAppConfig1);
+      this.sinon.stub(app1, 'isActive').returns(true);
+
+      app1.handleEvent({
+        type: '_orientationchange'
+      });
+
+      assert.equal(app1.element.style.width, '');
+      assert.equal(app1.element.style.height, '');
+      assert.equal(app1.iframe.style.width, '');
+      assert.equal(app1.iframe.style.height, '');
+    });
+
+    test('Orientation change event on fullscreen app', function() {
+      var app1 = new AppWindow(fakeAppConfig1);
+      this.sinon.stub(app1, 'isActive').returns(false);
+      this.sinon.stub(app1, 'isFullScreen').returns(true);
+      app1.width = 320;
+      app1.height = 480;
+      layoutManager.width = 480;
+      layoutManager.height = 300;
+
+      app1.handleEvent({
+        type: '_orientationchange'
+      });
+
+      assert.equal(app1.element.style.width, '480px');
+      assert.equal(app1.element.style.height, '320px');
+      assert.equal(app1.iframe.style.width, '320px');
+      assert.equal(app1.iframe.style.height, '480px');
+
+      assert.equal(app1.screenshotOverlay.style.visibility, 'hidden');
+    });
+
     test('Swipe in event', function() {
       var app1 = new AppWindow(fakeAppConfig1);
       var atc1 = {
@@ -1407,6 +1577,17 @@ suite('system/AppWindow', function() {
     app2.frontWindow = popup;
     app2.navigate(url);
     assert.isNull(app2.frontWindow);
+  });
+
+  test('showDefaultContextMenu', function() {
+    var app = new AppWindow(fakeAppConfig1);
+    // Nothing goes wrong if contextmenu is undefined
+    app.showDefaultContextMenu();
+
+    app.contextmenu = MockContextMenu;
+    var stubCtx = this.sinon.stub(app.contextmenu, 'showDefaultMenu');
+    app.showDefaultContextMenu();
+    assert.isTrue(stubCtx.called);
   });
 
   function genFakeConfig(id) {

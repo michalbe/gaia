@@ -141,11 +141,15 @@ function concatenatedScripts(scriptsPaths, targetPath) {
 }
 
 function getJSON(file) {
+  let content;
   try {
-    let content = getFileContent(file);
+    content = getFileContent(file);
     return JSON.parse(content);
   } catch (e) {
     dump('Invalid JSON file : ' + file.path + '\n');
+    if (content) {
+      dump('Content of JSON file:\n' + content + '\n');
+    }
     throw e;
   }
 }
@@ -314,6 +318,15 @@ var gaia = {
 function getLocaleBasedir(original) {
   return (getOsType().indexOf('WIN') !== -1) ?
     original.replace('/', '\\', 'g') : original;
+}
+
+function existsInAppDirs(appDirs, appName) {
+  var apps = appDirs.split(' ');
+  var exists = apps.some(function (appPath) {
+    let appFile = getFile(appPath);
+    return (appName === appFile.leafName);
+  });
+  return exists;
 }
 
 function getDistributionFileContent(name, defaultContent, distDir) {
@@ -835,6 +848,11 @@ function copyRec(source, target) {
   }
 }
 
+function createZip() {
+  var zip = Cc['@mozilla.org/zipwriter;1'].createInstance(Ci.nsIZipWriter);
+  return zip;
+}
+
 exports.Q = Promise;
 exports.ls = ls;
 exports.getFileContent = getFileContent;
@@ -860,6 +878,7 @@ exports.getNewURI = getNewURI;
 exports.getOsType = getOsType;
 exports.generateUUID = generateUUID;
 exports.copyRec = copyRec;
+exports.createZip = createZip;
 // ===== the following functions support node.js compitable interface.
 exports.deleteFile = deleteFile;
 exports.listFiles = listFiles;
@@ -887,3 +906,5 @@ exports.dirname = dirname;
 exports.basename = basename;
 exports.addEntryContentWithTime = addEntryContentWithTime;
 exports.getCompression = getCompression;
+exports.existsInAppDirs = existsInAppDirs;
+

@@ -16,6 +16,7 @@ var constants = require('constants');
 var AlarmEdit = function() {
   Panel.apply(this, arguments);
   this.element.innerHTML = html;
+
   mozL10n.translate(this.element);
   var handleDomEvent = this.handleDomEvent.bind(this);
 
@@ -88,8 +89,7 @@ var AlarmEdit = function() {
   // When the language changes, the value of 'weekStartsOnMonday'
   // might change. Since that's more than a simple text string, we
   // can't just use mozL10n.translate().
-  window.addEventListener('localized', this.updateL10n.bind(this));
-  this.updateL10n();
+  mozL10n.ready(this.updateL10n.bind(this));
 
   this.buttons.close.addEventListener('click', handleDomEvent);
   this.buttons.done.addEventListener('click', handleDomEvent);
@@ -225,6 +225,13 @@ Utils.extend(AlarmEdit.prototype, {
     }
 
     location.hash = '#alarm-edit-panel';
+
+    // We're appending new elements to DOM so to make sure headers are
+    // properly resized and centered, we emmit a lazyload event.
+    // This will be removed when the gaia-header web component lands.
+    window.dispatchEvent(new CustomEvent('lazyload', {
+      detail: this.element
+    }));
   },
 
   initTimeSelect: function aev_initTimeSelect() {

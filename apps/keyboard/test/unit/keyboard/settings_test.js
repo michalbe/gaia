@@ -1,7 +1,7 @@
 'use strict';
 
-/* global MockNavigatorMozSettings, SettingsPromiseManager,
-          SettingsManagerBase */
+/* global MockNavigatorMozSettings, MockNavigatorMozSettingsLock,
+          SettingsPromiseManager, SettingsManagerBase */
 
 require('/js/keyboard/settings.js');
 require('/shared/test/unit/mocks/mock_event_target.js');
@@ -21,21 +21,20 @@ suite('SettingsPromiseManager', function() {
 
   test('get one key', function(done) {
     var mozSettings = navigator.mozSettings = new MockNavigatorMozSettings();
-    var createLockSpy = this.sinon.spy(mozSettings, 'createLock');
+    var createLockStub = this.sinon.stub(mozSettings, 'createLock');
+    var lock = new MockNavigatorMozSettingsLock();
+    var lockGetSpy = this.sinon.spy(lock, 'get');
+    createLockStub.returns(lock);
 
     var promiseManager = new SettingsPromiseManager();
     var p = promiseManager.get('foo');
 
-    assert.isTrue(createLockSpy.calledOnce);
-    var lock = createLockSpy.getCall(0).returnValue;
+    assert.isTrue(createLockStub.calledOnce);
 
-    // XXX We are not given the opportunity to install spy on
-    // the lock.get() method, so this is the only way to get it.
-    assert.equal(lock.mCalls.length , 1);
-    assert.equal(lock.mCalls[0].name, 'get');
-    assert.deepEqual(lock.mCalls[0].arguments, ['foo']);
+    assert.isTrue(lockGetSpy.calledOnce);
+    assert.isTrue(lockGetSpy.calledWith('foo'));
 
-    var req = lock.mCalls[0].req;
+    var req = lockGetSpy.getCall(0).returnValue;
     req.fireSuccess({ 'foo': 'bar' });
 
     p.then(function(value) {
@@ -50,25 +49,23 @@ suite('SettingsPromiseManager', function() {
 
   test('get multiple keys', function(done) {
     var mozSettings = navigator.mozSettings = new MockNavigatorMozSettings();
-    var createLockSpy = this.sinon.spy(mozSettings, 'createLock');
+    var createLockStub = this.sinon.stub(mozSettings, 'createLock');
+    var lock = new MockNavigatorMozSettingsLock();
+    var lockGetSpy = this.sinon.spy(lock, 'get');
+    createLockStub.returns(lock);
 
     var promiseManager = new SettingsPromiseManager();
     var p = promiseManager.get(['foo', 'foo2']);
 
-    assert.isTrue(createLockSpy.calledOnce);
-    var lock = createLockSpy.getCall(0).returnValue;
+    assert.isTrue(createLockStub.calledOnce);
 
-    // XXX We are not given the opportunity to install spy on
-    // the lock.get() method, so this is the only way to get it.
-    assert.equal(lock.mCalls.length , 2);
-    assert.equal(lock.mCalls[0].name, 'get');
-    assert.deepEqual(lock.mCalls[0].arguments, ['foo']);
-    assert.equal(lock.mCalls[1].name, 'get');
-    assert.deepEqual(lock.mCalls[1].arguments, ['foo2']);
+    assert.isTrue(lockGetSpy.calledTwice);
+    assert.isTrue(lockGetSpy.calledWith('foo'));
+    assert.isTrue(lockGetSpy.calledWith('foo2'));
 
-    var req1 = lock.mCalls[0].req;
+    var req1 = lockGetSpy.getCall(0).returnValue;
     req1.fireSuccess({ 'foo': 'bar' });
-    var req2 = lock.mCalls[1].req;
+    var req2 = lockGetSpy.getCall(1).returnValue;
     req2.fireSuccess({ 'foo2': 'bar2' });
 
     p.then(function(values) {
@@ -83,21 +80,21 @@ suite('SettingsPromiseManager', function() {
 
   test('get, handle error', function(done) {
     var mozSettings = navigator.mozSettings = new MockNavigatorMozSettings();
-    var createLockSpy = this.sinon.spy(mozSettings, 'createLock');
+    var createLockStub = this.sinon.stub(mozSettings, 'createLock');
+    var lock = new MockNavigatorMozSettingsLock();
+    var lockGetSpy = this.sinon.spy(lock, 'get');
+    createLockStub.returns(lock);
+
 
     var promiseManager = new SettingsPromiseManager();
     var p = promiseManager.get('foo');
 
-    assert.isTrue(createLockSpy.calledOnce);
-    var lock = createLockSpy.getCall(0).returnValue;
+    assert.isTrue(createLockStub.calledOnce);
 
-    // XXX We are not given the opportunity to install spy on
-    // the lock.get() method, so this is the only way to get it.
-    assert.equal(lock.mCalls.length , 1);
-    assert.equal(lock.mCalls[0].name, 'get');
-    assert.deepEqual(lock.mCalls[0].arguments, ['foo']);
+    assert.isTrue(lockGetSpy.calledOnce);
+    assert.isTrue(lockGetSpy.calledWith('foo'));
 
-    var req = lock.mCalls[0].req;
+    var req = lockGetSpy.getCall(0).returnValue;
     req.fireError('error');
 
     p.then(function(value) {
@@ -113,21 +110,21 @@ suite('SettingsPromiseManager', function() {
 
   test('set one key', function(done) {
     var mozSettings = navigator.mozSettings = new MockNavigatorMozSettings();
-    var createLockSpy = this.sinon.spy(mozSettings, 'createLock');
+    var createLockStub = this.sinon.stub(mozSettings, 'createLock');
+    var lock = new MockNavigatorMozSettingsLock();
+    var lockSetSpy = this.sinon.spy(lock, 'set');
+    createLockStub.returns(lock);
+
 
     var promiseManager = new SettingsPromiseManager();
     var p = promiseManager.set('foo', 'bar');
 
-    assert.isTrue(createLockSpy.calledOnce);
-    var lock = createLockSpy.getCall(0).returnValue;
+    assert.isTrue(createLockStub.calledOnce);
 
-    // XXX We are not given the opportunity to install spy on
-    // the lock.get() method, so this is the only way to get it.
-    assert.equal(lock.mCalls.length , 1);
-    assert.equal(lock.mCalls[0].name, 'set');
-    assert.deepEqual(lock.mCalls[0].arguments, [{foo: 'bar'}]);
+    assert.isTrue(lockSetSpy.calledOnce);
+    assert.isTrue(lockSetSpy.calledWith({'foo': 'bar' }));
 
-    var req = lock.mCalls[0].req;
+    var req = lockSetSpy.getCall(0).returnValue;
     req.fireSuccess(0);
 
     p.then(function() {
@@ -142,21 +139,21 @@ suite('SettingsPromiseManager', function() {
 
   test('set multiple keys', function(done) {
     var mozSettings = navigator.mozSettings = new MockNavigatorMozSettings();
-    var createLockSpy = this.sinon.spy(mozSettings, 'createLock');
+    var createLockStub = this.sinon.stub(mozSettings, 'createLock');
+    var lock = new MockNavigatorMozSettingsLock();
+    var lockSetSpy = this.sinon.spy(lock, 'set');
+    createLockStub.returns(lock);
+
 
     var promiseManager = new SettingsPromiseManager();
     var p = promiseManager.set({foo: 'bar', foo2: 'bar2' });
 
-    assert.isTrue(createLockSpy.calledOnce);
-    var lock = createLockSpy.getCall(0).returnValue;
+    assert.isTrue(createLockStub.calledOnce);
 
-    // XXX We are not given the opportunity to install spy on
-    // the lock.get() method, so this is the only way to get it.
-    assert.equal(lock.mCalls.length , 1);
-    assert.equal(lock.mCalls[0].name, 'set');
-    assert.deepEqual(lock.mCalls[0].arguments, [{foo: 'bar', foo2: 'bar2' }]);
+    assert.isTrue(lockSetSpy.calledOnce);
+    assert.isTrue(lockSetSpy.calledWith({foo: 'bar', foo2: 'bar2' }));
 
-    var req = lock.mCalls[0].req;
+    var req = lockSetSpy.getCall(0).returnValue;
     req.fireSuccess(0);
 
     p.then(function() {
@@ -171,21 +168,21 @@ suite('SettingsPromiseManager', function() {
 
   test('set, handle error', function(done) {
     var mozSettings = navigator.mozSettings = new MockNavigatorMozSettings();
-    var createLockSpy = this.sinon.spy(mozSettings, 'createLock');
+    var createLockStub = this.sinon.stub(mozSettings, 'createLock');
+    var lock = new MockNavigatorMozSettingsLock();
+    var lockSetSpy = this.sinon.spy(lock, 'set');
+    createLockStub.returns(lock);
+
 
     var promiseManager = new SettingsPromiseManager();
     var p = promiseManager.set('foo', 'bar');
 
-    assert.isTrue(createLockSpy.calledOnce);
-    var lock = createLockSpy.getCall(0).returnValue;
+    assert.isTrue(createLockStub.calledOnce);
 
-    // XXX We are not given the opportunity to install spy on
-    // the lock.get() method, so this is the only way to get it.
-    assert.equal(lock.mCalls.length , 1);
-    assert.equal(lock.mCalls[0].name, 'set');
-    assert.deepEqual(lock.mCalls[0].arguments, [{foo: 'bar'}]);
+    assert.isTrue(lockSetSpy.calledOnce);
+    assert.isTrue(lockSetSpy.calledWith({'foo': 'bar' }));
 
-    var req = lock.mCalls[0].req;
+    var req = lockSetSpy.getCall(0).returnValue;
     req.fireError('error');
 
     p.then(function(value) {
@@ -213,7 +210,11 @@ suite('SettingsManagerBase', function() {
 
   test('initSettings, observe change, stopObserve', function(done) {
     var mozSettings = navigator.mozSettings = new MockNavigatorMozSettings();
-    var createLockSpy = this.sinon.spy(mozSettings, 'createLock');
+    var createLockStub = this.sinon.stub(mozSettings, 'createLock');
+    var lock = new MockNavigatorMozSettingsLock();
+    var lockGetSpy = this.sinon.spy(lock, 'get');
+    createLockStub.returns(lock);
+
     var addObserverSpy = this.sinon.spy(mozSettings, 'addObserver');
     var removeObserverSpy = this.sinon.spy(mozSettings, 'removeObserver');
 
@@ -225,41 +226,50 @@ suite('SettingsManagerBase', function() {
 
     var p = settingsManager.initSettings();
 
-    assert.isTrue(createLockSpy.calledOnce);
-    var lock = createLockSpy.getCall(0).returnValue;
+    assert.isTrue(createLockStub.calledOnce);
 
-    // XXX We are not given the opportunity to install spy on
-    // the lock.get() method, so this is the only way to get it.
-    assert.equal(lock.mCalls.length , 2);
-    assert.equal(lock.mCalls[0].name, 'get');
-    assert.deepEqual(lock.mCalls[0].arguments, ['foo']);
-    assert.equal(lock.mCalls[1].name, 'get');
-    assert.deepEqual(lock.mCalls[1].arguments, ['foo2']);
+    assert.isTrue(lockGetSpy.calledTwice);
+    assert.isTrue(lockGetSpy.calledWith('foo'));
+    assert.isTrue(lockGetSpy.calledWith('foo2'));
 
-    var req1 = lock.mCalls[0].req;
+    var req1 = lockGetSpy.getCall(0).returnValue;
     req1.fireSuccess({ 'foo': 'bar' });
-    var req2 = lock.mCalls[1].req;
+    var req2 = lockGetSpy.getCall(1).returnValue;
     req2.fireSuccess({ 'foo2': 'bar2' });
 
-    p.then(function() {
-      assert.equal(settingsManager.fooValue, 'bar');
-      assert.equal(settingsManager.foo2Value, 'bar2');
+    assert.equal(settingsManager.initialized, false);
+
+    var p2 = settingsManager.initSettings();
+    assert.equal(p, p2);
+
+    p.then(function(settings) {
+      assert.equal(settingsManager.initialized, true);
+
+      assert.equal(settings.fooValue, 'bar');
+      assert.equal(settings.foo2Value, 'bar2');
+
+      var s = settingsManager.getSettingsSync();
+      assert.equal(s, settings);
 
       assert.isTrue(addObserverSpy.calledTwice);
       assert.isTrue(addObserverSpy.calledWith('foo'));
       assert.isTrue(addObserverSpy.calledWith('foo2'));
 
       var calls = 0;
-      settingsManager.onsettingchange = function() {
+      settingsManager.onsettingchange = function(s2) {
         calls++;
+
+        var s = settingsManager.getSettingsSync();
+        assert.equal(s2, s);
+
         switch (calls) {
           case 1:
-            assert.equal(settingsManager.fooValue, 'BAR');
+            assert.equal(s2.fooValue, 'BAR');
 
             break;
 
           case 2:
-            assert.equal(settingsManager.foo2Value, 'BAR2');
+            assert.equal(s2.foo2Value, 'BAR2');
 
             settingsManager.stopObserve();
             assert.isTrue(removeObserverSpy.calledTwice);
@@ -287,7 +297,11 @@ suite('SettingsManagerBase', function() {
 
   test('initSettings and returned error', function(done) {
     var mozSettings = navigator.mozSettings = new MockNavigatorMozSettings();
-    var createLockSpy = this.sinon.spy(mozSettings, 'createLock');
+    var createLockStub = this.sinon.stub(mozSettings, 'createLock');
+    var lock = new MockNavigatorMozSettingsLock();
+    var lockGetSpy = this.sinon.spy(lock, 'get');
+    createLockStub.returns(lock);
+
     var addObserverSpy = this.sinon.spy(mozSettings, 'addObserver');
     var removeObserverSpy = this.sinon.spy(mozSettings, 'removeObserver');
 
@@ -299,20 +313,15 @@ suite('SettingsManagerBase', function() {
 
     var p = settingsManager.initSettings();
 
-    assert.isTrue(createLockSpy.calledOnce);
-    var lock = createLockSpy.getCall(0).returnValue;
+    assert.isTrue(createLockStub.calledOnce);
 
-    // XXX We are not given the opportunity to install spy on
-    // the lock.get() method, so this is the only way to get it.
-    assert.equal(lock.mCalls.length , 2);
-    assert.equal(lock.mCalls[0].name, 'get');
-    assert.deepEqual(lock.mCalls[0].arguments, ['foo']);
-    assert.equal(lock.mCalls[1].name, 'get');
-    assert.deepEqual(lock.mCalls[1].arguments, ['foo2']);
+    assert.isTrue(lockGetSpy.calledTwice);
+    assert.isTrue(lockGetSpy.calledWith('foo'));
+    assert.isTrue(lockGetSpy.calledWith('foo2'));
 
-    var req1 = lock.mCalls[0].req;
+    var req1 = lockGetSpy.getCall(0).returnValue;
     req1.fireError('error');
-    var req2 = lock.mCalls[1].req;
+    var req2 = lockGetSpy.getCall(1).returnValue;
     req2.fireError('error');
 
     p.then(function() {
@@ -320,6 +329,7 @@ suite('SettingsManagerBase', function() {
 
       done();
     }, function(error) {
+      assert.equal(settingsManager.initialized, false);
       assert.equal(addObserverSpy.calledOnce, false);
       assert.equal(removeObserverSpy.calledOnce, false);
 

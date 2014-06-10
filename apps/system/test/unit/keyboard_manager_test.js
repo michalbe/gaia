@@ -87,14 +87,21 @@ suite('KeyboardManager', function() {
   mocksHelperForKeyboardManager.attachTestHelpers();
 
   var realMozSettings = null;
+  var realKeyboard = null;
 
   suiteSetup(function() {
     document.body.innerHTML += '<div id="run-container"></div>';
     navigator.mozSettings = MockNavigatorSettings;
+
+    realKeyboard = window.navigator.mozInputMethod;
+    window.navigator.mozInputMethod = {
+      removeFocus: function() {}
+    };
   });
 
   suiteTeardown(function() {
     navigator.mozSettings = realMozSettings;
+    window.navigator.mozInputMethod = realKeyboard;
   });
 
   setup(function() {
@@ -441,9 +448,10 @@ suite('KeyboardManager', function() {
   });
 
   suite('Event handler', function() {
-    var resizeKeyboard, hideKeyboardImmediately, removeKeyboard;
+    var resizeKeyboard, hideKeyboardImmediately, removeKeyboard, hideKeyboard;
     setup(function() {
       resizeKeyboard = this.sinon.stub(KeyboardManager, 'resizeKeyboard');
+      hideKeyboard = this.sinon.stub(KeyboardManager, 'hideKeyboard');
       hideKeyboardImmediately =
             this.sinon.stub(KeyboardManager, 'hideKeyboardImmediately');
       removeKeyboard = this.sinon.stub(KeyboardManager, 'removeKeyboard');
@@ -493,6 +501,38 @@ suite('KeyboardManager', function() {
     test('applicationsetupdialogshow event', function() {
       trigger('applicationsetupdialogshow');
       assert.ok(hideKeyboardImmediately.called);
+    });
+
+    test('sheetstransitionstart event: do nothing if no keyboard', function() {
+      var spy = this.sinon.spy(navigator.mozInputMethod, 'removeFocus');
+      trigger('sheetstransitionstart');
+      assert.ok(spy.notCalled);
+    });
+
+    test('sheetstransitionstart event: hide keyboard if needed', function() {
+      var realActive = KeyboardManager.hasActiveKeyboard;
+      KeyboardManager.hasActiveKeyboard = true;
+      var spy = this.sinon.spy(navigator.mozInputMethod, 'removeFocus');
+      trigger('sheetstransitionstart');
+      sinon.assert.calledOnce(spy);
+
+      KeyboardManager.hasActiveKeyboard = realActive;
+    });
+
+    test('lock event: do nothing if no keyboard', function() {
+      var spy = this.sinon.spy(navigator.mozInputMethod, 'removeFocus');
+      trigger('lock');
+      assert.ok(spy.notCalled);
+    });
+
+    test('lock event: hide keyboard if needed', function() {
+      var realActive = KeyboardManager.hasActiveKeyboard;
+      KeyboardManager.hasActiveKeyboard = true;
+      var spy = this.sinon.spy(navigator.mozInputMethod, 'removeFocus');
+      trigger('lock');
+      sinon.assert.calledOnce(spy);
+
+      KeyboardManager.hasActiveKeyboard = realActive;
     });
   });
 
@@ -681,19 +721,8 @@ suite('KeyboardManager', function() {
       KeyboardManager.keyboardFrameContainer.classList.remove('hide');
       fakeMozbrowserResize(250);
       assert.equal(KeyboardManager.keyboardHeight, 250);
-      sinon.assert.callCount(showKeyboard, 1,
-                                        'showKeyboard should be called');
-    });
-
-    test('keyboard is showing.', function() {
-      KeyboardManager.setKeyboardToShow('text');
-      fakeMozbrowserResize(300);
-      KeyboardManager.keyboardFrameContainer.classList.remove('hide');
-      KeyboardManager.keyboardFrameContainer.dataset.transitionIn = 'true';
-      fakeMozbrowserResize(350);
-      assert.equal(KeyboardManager.keyboardHeight, 350);
-      sinon.assert.callCount(showKeyboard, 1,
-                                        'showKeyboard should be called once');
+      sinon.assert.callCount(showKeyboard, 2,
+                                          'showKeyboard should be called');
     });
   });
 

@@ -2,13 +2,15 @@
 'use strict';
 
 (function(exports) {
-  var TransitionEvents = ['open', 'close', 'complete', 'timeout'];
+  var TransitionEvents =
+    ['open', 'close', 'complete', 'timeout',
+      'immediate-open', 'immediate-close'];
 
   var TransitionStateTable = {
-    'closed': ['opening', null, null, null],
-    'opened': [null, 'closing', null, null],
-    'opening': [null, 'closing', 'opened', 'opened'],
-    'closing': ['opened', null, 'closed', 'closed']
+    'closed': ['opening', null, null, null, 'opened', null],
+    'opened': [null, 'closing', null, null, null, 'closed'],
+    'opening': [null, 'closing', 'opened', 'opened', 'opened', 'closed'],
+    'closing': ['opened', null, 'closed', 'closed', 'opened', 'closed']
   };
 
   var appTransitionSetting = 'app-transition.enabled';
@@ -40,12 +42,18 @@
       }
 
       this.app = app;
+      this.app.debug('default animation:',
+        this.app.openAnimation, this.app.closeAnimation);
       if (this.app.openAnimation) {
         this.openAnimation = this.app.openAnimation;
       }
 
       if (this.app.closeAnimation) {
         this.closeAnimation = this.app.closeAnimation;
+      }
+
+      if (this.app.CLASS_NAME == 'AppWindow') {
+        this.OPENING_TRANSITION_TIMEOUT = 2500;
       }
 
       this.app.element.addEventListener('_opening', this);
@@ -73,14 +81,14 @@
     this.app.element.removeEventListener('_openingtimeout', this);
     this.app.element.removeEventListener('_closingtimeout', this);
     this.app.element.removeEventListener('animationend', this);
-    this.app.element.removeEventListener('animationstart', this);
     this.app = null;
   };
 
   AppTransitionController.prototype._transitionState = 'closed';
   AppTransitionController.prototype.openAnimation = 'enlarge';
   AppTransitionController.prototype.closeAnimation = 'reduce';
-  AppTransitionController.prototype.TRANSITION_TIMEOUT = 350;
+  AppTransitionController.prototype.OPENING_TRANSITION_TIMEOUT = 350;
+  AppTransitionController.prototype.CLOSING_TRANSITION_TIMEOUT = 350;
   AppTransitionController.prototype.SLOW_TRANSITION_TIMEOUT = 3500;
   AppTransitionController.prototype.changeTransitionState =
     function atc_changeTransitionState(evt) {
@@ -94,6 +102,7 @@
       this.app.debug(currentState, state, '::', evt);
 
       this.switchTransitionState(state);
+      this.resetTransition();
       this['_do_' + state]();
       this.app.publish(state);
       //backward compatibility
@@ -126,23 +135,23 @@
 
   AppTransitionController.prototype._do_closing =
     function atc_do_closing() {
+      this.app.debug('timer to ensure closed does occur.');
       this._closingTimeout = window.setTimeout(function() {
         this.app.broadcast('closingtimeout');
       }.bind(this),
       System.slowTransition ? this.SLOW_TRANSITION_TIMEOUT :
-                              this.TRANSITION_TIMEOUT);
+                              this.CLOSING_TRANSITION_TIMEOUT);
       this.app.element.classList.add('transition-closing');
       this.app.element.classList.add(this.getAnimationName('close'));
     };
 
   AppTransitionController.prototype._do_closed =
     function atc_do_closed() {
-      this.resetTransition();
     };
 
   AppTransitionController.prototype.getAnimationName = function(type) {
     if (transitionEnabled) {
-      return this.currentAnimation || this[type + 'Animation'];
+      return this.currentAnimation || this[type + 'Animation'] || type;
     } else {
       return 'immediate';
     }
@@ -151,18 +160,19 @@
 
   AppTransitionController.prototype._do_opening =
     function atc_do_opening() {
+      this.app.debug('timer to ensure opened does occur.');
       this._openingTimeout = window.setTimeout(function() {
         this.app.broadcast('openingtimeout');
       }.bind(this),
       System.slowTransition ? this.SLOW_TRANSITION_TIMEOUT :
-                              this.TRANSITION_TIMEOUT);
+                              this.OPENING_TRANSITION_TIMEOUT);
       this.app.element.classList.add('transition-opening');
       this.app.element.classList.add(this.getAnimationName('open'));
+      this.app.debug(this.app.element.classList);
     };
 
   AppTransitionController.prototype._do_opened =
     function atc_do_opened() {
-      this.resetTransition();
     };
 
   AppTransitionController.prototype.switchTransitionState =
@@ -199,6 +209,18 @@
       if (!this.app || !this.app.element) {
         return;
       }
+      if (this.app.loaded) {
+        var self = this;
+        this.app.element.addEventListener('_opened', function onopen() {
+          // Perf test needs.
+          self.app.element.removeEventListener('_opened', onopen);
+          self.app.publish('loadtime', {
+            time: parseInt(Date.now() - self.app.launchTime),
+            type: 'w',
+            src: self.app.config.url
+          });
+        });
+      }
       this.app.reviveBrowser();
       this.app.launchTime = Date.now();
       this.app.fadeIn();
@@ -217,16 +239,8 @@
         return;
       }
 
-      if (this.app.loaded) {
-        // Perf test needs.
-        this.app.publish('loadtime', {
-          time: parseInt(Date.now() - this.app.launchTime),
-          type: 'w',
-          src: this.app.config.url
-        });
-      }
-
       this.resetTransition();
+      this.app.element.removeAttribute('aria-hidden');
       this.app.element.classList.add('active');
       this.app.setVisible(true);
 
@@ -234,12 +248,9 @@
       // May have orientation manager to deal with lock orientation request.
       this.app.setOrientation();
 
-      // Resize when opened.
-      // Note: we will not trigger reflow if the final size
-      // is the same as its current value.
-      this.app.resize();
       this.app.waitForNextPaint(function() {
-        if (this._transitionState !== 'opened') {
+        if (this._transitionState !== 'opened' || !this.app.loaded) {
+          this.app.debug('not loaded so not focusing for now.');
           return;
         }
         // XXX: Remove this after SIMPIN Dialog is refactored.
@@ -247,23 +258,30 @@
         // XXX: Rocketbar losing input focus
         // See: https://bugzilla.mozilla.org/show_bug.cgi?id=961557
         if (!SimPinDialog.visible && !rocketbar.shown) {
+          this.app.debug('focusing this app.');
           this.app.focus();
         }
       }.bind(this));
     };
 
   AppTransitionController.prototype.requireOpen = function(animation) {
-    if (animation) {
-      this.currentAnimation = animation;
+    this.currentAnimation = animation || this.openAnimation;
+    this.app.debug('open with ' + this.currentAnimation);
+    if (this.currentAnimation == 'immediate') {
+      this.changeTransitionState('immediate-open');
+    } else {
+      this.changeTransitionState('open');
     }
-    this.changeTransitionState('open', 'requireopen');
   };
 
   AppTransitionController.prototype.requireClose = function(animation) {
-    if (animation) {
-      this.currentAnimation = animation;
+    this.currentAnimation = animation || this.closeAnimation;
+    this.app.debug('close with ' + this.currentAnimation);
+    if (this.currentAnimation == 'immediate') {
+      this.changeTransitionState('immediate-close');
+    } else {
+      this.changeTransitionState('close');
     }
-    this.changeTransitionState('close', 'requireclose');
   };
 
   AppTransitionController.prototype.resetTransition =
@@ -282,14 +300,13 @@
 
   AppTransitionController.prototype.clearTransitionClasses =
     function atc_removeTransitionClasses() {
-      this.currentAnimation = null;
       if (!this.app) {
         return;
       }
 
       var classes = ['enlarge', 'reduce', 'to-cardview', 'from-cardview',
         'invoking', 'invoked', 'zoom-in', 'zoom-out', 'fade-in', 'fade-out',
-        'transition-opening', 'transition-closing', 'immediate',
+        'transition-opening', 'transition-closing', 'immediate', 'fadeout',
         'slideleft', 'slideright', 'in-from-left', 'out-to-right',
         'slideup', 'slidedown', 'will-become-active', 'will-become-inactive'];
 
@@ -319,6 +336,18 @@
           break;
         case 'animationend':
           evt.stopPropagation();
+          // We decide to drop this event if system is busy loading
+          // the active app or doing some other more important task.
+          if (System.isBusyLoading()) {
+            if (this.app.isHomescreen && this._transitionState == 'opening') {
+              /**
+               * focusing the app will have some side effect,
+               * but we don't care if we are opening the homescreen.
+               */
+              this.app.focus();
+            }
+            return;
+          }
           this.app.debug(evt.animationName + ' has been ENDED!');
           this.changeTransitionState('complete', evt.type);
           break;

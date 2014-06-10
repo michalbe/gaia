@@ -1,24 +1,22 @@
-/* global MocksHelper, MockAppWindow, AppTransitionController*/
+/* global MocksHelper, MockAppWindow, MockSystem, AppTransitionController */
 'use strict';
-
-mocha.globals(['AppTransitionController', 'AppWindow', 'System']);
 
 requireApp('system/test/unit/mock_app_window.js');
 requireApp('system/shared/test/unit/mocks/mock_settings_listener.js');
+requireApp('system/test/unit/mock_layout_manager.js');
+requireApp('system/test/unit/mock_system.js');
+requireApp('system/shared/test/unit/mocks/mock_settings_listener.js');
 
 var mocksForAppTransitionController = new MocksHelper([
-  'AppWindow', 'SettingsListener'
+  'AppWindow', 'LayoutManager', 'SettingsListener', 'System'
 ]).init();
 
 suite('system/AppTransitionController', function() {
   var stubById;
   mocksForAppTransitionController.attachTestHelpers();
   setup(function(done) {
-    this.sinon.useFakeTimers();
-
     stubById = this.sinon.stub(document, 'getElementById');
     stubById.returns(document.createElement('div'));
-    requireApp('system/js/system.js');
     requireApp('system/js/app_transition_controller.js', done);
   });
 
@@ -39,28 +37,36 @@ suite('system/AppTransitionController', function() {
     assert.isTrue(acn1._transitionState === 'closed');
   });
 
-  test('Open request', function() {
+  test('Open', function() {
     var app1 = new MockAppWindow(fakeAppConfig1);
     var acn1 = new AppTransitionController(app1);
-    acn1.handleEvent({ type: '_openrequest', detail: {} });
+    assert.deepEqual(acn1._transitionState, 'closed');
+    acn1.requireOpen();
+    assert.deepEqual(acn1._transitionState, 'opening');
   });
 
-  test('Close request', function() {
+  test('Open with immediate animation', function() {
     var app1 = new MockAppWindow(fakeAppConfig1);
     var acn1 = new AppTransitionController(app1);
-    acn1.handleEvent({ type: '_closerequest', detail: {} });
+    assert.deepEqual(acn1._transitionState, 'closed');
+    acn1.requireOpen('immediate');
+    assert.deepEqual(acn1._transitionState, 'opened');
   });
 
-  test('Opening event', function() {
+  test('Close', function() {
     var app1 = new MockAppWindow(fakeAppConfig1);
     var acn1 = new AppTransitionController(app1);
-    acn1.handleEvent({ type: '_opening' });
+    acn1._transitionState = 'opened';
+    acn1.requireClose();
+    assert.deepEqual(acn1._transitionState, 'closing');
   });
 
-  test('Closing event', function() {
+  test('Close with immediate animation', function() {
     var app1 = new MockAppWindow(fakeAppConfig1);
     var acn1 = new AppTransitionController(app1);
-    acn1.handleEvent({ type: '_closing' });
+    acn1._transitionState = 'opened';
+    acn1.requireClose('immediate');
+    assert.deepEqual(acn1._transitionState, 'closed');
   });
 
   test('Closed notfication', function() {
@@ -89,6 +95,7 @@ suite('system/AppTransitionController', function() {
   });
 
   test('Animation end event', function() {
+    this.sinon.stub(MockSystem, 'isBusyLoading').returns(false);
     var app1 = new MockAppWindow(fakeAppConfig1);
     var acn1 = new AppTransitionController(app1);
     var spy = this.sinon.spy();
@@ -98,6 +105,37 @@ suite('system/AppTransitionController', function() {
       stopPropagation: spy
     });
     assert.isTrue(spy.called);
+    acn1._transitionState = 'opened';
+  });
+
+  test('Discard animationend event if system is busy', function() {
+    this.sinon.stub(MockSystem, 'isBusyLoading').returns(true);
+    var app1 = new MockAppWindow(fakeAppConfig1);
+    var acn1 = new AppTransitionController(app1);
+    var spy = this.sinon.spy();
+    var stubPublish = this.sinon.stub(app1, 'publish');
+    acn1._transitionState = 'opening';
+    acn1.handleEvent({
+      type: 'animationend',
+      stopPropagation: spy
+    });
+    assert.equal(acn1._transitionState, 'opening');
+    assert.isFalse(stubPublish.called);
+  });
+
+  test('Discard animationend event if system is busy', function() {
+    this.sinon.stub(MockSystem, 'isBusyLoading').returns(true);
+    var app1 = new MockAppWindow(fakeAppConfig1);
+    app1.isHomescreen = true;
+    var acn1 = new AppTransitionController(app1);
+    var spy = this.sinon.spy();
+    acn1._transitionState = 'opening';
+    var stubFocus = this.sinon.stub(app1, 'focus');
+    acn1.handleEvent({
+      type: 'animationend',
+      stopPropagation: spy
+    });
+    assert.isTrue(stubFocus.called);
   });
 
   test('Handle opening', function() {
@@ -110,16 +148,25 @@ suite('system/AppTransitionController', function() {
     assert.isTrue(stubReviveBrowser.called);
   });
 
+  test('Warm launch event', function() {
+    var app1 = new MockAppWindow(fakeAppConfig1);
+    var acn1 = new AppTransitionController(app1);
+    app1.loaded = true;
+    acn1.handle_opening();
+    var stubPublish = this.sinon.stub(app1, 'publish');
+    app1.element.dispatchEvent(new CustomEvent('_opened'));
+    assert.isTrue(stubPublish.called);
+    assert.equal(stubPublish.getCall(0).args[1].type, 'w');
+  });
+
   suite('Opened', function() {
     test('Handle opened', function() {
       var app1 = new MockAppWindow(fakeAppConfig1);
       var acn1 = new AppTransitionController(app1);
       var stubSetVisible = this.sinon.stub(app1, 'setVisible');
       var stubSetOrientation = this.sinon.stub(app1, 'setOrientation');
-      var stubResize = this.sinon.stub(app1, 'resize');
       acn1.handle_opened();
       assert.isTrue(stubSetVisible.calledWith(true));
-      assert.isTrue(stubResize.called);
       assert.isTrue(stubSetOrientation.called);
     });
   });

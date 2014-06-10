@@ -1,8 +1,9 @@
 /* exported KeypadManager */
 
 /* globals CallHandler, CallLogDBManager, CallsHandler, CallScreen,
-           LazyLoader, LazyL10n, MultiSimActionButton, PhoneNumberActionMenu,
-           SimPicker, SettingsListener, TonePlayer, Utils */
+           CustomDialog, LazyLoader, LazyL10n, MultiSimActionButton,
+           PhoneNumberActionMenu, SimPicker, SettingsListener, TonePlayer,
+           Utils */
 
 'use strict';
 
@@ -80,70 +81,71 @@ var KeypadManager = {
 
   get phoneNumberView() {
     delete this.phoneNumberView;
-    return this.phoneNumberView = document.getElementById('phone-number-view');
+    return (this.phoneNumberView =
+      document.getElementById('phone-number-view'));
   },
 
   get fakePhoneNumberView() {
     delete this.fakePhoneNumberView;
-    return this.fakePhoneNumberView =
-      document.getElementById('fake-phone-number-view');
+    return (this.fakePhoneNumberView =
+      document.getElementById('fake-phone-number-view'));
   },
 
   get phoneNumberViewContainer() {
     delete this.phoneNumberViewContainer;
-    return this.phoneNumberViewContainer =
-      document.getElementById('phone-number-view-container');
+    return (this.phoneNumberViewContainer =
+      document.getElementById('phone-number-view-container'));
   },
 
   get keypad() {
     delete this.keypad;
-    return this.keypad = document.getElementById('keypad');
+    return (this.keypad = document.getElementById('keypad'));
   },
 
   get callBar() {
     delete this.callBar;
-    return this.callBar =
-      document.getElementById('keypad-callbar');
+    return (this.callBar =
+      document.getElementById('keypad-callbar'));
   },
 
   get hideBar() {
     delete this.hideBar;
-    return this.hideBar = document.getElementById('keypad-hidebar');
+    return (this.hideBar = document.getElementById('keypad-hidebar'));
   },
 
   get callBarAddContact() {
     delete this.callBarAddContact;
-    return this.callBarAddContact =
-      document.getElementById('keypad-callbar-add-contact');
+    return (this.callBarAddContact =
+      document.getElementById('keypad-callbar-add-contact'));
   },
 
   get callBarCallAction() {
     delete this.callBarCallAction;
-    return this.callBarCallAction =
-      document.getElementById('keypad-callbar-call-action');
+    return (this.callBarCallAction =
+      document.getElementById('keypad-callbar-call-action'));
   },
 
   get callBarCancelAction() {
     delete this.callBarCancelAction;
-    return this.callBarCancelAction =
-      document.getElementById('keypad-callbar-cancel');
+    return (this.callBarCancelAction =
+      document.getElementById('keypad-callbar-cancel'));
   },
 
   get deleteButton() {
     delete this.deleteButton;
-    return this.deleteButton = document.getElementById('keypad-delete');
+    return (this.deleteButton = document.getElementById('keypad-delete'));
   },
 
   get hideBarHangUpAction() {
     delete this.hideBarHangUpAction;
-    return this.hideBarHangUpAction =
-      document.getElementById('keypad-hidebar-hang-up-action-wrapper');
+    return (this.hideBarHangUpAction =
+      document.getElementById('keypad-hidebar-hang-up-action-wrapper'));
   },
 
   get hideBarHideAction() {
     delete this.hideBarHideAction;
-    return this.hideBarHideAction =
-      document.getElementById('keypad-hidebar-hide-keypad-action');
+    return (this.hideBarHideAction =
+      document.getElementById('keypad-hidebar-hide-keypad-action'));
   },
 
   multiSimActionButton: null,
@@ -162,7 +164,7 @@ var KeypadManager = {
     this.minFontSize = parseInt(parseInt(defaultFontSize) * 10 * 0.226);
     this.maxFontSize = this._onCall ?
       parseInt(parseInt(defaultFontSize) * this._MAX_FONT_SIZE_ON_CALL *
-        0.226) :
+      0.226) :
       parseInt(parseInt(defaultFontSize) * this._MAX_FONT_SIZE_DIAL_PAD *
         0.226);
 
@@ -234,7 +236,9 @@ var KeypadManager = {
     TonePlayer.init('normal');
     var channel = this._onCall ? 'telephony' : 'normal';
     window.addEventListener('visibilitychange', (function() {
-      TonePlayer.setChannel(document.mozHidden ? 'normal' : channel);
+      if (TonePlayer) {
+        TonePlayer.setChannel(document.mozHidden ? 'normal' : channel);
+      }
     }).bind(this));
 
     this.render();
@@ -650,7 +654,7 @@ var KeypadManager = {
     }
     var transaction = settings.createLock();
     var request = transaction.get('ril.iccInfo.mbdn');
-    request.onsuccess = function() {
+    request.onsuccess = (function() {
       var numbers = request.result['ril.iccInfo.mbdn'];
       var number;
       if (typeof numbers == 'string') {
@@ -664,11 +668,53 @@ var KeypadManager = {
       }
       if (number) {
         CallHandler.call(number, cardIndex);
+      } else {
+        this._showNoVoicemailDialog();
       }
-      // TODO: Bug 881178 - [Dialer] Invite the user to go set a voicemail
-      // number in the setting app.
-    };
+    }).bind(this);
     request.onerror = function() {};
+  },
+
+  _showNoVoicemailDialog: function hk_showNoVoicemailDialog() {
+    var _ = window.navigator.mozL10n.get;
+
+    var voicemailDialog = {
+      title: _('voicemailNoNumberTitle'),
+      text: _('voicemailNoNumberText'),
+      confirm: {
+        title: _('voicemailNoNumberSettings'),
+        recommend: true,
+        callback: this.showVoicemailSettings
+      },
+      cancel: {
+        title: _('voicemailNoNumberCancel'),
+        callback: this._hideNoVoicemailDialog
+      }
+    };
+
+    LazyLoader.load(['/shared/js/custom_dialog.js'], function() {
+      CustomDialog.show(
+        voicemailDialog.title, voicemailDialog.text,
+        voicemailDialog.cancel, voicemailDialog.confirm);
+    });
+  },
+
+  _hideNoVoicemailDialog: function kh_hideNoVoicemailDialog() {
+    CustomDialog.hide();
+  },
+
+  showVoicemailSettings: function kh_showVoicemailSettings() {
+    var activity = new window.MozActivity({
+      name: 'configure',
+      data: {
+        target: 'device',
+        section: 'call'
+      }
+    });
+
+    activity.onerror = function() {
+      console.warn('Configure activity error:', activity.error.name);
+    };
   },
 
   _observePreferences: function kh_observePreferences() {

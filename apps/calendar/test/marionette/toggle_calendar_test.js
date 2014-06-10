@@ -5,7 +5,16 @@ var Calendar = require('./lib/calendar'),
 
 marionette('toggle calendar', function() {
   var app;
-  var client = marionette.client();
+  var client = marionette.client({
+    prefs: {
+      // we need to disable the keyboard to avoid intermittent failures on
+      // Travis (transitions might take longer to run and block UI)
+      'dom.mozInputMethod.enabled': false,
+      // Do not require the B2G-desktop app window to have focus (as per the
+      // system window manager) in order for it to do focus-related things.
+      'focusmanager.testmode': true,
+    }
+  });
 
   setup(function() {
     app = new Calendar(client);
@@ -21,12 +30,12 @@ marionette('toggle calendar', function() {
   // the UI only gets updated after a few ms (data is persisted asynchronously
   // and after a delay), so we need to wait "displayed" value to change - will
   // timeout on test failure
-  function waitForElement(el) {
-    client.helper.waitForElement(el);
+  function waitForEvent(event) {
+    client.helper.waitForElement(event.element);
   }
 
-  function waitForElementToDisappear(el) {
-    client.helper.waitForElementToDisappear(el);
+  function waitForEventToDisappear(event) {
+    client.helper.waitForElementToDisappear(event.element);
   }
 
   suite('> regular event', function() {
@@ -41,12 +50,12 @@ marionette('toggle calendar', function() {
     suite('disable calendar', function() {
       test('month view', function() {
         var event = app.monthDay.events[0];
-        waitForElementToDisappear(event);
+        waitForEventToDisappear(event);
         // we cannot hide hour since there might be other events from different
         // calendars that happens at same time (which would also be hidden)
         // this behavior is better than previous one and will be changed after
         // we implement the visual refresh (it's a good compromise)
-        var hour = client.helper.closest(event, '.hour');
+        var hour = event.closestHour;
         assert(
           hour.displayed(),
           'hour should be displayed on month view'
@@ -55,18 +64,18 @@ marionette('toggle calendar', function() {
 
       test('week view', function() {
         app.openWeekView();
-        waitForElementToDisappear(app.week.events[0]);
+        waitForEventToDisappear(app.week.events[0]);
       });
 
       // Disabled bug 1007519
       test.skip('day view', function() {
         app.openDayView();
         var event = app.day.events[0];
-        waitForElementToDisappear(event);
+        waitForEventToDisappear(event);
 
         // on day view hour can't be hidden otherwise it affects events on other
         // calendars and it also looks weird
-        var hour = client.helper.closest(event, '.hour');
+        var hour = event.closestHour;
         assert(
           hour.displayed(),
           'hour should be displayed on day view'
@@ -82,17 +91,17 @@ marionette('toggle calendar', function() {
       setup(toggleLocalCalendar);
 
       test('month view', function() {
-        waitForElement(app.monthDay.events[0]);
+        waitForEvent(app.monthDay.events[0]);
       });
 
       test('week view', function() {
         app.openWeekView();
-        waitForElement(app.week.events[0]);
+        waitForEvent(app.week.events[0]);
       });
 
       test('day view', function() {
         app.openDayView();
-        waitForElement(app.day.events[0]);
+        waitForEvent(app.day.events[0]);
       });
     });
   });
@@ -110,9 +119,9 @@ marionette('toggle calendar', function() {
     test('should not hide all day on day view', function() {
       app.openDayView();
       var event = app.day.events[0];
-      waitForElementToDisappear(event);
+      waitForEventToDisappear(event);
       assert.ok(
-        client.helper.closest(event, '.hour-allday').displayed(),
+        event.closestAllDay.displayed(),
         'all day should be displayed'
       );
     });

@@ -14,9 +14,8 @@ var TelephonyHelper = (function() {
       return;
     }
 
-    var conn = navigator.mozMobileConnection ||
-               (navigator.mozMobileConnections &&
-                navigator.mozMobileConnections[cardIndex]);
+    var conn = navigator.mozMobileConnections &&
+      navigator.mozMobileConnections[cardIndex];
 
     if (!conn || !conn.voice) {
       // No voice connection, the call won't make it
@@ -70,7 +69,9 @@ var TelephonyHelper = (function() {
 
     // Making sure we're not dialing the same number twice
     var alreadyDialed = telephony.calls.some(function callIterator(call) {
-      return (call.number == sanitizedNumber);
+      var number = call.id ? call.id.number : call.number;
+
+      return (number == sanitizedNumber);
     });
     if (alreadyDialed) {
       return;

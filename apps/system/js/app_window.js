@@ -1,5 +1,5 @@
 /* global SettingsListener, AttentionScreen,
-          OrientationManager */
+          OrientationManager, StatusBar */
 'use strict';
 
 (function(exports) {
@@ -495,6 +495,7 @@
                 '</div>' +
               '</div>' +
               '<div class="fade-overlay"></div>' +
+              '<div class="touch-blocker"></div>' +
            '</div>';
   };
 
@@ -551,6 +552,9 @@
     // Launched as background: set visibility and overlay screenshot.
     if (this.config.stayBackground) {
       this.setVisible(false, true /* screenshot */);
+    } else if (this.isHomescreen) {
+      // homescreen is launched at background under FTU/lockscreen too.
+      this.setVisible(false);
     }
 
     /**
@@ -619,14 +623,15 @@
      'mozbrowsericonchange', 'mozbrowserasyncscroll',
      '_localized', '_swipein', '_swipeout', '_kill_suspended',
      'popupterminated', 'activityterminated', 'activityclosing',
-     'popupclosing', 'activityopened'];
+     'popupclosing', 'activityopened', '_orientationchange'];
 
   AppWindow.SUB_COMPONENTS = {
     'transitionController': window.AppTransitionController,
     'modalDialog': window.AppModalDialog,
     'authDialog': window.AppAuthenticationDialog,
     'contextmenu': window.BrowserContextMenu,
-    'childWindowFactory': window.ChildWindowFactory
+    'childWindowFactory': window.ChildWindowFactory,
+    'textSelectionDialog': window.TextSelectionDialog
   };
 
   /**
@@ -716,6 +721,38 @@
     // For uitest.
     this.element.dataset.localizedName = this.name;
     this.publish('namechanged');
+  };
+
+  AppWindow.prototype._handle__orientationchange = function() {
+    if (this.isActive()) {
+      // Will be resized by the AppWindowManager
+      return;
+    }
+
+    // Resize only the overlays not the app
+    var width = self.layoutManager.width;
+    var height = self.layoutManager.height + this.calibratedHeight();
+    if (this.isFullScreen()) {
+      height += StatusBar.height;
+    }
+
+    this.iframe.style.width = this.width + 'px';
+    this.iframe.style.height = this.height + 'px';
+
+    this.element.style.width = width + 'px';
+    this.element.style.height = height + 'px';
+
+    // The homescreen doesn't have an identification overlay
+    if (this.isHomescreen) {
+      return;
+    }
+
+    // If the screenshot doesn't match the new orientation hide it
+    if (this.width != width) {
+      this.screenshotOverlay.style.visibility = 'hidden';
+    } else {
+      this.screenshotOverlay.style.visibility = '';
+    }
   };
 
   AppWindow.prototype._handle_mozbrowservisibilitychange =
@@ -1070,7 +1107,8 @@
                   detail: detail || this
                 });
 
-    this.debug(' publishing external event: ' + event);
+    this.debug(' publishing external event: ' + event +
+      JSON.stringify(detail));
 
     // Publish external event.
     window.dispatchEvent(evt);
@@ -1213,7 +1251,13 @@
     this.element.style.width = this.width + 'px';
     this.element.style.height = this.height + 'px';
 
+    this.iframe.style.width = '';
+    this.iframe.style.height = '';
+
     this.resized = true;
+    if (this.screenshotOverlay) {
+      this.screenshotOverlay.style.visibility = '';
+    }
 
     /**
      * Fired when the app is resized.
@@ -1376,13 +1420,10 @@
 
   AppWindow.prototype.preloadSplash = function aw_preloadSplash() {
     if (this._splash || this.config.icon) {
-      var a = document.createElement('a');
-      a.href = this.config.origin;
       if (this.config.icon) {
         this._splash = this.config.icon;
       } else {
-        this._splash = a.protocol + '//' + a.hostname + ':' +
-                    (a.port || 80) + this._splash;
+        this._splash = this.config.origin + this._splash;
       }
       // Start to load the image in background to avoid flickering if possible.
       var img = new Image();
@@ -1559,7 +1600,6 @@
   AppWindow.prototype.open = function aw_open(animation) {
     // Request "open" to our internal transition controller.
     if (this.transitionController) {
-      this.debug('open with ' + animation || this.openAnimation);
       this.transitionController.requireOpen(animation);
     }
   };
@@ -1571,7 +1611,6 @@
   AppWindow.prototype.close = function aw_close(animation) {
     // Request "close" to our internal transition controller.
     if (this.transitionController) {
-      this.debug('close with ' + animation || this.closeAnimation);
       this.transitionController.requireClose(animation);
     }
   };
@@ -1710,7 +1749,7 @@
 
   AppWindow.prototype.getFrameForScreenshot = function() {
     var top = this.getTopMostWindow();
-    return top.browser.element;
+    return top.browser ? top.browser.element : null;
   };
 
   AppWindow.prototype._handle_activityterminated = function() {
@@ -1779,6 +1818,82 @@
         this.setVisible(false, true);
       }
     };
+
+  /**
+   * Make adjustments to display inside the task manager
+   */
+  AppWindow.prototype.enterTaskManager = function aw_enterTaskManager() {
+    this._dirtyStyleProperties = {};
+    if (this.element) {
+      this.element.classList.add('in-task-manager');
+    }
+  };
+
+  /**
+   * Remove adjustments made to display inside the task manager
+   */
+  AppWindow.prototype.leaveTaskManager = function aw_leaveTaskManager() {
+    if (this.element) {
+      this.element.classList.remove('in-task-manager');
+      this.unapplyStyle(this._dirtyStyleProperties);
+      this._dirtyStyleProperties = null;
+    }
+  };
+
+  /**
+   * Apply a transform to the element
+   * @param {Object} nameValues object with transform property names as keys
+   *                            and values to apply to the element
+   * @memberOf AppWindow.prototype
+   */
+  AppWindow.prototype.transform = function(nameValues) {
+    var strFunctions = Object.keys(nameValues).map(function(key) {
+      return key + '(' + nameValues[key] + ')';
+    }, this).join(' ');
+    this.applyStyle({ MozTransform: strFunctions });
+  };
+
+  /**
+   * Batch apply style properties
+   * @param {Object} nameValues object with style property names as keys
+   *                            and values to apply to the element
+   * @memberOf AppWindow.prototype
+   */
+  AppWindow.prototype.applyStyle = function(nameValues) {
+    var dirty = this._dirtyStyleProperties || (this._dirtyStyleProperties = {});
+    var style = this.element.style;
+    for (var property in nameValues) {
+      if (undefined === nameValues[property]) {
+        delete style[[property]];
+      } else {
+        style[property] = nameValues[property];
+      }
+      dirty[property] = true;
+    }
+  };
+
+  /**
+   * Remove inline style properties
+   * @param {Object} nameValues object with style property names as keys
+   * @memberOf AppWindow.prototype
+   */
+  AppWindow.prototype.unapplyStyle = function(nameValues) {
+    var style = this.element.style;
+    for (var pname in nameValues) {
+      style[pname] = '';
+      delete style[pname];
+    }
+  };
+
+  /**
+   * Show the default contextmenu for an AppWindow
+   * @memberOf AppWindow.prototype
+   */
+  AppWindow.prototype.showDefaultContextMenu = function() {
+    if (this.contextmenu) {
+      this.contextmenu.showDefaultMenu();
+    }
+  };
 
   exports.AppWindow = AppWindow;
 }(window));

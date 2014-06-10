@@ -4,13 +4,13 @@
 /*global ActivityWindowManager, SecureWindowFactory,
          SecureWindowManager, HomescreenLauncher,
          FtuLauncher, SourceView, ScreenManager, Places, Activities,
-         DialerAgent, DevtoolsView, RemoteDebugger, HomeGesture,
-         SettingsURL, SettingsListener, VisibilityManager, Storage,
+         DeveloperHUD, DialerAgent, RemoteDebugger, HomeGesture,
+         VisibilityManager, Storage, InternetSharing, TaskManager,
          TelephonySettings, SuspendingAppPriorityManager, TTLView,
          MediaRecording, AppWindowFactory, SystemDialogManager,
          applications, Rocketbar, LayoutManager, PermissionManager,
-         HomeSearchbar, SoftwareButtonManager, Accessibility */
-
+         HomeSearchbar, SoftwareButtonManager, Accessibility,
+         TextSelectionDialog, InternetSharing, SleepMenu */
 'use strict';
 
 
@@ -56,6 +56,9 @@ window.addEventListener('load', function startup() {
 
     /** @global */
     window.lockScreenWindowManager = new window.LockScreenWindowManager();
+
+    /** @global */
+    window.textSelectionDialog = new TextSelectionDialog();
   }
 
   function safelyLaunchFTU() {
@@ -101,10 +104,12 @@ window.addEventListener('load', function startup() {
   window.activities = new Activities();
   window.accessibility = new Accessibility();
   window.accessibility.start();
-  window.devtoolsView = new DevtoolsView();
+  window.developerHUD = new DeveloperHUD().start();
   window.dialerAgent = new DialerAgent().start();
   window.homeGesture = new HomeGesture().start();
   window.homeSearchbar = new HomeSearchbar();
+  window.internetSharing = new InternetSharing();
+  window.internetSharing.start();
   window.layoutManager = new LayoutManager().start();
   window.permissionManager = new PermissionManager();
   window.permissionManager.start();
@@ -112,16 +117,25 @@ window.addEventListener('load', function startup() {
   window.places.start();
   window.remoteDebugger = new RemoteDebugger();
   window.rocketbar = new Rocketbar();
+  window.sleepMenu = new SleepMenu();
+  window.sleepMenu.start();
   window.softwareButtonManager = new SoftwareButtonManager().start();
   window.sourceView = new SourceView();
+  window.taskManager = new TaskManager();
+  window.taskManager.start();
   window.telephonySettings = new TelephonySettings();
   window.telephonySettings.start();
   window.ttlView = new TTLView();
   window.visibilityManager = new VisibilityManager().start();
+  window.wallpaperManager = new window.WallpaperManager();
+  window.wallpaperManager.start();
 
-  navigator.mozL10n.ready(function l10n_ready() {
-    window.mediaRecording = new MediaRecording().start();
-  });
+  // unit tests call init() manually
+  if (navigator.mozL10n) {
+    navigator.mozL10n.once(function l10n_ready() {
+      window.mediaRecording = new MediaRecording().start();
+    });
+  }
 
   // We need to be sure to get the focus in order to wake up the screen
   // if the phone goes to sleep before any user interaction.
@@ -141,24 +155,11 @@ window.addEventListener('load', function startup() {
 
 window.storage = new Storage();
 
-/* === Localization === */
-/* set the 'lang' and 'dir' attributes to <html> when the page is translated */
-window.addEventListener('localized', function onlocalized() {
-  document.documentElement.lang = navigator.mozL10n.language.code;
-  document.documentElement.dir = navigator.mozL10n.language.direction;
-});
-
-var wallpaperURL = new SettingsURL();
-
 // Define the default background to use for all homescreens
-SettingsListener.observe(
-  'wallpaper.image',
-  'resources/images/backgrounds/default.png',
-  function setWallpaper(value) {
-    document.getElementById('screen').style.backgroundImage =
-      'url(' + wallpaperURL.set(value) + ')';
-  }
-);
+window.addEventListener('wallpaperchange', function(evt) {
+  document.getElementById('screen').style.backgroundImage =
+    'url(' + evt.detail.url + ')';
+});
 
 // Use a setting in order to be "called" by settings app
 navigator.mozSettings.addObserver(

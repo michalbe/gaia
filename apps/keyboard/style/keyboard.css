@@ -44,10 +44,6 @@ button::-moz-focus-inner {
   visibility: visible;
 }
 
-#keyboard[data-hidden=true] {
-  visibility: hidden;
-}
-
 /* Row styles */
 .keyboard-row {
   text-align: center;
@@ -140,11 +136,13 @@ button::-moz-focus-inner {
   background-color: #00aacc;
   visibility: hidden;
 
-  /* Delay hiding the bubble long enough to make sure the user sees it. */
-  transition: visibility 0s ease-in 0.01s;
-
   /* To override the text-align in .float-key-first and .float-key-last */
   text-align: center;
+}
+
+.keyboard-key:not(.special-key) > .visual-wrapper > .popup {
+  /* Delay hiding the bubble long enough to make sure the user sees it. */
+  transition: visibility 0s ease-in 0.01s;
 }
 
 .keyboard-key.highlighted {
@@ -167,7 +165,9 @@ button::-moz-focus-inner {
 .keyboard-key.highlighted > .visual-wrapper > .popup {
   z-index: 1;
   visibility: visible;
+}
 
+.keyboard-key:not(.special-key).highlighted > .visual-wrapper > .popup {
   transition-delay: 0s;
 }
 
@@ -219,6 +219,11 @@ button::-moz-focus-inner {
   opacity: 0;
 }
 
+
+/* Switching keys */
+.keyboard-key.special-key.switch-key > .visual-wrapper > .key-element {
+  font-size: 1.8rem;
+}
 
 /* For disabled keys */
 .keyboard-key.special-key[disabled="true"] {

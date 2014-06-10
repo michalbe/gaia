@@ -1,22 +1,33 @@
 'use strict';
 
-/* global CallLog */
+/* global CallHandler, CallLog, CallLogDBManager, KeypadManager, MockImage,
+          MockMozL10n, MockNavigatorMozIccManager, MockNotification,
+          MocksHelper, MockSimSettingsHelper, Notification,
+          PhoneNumberActionMenu */
 
-requireApp('communications/dialer/js/call_log.js');
+require('/dialer/js/call_log.js');
 require('/shared/js/dialer/utils.js');
 
-requireApp('communications/dialer/test/unit/mock_call_log_db_manager.js');
-requireApp('communications/dialer/test/unit/mock_performance_testing_helper.js');
-requireApp('communications/dialer/test/unit/mock_phone_action_menu.js');
+require('/dialer/test/unit/mock_call_log_db_manager.js');
+require('/dialer/test/unit/mock_performance_testing_helper.js');
+require('/dialer/test/unit/mock_phone_action_menu.js');
 require('/shared/test/unit/mocks/mock_async_storage.js');
 require('/shared/test/unit/mocks/mock_accessibility_helper.js');
+require('/dialer/test/unit/mock_call_log_db_manager.js');
+require('/dialer/test/unit/mock_l10n.js');
+require('/dialer/test/unit/mock_performance_testing_helper.js');
+require('/dialer/test/unit/mock_call_handler.js');
+require('/dialer/test/unit/mock_keypad.js');
+require('/dialer/test/unit/mock_phone_number_action_menu.js');
 require('/shared/test/unit/mocks/mock_lazy_loader.js');
 require('/shared/test/unit/mocks/mock_contact_photo_helper.js');
 require('/shared/test/unit/mocks/mock_sticky_header.js');
 require('/shared/test/unit/mocks/mock_navigator_moz_icc_manager.js');
 require('/shared/test/unit/mocks/dialer/mock_lazy_l10n.js');
-
-requireApp('communications/shared/test/unit/mocks/mock_notification.js');
+require('/shared/test/unit/mocks/dialer/mock_keypad.js');
+require('/shared/test/unit/mocks/mock_notification.js');
+require('/shared/test/unit/mocks/mock_image.js');
+require('/shared/test/unit/mocks/mock_sim_settings_helper.js');
 
 var mocksHelperForCallLog = new MocksHelper([
   'asyncStorage',
@@ -27,7 +38,10 @@ var mocksHelperForCallLog = new MocksHelper([
   'LazyLoader',
   'LazyL10n',
   'ContactPhotoHelper',
-  'StickyHeader'
+  'StickyHeader',
+  'CallHandler',
+  'KeypadManager',
+  'SimSettingsHelper'
 ]).init();
 
 suite('dialer/call_log', function() {
@@ -241,18 +255,19 @@ suite('dialer/call_log', function() {
     CallLog.render();
     setTimeout(function() {
       var sections = CallLog.callLogContainer.getElementsByTagName('section');
+      var i, groupDOM, doms;
       if (date) {
         assert.equal(sections.length, 1);
-        var groupDOM = sections[0].getElementsByTagName('ol')[0];
-        var doms = groupDOM.getElementsByTagName('li');
-        for (var i = 0; i < count; i++) {
+        groupDOM = sections[0].getElementsByTagName('ol')[0];
+        doms = groupDOM.getElementsByTagName('li');
+        for (i = 0; i < count; i++) {
           checkGroupDOM(doms[i], groups[i], null);
         }
       } else {
         assert.equal(sections.length, count);
-        for (var i = 0; i < count; i++) {
-          var groupDOM = sections[i].getElementsByTagName('ol')[0];
-          var doms = groupDOM.getElementsByTagName('li');
+        for (i = 0; i < count; i++) {
+          groupDOM = sections[i].getElementsByTagName('ol')[0];
+          doms = groupDOM.getElementsByTagName('li');
           checkGroupDOM(doms[0], groups[i], null);
         }
       }
@@ -443,11 +458,41 @@ suite('dialer/call_log', function() {
     });
   });
 
+  suite('Contacts image rendering and revoke', function() {
+    var revokeURLSpy, clock, realImage;
+    var REVOKE_TIMEOUT = 60000;
+
+    setup(function() {
+      clock = this.sinon.useFakeTimers();
+      revokeURLSpy = this.sinon.spy(window.URL, 'revokeObjectURL');
+      realImage = window.Image;
+      window.Image = MockImage;
+    });
+
+    teardown(function() {
+      revokeURLSpy.restore();
+      clock.restore();
+    });
+
+    test('Contact image is properly revoked after timeout', function(done) {
+      var incomingWithPhoto = Object.create(incomingGroup);
+      incomingWithPhoto.contact.photo = new Blob(['1234'], {type: 'image/png'});
+
+      checkGroupDOM(CallLog.createGroup(incomingWithPhoto), incomingWithPhoto,
+        function() {
+          MockImage.triggerEvent('onload');
+          clock.tick(REVOKE_TIMEOUT);
+          sinon.assert.calledOnce(revokeURLSpy);
+          done();
+        });
+    });
+  });
+
   suite('render', function() {
     var renderSeveralDaysSpy;
 
     setup(function() {
-        renderSeveralDaysSpy = this.sinon.spy(CallLog, 'renderSeveralDays');
+      renderSeveralDaysSpy = this.sinon.spy(CallLog, 'renderSeveralDays');
     });
 
     teardown(function(done) {
@@ -513,14 +558,15 @@ suite('dialer/call_log', function() {
       grp.date = 1;
       CallLogDBManager.add(grp);
       // Day 2 - 100 groups
-      for (var i = 2; i < 102; i++) {
+      var i;
+      for (i = 2; i < 102; i++) {
         grp = JSON.parse(JSON.stringify(incomingGroup));
         grp.id = i;
         grp.date = 2;
         CallLogDBManager.add(grp);
       }
       // Day 3 - 10 group
-      for (var i = 102; i < 112; i++) {
+      for (i = 102; i < 112; i++) {
         grp = JSON.parse(JSON.stringify(incomingGroup));
         grp.id = i;
         grp.date = 3;
@@ -705,7 +751,7 @@ suite('dialer/call_log', function() {
 
     test('regular number', function() {
       groupDOM = CallLog.createGroup(incomingGroup);
-      CallLog.handleEvent({target: groupDOM});
+      CallLog.handleEvent({target: groupDOM, preventDefault: function() {}});
 
       sinon.assert.calledWith(
         phoneNumberActionMenuSpy,
@@ -718,7 +764,7 @@ suite('dialer/call_log', function() {
 
     test('missed number', function() {
       groupDOM = CallLog.createGroup(missedGroup);
-      CallLog.handleEvent({target: groupDOM});
+      CallLog.handleEvent({target: groupDOM, preventDefault: function() {}});
 
       sinon.assert.calledWith(
         phoneNumberActionMenuSpy,
@@ -735,14 +781,51 @@ suite('dialer/call_log', function() {
       CallLog._initialized = false;
     });
 
-    suite('One SIM', function() {
-      setup(function() {
-        MockNavigatorMozIccManager.addIcc('12345', {'cardState': 'ready'});
-        CallLog.init();
+    var simulateClick = function(button) {
+      var ev = new MouseEvent('click', {
+        view: window,
+        bubbles: true,
+        cancelable: true
       });
+      button.dispatchEvent(ev);
+    };
 
-      test('should not put the dual sim class on the container', function() {
-        assert.isFalse(CallLog.callLogContainer.classList.contains('dual-sim'));
+    var simulateContextMenu = function(button) {
+      var ev = document.createEvent('MouseEvents');
+      ev.initMouseEvent('contextmenu', true, false, window, 0, 0, 0, 0, 0,
+                        false, false, false, false, 2, null);
+      button.dispatchEvent(ev);
+    };
+
+    var longPressShouldShowActionMenu = function() {
+      var showSpy = this.sinon.spy(PhoneNumberActionMenu, 'show');
+      simulateContextMenu(CallLog.appendGroup(missedGroup));
+      sinon.assert.calledWith(
+        showSpy, missedGroup.contact.id, missedGroup.number);
+    };
+
+    [0, 1].forEach(function(cardIndex) {
+      suite('One SIM in slot ' + cardIndex, function() {
+        setup(function() {
+          MockNavigatorMozIccManager.addIcc('12345', {'cardState': 'ready'});
+          MockSimSettingsHelper._defaultCards.outgoingCall = cardIndex;
+          CallLog.init();
+        });
+
+        test('should not put the dual sim class on the container', function() {
+          assert.isFalse(
+            CallLog.callLogContainer.classList.contains('dual-sim'));
+        });
+
+        test('tapping the entry should place call immediately', function() {
+          var callSpy = this.sinon.spy(CallHandler, 'call');
+          simulateClick(CallLog.appendGroup(missedGroup));
+          sinon.assert.calledWith(callSpy, missedGroup.number,
+            MockSimSettingsHelper._defaultCards.outgoingCall);
+        });
+
+        test('long pressing the entry should show action menu',
+             longPressShouldShowActionMenu);
       });
     });
 
@@ -756,6 +839,19 @@ suite('dialer/call_log', function() {
       test('should put the dual sim class on the container', function() {
         assert.isTrue(CallLog.callLogContainer.classList.contains('dual-sim'));
       });
+
+      test('tapping the entry should switch to keypad view', function() {
+        var updateSpy = this.sinon.spy(KeypadManager, 'updatePhoneNumber');
+        assert.notEqual(window.location.hash, '#keyboard-view');
+        assert.notEqual(KeypadManager.phoneNumber(), missedGroup.number);
+        simulateClick(CallLog.appendGroup(missedGroup));
+        assert.equal(window.location.hash, '#keyboard-view');
+        assert.equal(KeypadManager.phoneNumber(), missedGroup.number);
+        sinon.assert.calledWith(updateSpy, missedGroup.number);
+      });
+
+      test('long pressing the entry should show action menu',
+           longPressShouldShowActionMenu);
     });
   });
 });

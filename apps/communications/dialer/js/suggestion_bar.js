@@ -20,41 +20,50 @@ var SuggestionBar = {
   _hasMatchingLocalContacts: false,
 
   // Visual Elements
-  bar: document.getElementById('suggestion-bar'),
-  countTag: document.getElementById('suggestion-count'),
-  list: document.getElementById('suggestion-list'),
-  overlay: document.getElementById('suggestion-overlay'),
-  overlayCancel: document.getElementById('suggestion-overlay-cancel'),
+  bar: null,
+  barSuggestionItem: null,
+  countTag: null,
+  list: null,
+  overlay: null,
+  overlayCancel: null,
+  template: null,
 
   init: function sb_init() {
-    // When the DOM is abscent (in the call screen) we don't need
+    // When the DOM is absent (in the call screen) we don't need
     // to initialize the module.
+    this.overlay = document.getElementById('suggestion-overlay');
     if (!this.overlay) {
       return;
     }
 
+    this.bar = document.getElementById('suggestion-bar');
+    this.barSuggestionItem = this.bar.querySelector('.js-suggestion-item');
+    this.countTag = document.getElementById('suggestion-count');
+    this.template = document.getElementById('suggestion-item-template');
+
     this.overlay.addEventListener('click', this);
     this.bar.addEventListener('click', this);
     this.countTag.addEventListener('click', this.showOverlay.bind(this));
-    this.overlayCancel.addEventListener('click', this.hideOverlay.bind(this));
     KeypadManager.onValueChanged = this.update.bind(this);
   },
 
   handleEvent: function sb_handleEvent(event) {
     var node = event.target;
-    if (node.className == 'suggestion-item') {
-      event.stopPropagation();
-      var telTag = node.querySelector('.tel');
-      KeypadManager.updatePhoneNumber(telTag.textContent, 'begin', false);
-      // In the multi-SIM case, we just autocomplete the phone number without
-      // making the call. The call button is responsible for SIM selection
-      // behavior.
-      if (!navigator.mozIccManager ||
-          navigator.mozIccManager.iccIds.length < 2) {
-        CallHandler.call(KeypadManager.phoneNumber(), 0);
-      } else {
-        this.hideOverlay();
-      }
+    if (!node.classList.contains('js-suggestion-item')) {
+      return;
+    }
+
+    event.stopPropagation();
+    var telTag = node.querySelector('.js-tel');
+    KeypadManager.updatePhoneNumber(telTag.textContent, 'begin', false);
+    // In the multi-SIM case, we just autocomplete the phone number without
+    // making the call. The call button is responsible for SIM selection
+    // behavior.
+    if (!navigator.mozIccManager ||
+        navigator.mozIccManager.iccIds.length < 2) {
+      CallHandler.call(KeypadManager.phoneNumber(), 0);
+    } else {
+      this.hideOverlay();
     }
   },
 
@@ -73,16 +82,18 @@ var SuggestionBar = {
     if (this._loaded) {
       this._updateByContacts();
       return;
-    } else {
-      var self = this;
-      LazyLoader.load(['/shared/js/async_storage.js',
-                       '/shared/js/dialer/contacts.js',
-                       '/shared/js/simple_phone_matcher.js'],
-      function callback() {
-        self._loaded = true;
-        self._updateByContacts();
-      });
     }
+
+    var self = this;
+    LazyLoader.load(['/shared/js/async_storage.js',
+                     '/shared/js/dialer/contacts.js',
+                     '/shared/js/simple_phone_matcher.js',
+                     this.barSuggestionItem,
+                     this.template],
+    function callback() {
+      self._loaded = true;
+      self._updateByContacts();
+    });
   },
 
   _renderBar: function sb_renderBar() {
@@ -105,7 +116,7 @@ var SuggestionBar = {
         contact.tel[firstMatch].value == self._phoneNumber &&
         navigator.mozIccManager &&
         navigator.mozIccManager.iccIds.length > 1) {
-      self.bar.hidden = true;
+        self.bar.hidden = true;
       return 0;
     }
 
@@ -116,7 +127,7 @@ var SuggestionBar = {
     self.countTag.hidden = (totalMatchNum <= 1);
     self.countTag.classList.toggle('more', (totalMatchNum > 1));
 
-    var node = self.bar.querySelector('.suggestion-item');
+    var node = self.barSuggestionItem;
     self._fillContacts(contact, firstMatch, node);
     self.bar.dataset.lastId = contact.id || contact.uid;
 
@@ -222,19 +233,18 @@ var SuggestionBar = {
   },
 
   _createItem: function sb_createItem() {
-    var template = document.getElementById('suggestion-item-template');
-    var itemElm = template.cloneNode(true);
-    itemElm.id = null;
+    var itemElm = this.template.cloneNode(true);
+    itemElm.removeAttribute('id');
     itemElm.hidden = false;
-    this.list.appendChild(itemElm);
+    itemElm.classList.add('si--action-menu');
+    this.list.insertBefore(itemElm, this.overlayCancel);
     return itemElm;
   },
 
   _setItem: function sb_setItem(node, tel, type, name) {
-    var typeTag = node.querySelector('.tel-type');
-    var telTag = node.querySelector('.tel');
-    var nameTag = node.querySelector('.name');
-
+    var typeTag = node.querySelector('.js-tel-type');
+    var telTag = node.querySelector('.js-tel');
+    var nameTag = node.querySelector('.js-name');
     nameTag.textContent = name ? name : null;
     LazyL10n.get(function localized(_) {
       typeTag.textContent = _(type) || type;
@@ -243,10 +253,13 @@ var SuggestionBar = {
   },
 
   clear: function sb_clear(isHardClear) {
+    if (!this._loaded) {
+      return;
+    }
     this.countTag.textContent = '';
     this.countTag.classList.remove('more');
     // Clear contents
-    var node = this.bar.querySelector('.suggestion-item');
+    var node = this.barSuggestionItem;
     this._setItem(node);
     this._contactList = null;
     this.bar.hidden = true;
@@ -282,29 +295,49 @@ var SuggestionBar = {
         end = i;
       }
     }
-    return str.substr(0, start) + '<span>' +
-           str.substr(start, end - start + 1) + '</span>' + str.substr(end + 1);
+    return str.substr(0, start) + '<mark class="si__mark">' +
+           str.substr(start, end - start + 1) + '</mark>' + str.substr(end + 1);
+  },
+
+  _initOverlay: function() {
+    if (this.list) {
+      return;
+    }
+
+    this.list = document.getElementById('suggestion-list');
+    this.overlayCancel = document.getElementById('suggestion-overlay-cancel');
+    this.overlayCancel.addEventListener('click', this.hideOverlay.bind(this));
+  },
+
+  _clearOverlay: function() {
+    while (this.list.firstElementChild != this.overlayCancel) {
+      this.list.firstElementChild.remove();
+    }
   },
 
   showOverlay: function sb_showOverlay() {
-    var maxItems = Math.min(this._contactList.length, this.MAX_ITEMS);
-    var title = this.overlay.querySelector('header');
     var self = this;
-    LazyL10n.get(function localized(_) {
-      title.textContent = _('suggestionMatches', {
-        n: self.countTag.textContent,
-        matchNumber: self._phoneNumber
+    LazyLoader.load(this.overlay, function() {
+      self._initOverlay();
+      self._clearOverlay();
+      var maxItems = Math.min(self._contactList.length, self.MAX_ITEMS);
+      var title = self.overlay.querySelector('header');
+      LazyL10n.get(function localized(_) {
+        title.textContent = _('suggestionMatches', {
+          n: self.countTag.textContent,
+          matchNumber: self._phoneNumber
+        });
       });
-    });
-    for (var i = 0; i < maxItems; i++) {
-      for (var j = 0; j < this._allMatched.allMatches[i].length; j++) {
-        var node = this._createItem();
-        this._fillContacts(this._contactList[i],
-          this._allMatched.allMatches[i][j], node);
+      for (var i = 0; i < maxItems; i++) {
+        for (var j = 0; j < self._allMatched.allMatches[i].length; j++) {
+          var node = self._createItem();
+          self._fillContacts(self._contactList[i],
+            self._allMatched.allMatches[i][j], node);
+        }
       }
-    }
-    this.overlay.hidden = false;
-    this.overlay.classList.add('display');
+      self.overlay.setAttribute('aria-hidden', false);
+      self.overlay.classList.add('display');
+    });
   },
 
   _getAllMatched: function sb_getAllMatched(contacts) {
@@ -320,13 +353,8 @@ var SuggestionBar = {
   },
 
   hideOverlay: function sb_hideOverlay() {
-    if (!this.overlay.classList.contains('display')) {
-      return;
-    }
-    var self = this;
+    this.overlay.setAttribute('aria-hidden', true);
     this.overlay.classList.remove('display');
-    this.overlay.hidden = true;
-    self.list.innerHTML = '';
   }
 };
 

@@ -237,6 +237,8 @@
       window.addEventListener('homegesture-enabled', this);
       window.addEventListener('homegesture-disabled', this);
       window.addEventListener('system-resize', this);
+      window.addEventListener('orientationchange', this);
+      window.addEventListener('sheetstransitionstart', this);
 
       this._settingsObserveHandler = {
         // update app name when language setting changes
@@ -310,6 +312,8 @@
       window.removeEventListener('homegesture-enabled', this);
       window.removeEventListener('homegesture-disabled', this);
       window.removeEventListener('system-resize', this);
+      window.removeEventListener('orientationchange', this);
+      window.removeEventListener('sheetstransitionstart', this);
 
       for (var name in this._settingsObserveHandler) {
         SettingsListener.unobserve(
@@ -325,6 +329,9 @@
       this.debug('handling ' + evt.type);
       var activeApp = this._activeApp;
       switch (evt.type) {
+        case 'orientationchange':
+          this.broadcastMessage(evt.type);
+          break;
         case 'system-resize':
           this.debug(' Resizing...');
           if (activeApp) {
@@ -521,6 +528,11 @@
             this._activeApp.getTopMostWindow().blur();
           }
           break;
+        case 'sheetstransitionstart':
+          if (document.mozFullScreen) {
+            document.mozCancelFullScreen();
+          }
+          break;
       }
     },
 
@@ -672,6 +684,11 @@
       } else {
         screenElement.classList.remove('fullscreen-app');
       }
+      // Resize when opened.
+      // Note: we will not trigger reflow if the final size
+      // is the same as its current value.
+      this._activeApp.resize();
+
       this.debug('=== Active app now is: ',
         (this._activeApp.name || this._activeApp.origin), '===');
     },

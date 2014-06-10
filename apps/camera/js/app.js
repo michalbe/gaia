@@ -5,11 +5,11 @@ define(function(require, exports, module) {
  * Dependencies
  */
 
+var PerformanceTestingHelper = require('performance-testing-helper');
 var NotificationView = require('views/notification');
 var LoadingView = require('views/loading-screen');
 var ViewfinderView = require('views/viewfinder');
 var orientation = require('lib/orientation');
-var FocusRing = require('views/focus-ring');
 var ZoomBarView = require('views/zoom-bar');
 var bindAll = require('lib/bind-all');
 var model = require('vendor/model');
@@ -42,6 +42,7 @@ model(App.prototype);
  */
 function App(options) {
   debug('initialize');
+  var self = this;
   bindAll(this);
   this.views = {};
   this.el = options.el;
@@ -55,12 +56,40 @@ function App(options) {
   this.settings = options.settings;
   this.camera = options.camera;
   this.activity = {};
+
+  //
+  // If the system app is opening an attention screen (because
+  // of an incoming call or an alarm, e.g.) and if we are
+  // currently recording a video then we need to stop recording
+  // before the ringer or alarm starts sounding. We will be sent
+  // to the background shortly after this and will stop recording
+  // when that happens, but by that time it is too late and we
+  // have already recorded some sound. See bugs 995540 and 1006200.
+  //
+  // XXX We're abusing the settings API here to allow the system app
+  // to broadcast a message to any certified apps that care. There
+  // ought to be a better way, but this is a quick and easy way to
+  // fix a last-minute release blocker.
+  //
+  navigator.mozSettings.addObserver(
+    'private.broadcast.attention_screen_opening',
+    function(event) {
+      // If event.settingValue is true, then an attention screen will
+      // soon appear. If it is false, then the attention screen is
+      // going away.
+      if (event.settingValue) {
+        self.emit('attentionscreenopened');
+      }
+  });
+
   debug('initialized');
 }
 
 /**
- * Runs all the methods
- * to boot the app.
+ * Runs all the methods to boot the app.
+ *
+ * The loading screen is shown until the
+ * camera is 'ready', then it is taken down.
  *
  * @public
  */
@@ -71,8 +100,8 @@ App.prototype.boot = function() {
   this.initializeViews();
   this.runControllers();
   this.injectViews();
-  this.booted = true;
   this.showLoading();
+  this.booted = true;
   debug('booted');
 };
 
@@ -103,10 +132,7 @@ App.prototype.runControllers = function() {
  * @param  {String} path
  */
 App.prototype.loadController = function(path) {
-  var self = this;
-  this.require([path], function(controller) {
-    controller(self);
-  });
+  this.require([path], function(controller) { controller(this); }.bind(this));
 };
 
 /**
@@ -117,7 +143,6 @@ App.prototype.loadController = function(path) {
 App.prototype.initializeViews = function() {
   debug('initializing views');
   this.views.viewfinder = new ViewfinderView();
-  this.views.focusRing = new FocusRing();
   this.views.hud = new HudView();
   this.views.zoomBar = new ZoomBarView();
   this.views.notification = new NotificationView();
@@ -132,7 +157,6 @@ App.prototype.initializeViews = function() {
 App.prototype.injectViews = function() {
   debug('injecting views');
   this.views.viewfinder.appendTo(this.el);
-  this.views.focusRing.appendTo(this.el);
   this.views.hud.appendTo(this.el);
   this.views.zoomBar.appendTo(this.el);
   this.views.notification.appendTo(this.el);
@@ -150,11 +174,16 @@ App.prototype.bindEvents = function() {
   // App
   this.once('viewfinder:visible', this.onCriticalPathDone);
   this.once('storage:checked:healthy', this.geolocationWatch);
+  this.on('camera:takingpicture', this.showLoading);
+  this.on('camera:ready', this.clearLoading);
   this.on('visible', this.onVisible);
   this.on('hidden', this.onHidden);
 
   // DOM
   bind(this.doc, 'visibilitychange', this.onVisibilityChange);
+
+  // we bind to window.onlocalized in order not to depend
+  // on l10n.js loading (which is lazy). See bug 999132
   bind(this.win, 'localized', this.firer('localized'));
   bind(this.win, 'beforeunload', this.onBeforeUnload);
   bind(this.el, 'click', this.onClick);
@@ -212,8 +241,11 @@ App.prototype.onCriticalPathDone = function() {
   var start = window.performance.timing.domLoading;
   var took = Date.now() - start;
 
+  // Indicate critical path is done to help track performance
+  PerformanceTestingHelper.dispatch('startup-path-done');
   console.log('critical-path took %s', took + 'ms');
-  this.clearLoading();
+
+  // Load non-critical modules
   this.loadController(this.controllers.previewGallery);
   this.loadController(this.controllers.storage);
   this.loadController(this.controllers.confirm);
@@ -299,9 +331,15 @@ App.prototype.localized = function() {
  * @param  {String} key
  * @public
  */
-App.prototype.localize = function(key) {
+App.prototype.l10nGet = function(key) {
   var l10n = navigator.mozL10n;
-  return (l10n && l10n.get(key)) || key;
+  if (l10n) {
+    return l10n.get(key);
+  }
+
+  // in case we don't have mozL10n loaded yet, we want to
+  // return the key. See bug 999132
+  return key;
 };
 
 /**
@@ -334,6 +372,7 @@ App.prototype.clearLoading = function() {
   clearTimeout(this.loadingTimeout);
   if (!view) { return; }
   view.hide(view.destroy);
+  this.views.loading = null;
 };
 
 });

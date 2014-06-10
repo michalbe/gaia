@@ -139,6 +139,8 @@ var KeyboardManager = {
     window.addEventListener('mozbrowsererror', this);
     window.addEventListener('applicationsetupdialogshow', this);
     window.addEventListener('mozmemorypressure', this);
+    window.addEventListener('sheetstransitionstart', this);
+    window.addEventListener('lock', this);
 
     // To handle keyboard layout switching
     window.addEventListener('mozChromeEvent', function(evt) {
@@ -427,12 +429,7 @@ var KeyboardManager = {
       document.body.dispatchEvent(new CustomEvent('keyboardchange', detail));
     };
 
-    // If the keyboard is hidden, or when transitioning is not finished
-    if (this.keyboardFrameContainer.classList.contains('hide')) {
-      this.showKeyboard(updateHeight);
-    } else {
-      updateHeight();
-    }
+    this.showKeyboard(updateHeight);
 
     // update latest keyboard info to notification bar
     // for swiching other keyboard layouts.
@@ -470,6 +467,15 @@ var KeyboardManager = {
           Object.keys(this.runningLayouts).forEach(this.removeKeyboard, this);
           this.runningLayouts = {};
           this._debug('mozmemorypressure event; keyboard removed');
+        }
+        break;
+      case 'lock':
+        /* falls through */
+      case 'sheetstransitionstart':
+        if (this.hasActiveKeyboard) {
+          // Instead of hideKeyboard(), we should removeFocus() here.
+          // (and, removing the focus cause Gecko to ask us to hideKeyboard())
+          navigator.mozInputMethod.removeFocus();
         }
         break;
     }
@@ -724,7 +730,7 @@ var KeyboardManager = {
     var showed = this.showingLayout;
     var activeLayout = this.keyboardLayouts[showed.type].activeLayout;
     var _ = navigator.mozL10n.get;
-    var actionMenuTitle = _('layout-selection');
+    var actionMenuTitle = _('choose-option');
 
     this.switchChangeTimeout = setTimeout(function keyboardLayoutList() {
       var items = [];
@@ -732,17 +738,14 @@ var KeyboardManager = {
         var label = layout.appName + ' ' + layout.name;
         var item = {
           label: label,
-          value: index
+          value: index,
+          selected: (index === activeLayout)
         };
-        if (index === activeLayout) {
-          item.iconClass = 'tail-icon';
-          item.icon = 'style/icons/checkmark.png';
-        }
         items.push(item);
       });
       self.hideKeyboard();
 
-      var menu = new ActionMenu(items, actionMenuTitle,
+      var menu = new ImeMenu(items, actionMenuTitle,
         function(selectedIndex) {
         if (!self.keyboardLayouts[showed.type])
           showed.type = 'text';
@@ -769,7 +772,7 @@ var KeyboardManager = {
         // Hide the tray to show the app directly after
         // user canceled.
         window.dispatchEvent(new CustomEvent('keyboardchangecanceled'));
-      }, true /* preventFocusChange */);
+      });
       menu.start();
     }, SWITCH_CHANGE_DELAY);
   },

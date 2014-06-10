@@ -22,11 +22,13 @@ var ids = ['thumbnail-list-view', 'thumbnails-bottom', 'thumbnail-list-title',
            'thumbnails-single-info-button', 'info-view', 'info-close-button',
            'player', 'overlay', 'overlay-title', 'overlay-text',
            'overlay-menu', 'overlay-action-button',
-           'video-container', 'videoControls', 'videoBar', 'videoActionBar',
+           'video-container', 'videoControls', 'videoBar', 'videoControlBar',
            'close', 'play', 'playHead', 'timeSlider', 'elapsedTime',
            'video-title', 'duration-text', 'elapsed-text', 'bufferedTime',
            'slider-wrapper', 'throbber', 'delete-video-button',
-           'picker-close', 'picker-title', 'picker-done'];
+           'picker-close', 'picker-title', 'picker-done', 'options',
+           'options-view', 'options-cancel-button', 'seek-backward',
+           'seek-forward'];
 
 ids.forEach(function createElementRef(name) {
   dom[toCamelCase(name)] = document.getElementById(name);
@@ -94,6 +96,8 @@ var pendingUpdateTitleText = false;
 // Videos recorded by our own camera have filenames of this form
 var FROMCAMERA = /DCIM\/\d{3}MZLLA\/VID_\d{4}\.3gp$/;
 
+var videoControlsAutoHidingMsOverride;
+
 // Pause on visibility change
 document.addEventListener('visibilitychange', function visibilityChange() {
   if (document.hidden) {
@@ -115,32 +119,22 @@ document.addEventListener('visibilitychange', function visibilityChange() {
   }
 });
 
-window.addEventListener('localized', function initLocale() {
-  document.documentElement.lang = navigator.mozL10n.language.code;
-  document.documentElement.dir = navigator.mozL10n.language.direction;
-});
+navigator.mozL10n.once(init);
 
-navigator.mozL10n.ready(function initVideo() {
-  // This function should be called once. According to the implementation of
-  // mozL10n.ready, it may become the event handler of localized. So, we need to
-  // prevent database re-initialize.
-  // XXX: once bug 882592 is fixed, we should remove it and just call init.
-  if (!videodb)
-    init();
+// we don't need to wait for l10n ready to have correct css layout.
+initLayout();
+initThumbnailSize();
 
-  if (!isPhone) {
+if (!isPhone) {
+  navigator.mozL10n.ready(function localizeThumbnailListTitle() {
     // reload the thumbnail list title field for tablet which is the app name.
     var req = navigator.mozApps.getSelf();
     req.onsuccess = function() {
       var manifest = new ManifestHelper(req.result.manifest);
       dom.thumbnailListTitle.textContent = manifest.name;
     };
-  }
-});
-
-// we don't need to wait for l10n ready to have correct css layout.
-initLayout();
-initThumbnailSize();
+  });
+}
 
 function init() {
   thumbnailList = new ThumbnailList(ThumbnailDateGroup, dom.thumbnails);
@@ -160,6 +154,7 @@ function init() {
   }
 
   initPlayerControls();
+  ForwardRewindController.init(dom.player, dom.seekForward, dom.seekBackward);
 
   // We get headphoneschange event when the headphones is plugged or unplugged
   var acm = navigator.mozAudioChannelManager;
@@ -234,6 +229,7 @@ function initPlayerControls() {
   dom.play.addEventListener('click', handlePlayButtonClick);
   dom.close.addEventListener('click', handleCloseButtonClick);
   dom.pickerDone.addEventListener('click', postPickResult);
+  dom.options.addEventListener('click', showOptionsView);
 }
 
 function initOptionsButtons() {
@@ -248,6 +244,8 @@ function initOptionsButtons() {
 
   // info buttons
   dom.infoCloseButton.addEventListener('click', hideInfoView);
+  // option button cancel
+  dom.optionsCancelButton.addEventListener('click', hideOptionsView);
   // fullscreen player
   dom.fullscreenButton.addEventListener('click', toggleFullscreenPlayer);
   // fullscreen toolbar
@@ -378,6 +376,7 @@ function handleActivityEvents(a) {
 }
 
 function showInfoView() {
+  hideOptionsView();
   //Get the length of the playing video
   var length = isFinite(currentVideo.metadata.duration) ?
       MediaUtils.formatDuration(currentVideo.metadata.duration) : '';
@@ -442,6 +441,14 @@ function hideSelectView() {
                              false, /* enterFullscreen */
                              true); /* keepControls */
   }
+}
+
+function showOptionsView() {
+  dom.optionsView.classList.remove('hidden');
+}
+
+function hideOptionsView() {
+  dom.optionsView.classList.add('hidden');
 }
 
 function clearSelection() {
@@ -803,6 +810,7 @@ function setVideoPlaying(playing) {
 }
 
 function deleteCurrentVideo() {
+  hideOptionsView();
   // We need to disable NFC sharing when showing delete confirmation dialog
   setNFCSharing(false);
   // If we're deleting the file shown in the player we've got to
@@ -849,6 +857,7 @@ function postPickResult() {
 }
 
 function shareCurrentVideo() {
+  hideOptionsView();
   videodb.getFile(currentVideo.name, function(blob) {
     share([blob]);
   });
@@ -894,9 +903,13 @@ function setVideoUrl(player, video, callback) {
 }
 
 function scheduleVideoControlsAutoHiding() {
+  // Allow control of timeout, e.g., during unit testing
+  var autoHideMs = (videoControlsAutoHidingMsOverride !== null) ?
+      videoControlsAutoHidingMsOverride : 250;
+
   controlFadeTimeout = setTimeout(function() {
     setControlsVisibility(false);
-  }, 250);
+  }, autoHideMs);
 }
 
 function setNFCSharing(enable) {
@@ -909,7 +922,7 @@ function setNFCSharing(enable) {
     window.navigator.mozNfc.onpeerready = function(event) {
       // The callback function is called when user confirm to share the
       // content, send it with NFC Peer.
-      videodb.getFile(video.name, function(file) {
+      videodb.getFile(currentVideo.name, function(file) {
         navigator.mozNfc.getNFCPeer(event.detail).sendFile(file);
       });
     };
@@ -966,20 +979,23 @@ function showPlayer(video, autoPlay, enterFullscreen, keepControls) {
 
     dom.play.classList.remove('paused');
     playerShowing = true;
-    VideoUtils.fitContainer(dom.videoContainer, dom.player,
-                            currentVideo.metadata.rotation || 0);
 
-
+    var rotation;
     if ('metadata' in currentVideo) {
       if (currentVideo.metadata.currentTime === dom.player.duration) {
         currentVideo.metadata.currentTime = 0;
       }
       dom.videoTitle.textContent = currentVideo.metadata.title;
       dom.player.currentTime = currentVideo.metadata.currentTime || 0;
+      rotation = currentVideo.metadata.rotation;
     } else {
       dom.videoTitle.textContent = currentVideo.title || '';
       dom.player.currentTime = 0;
+      rotation = 0;
     }
+
+    VideoUtils.fitContainer(dom.videoContainer, dom.player,
+                            rotation || 0);
 
     if (dom.player.seeking) {
       dom.player.onseeked = doneSeeking;

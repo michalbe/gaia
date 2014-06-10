@@ -4,8 +4,8 @@
 'use strict';
 
 /*global Utils, ActivityHandler, ThreadUI, ThreadListUI, MessageManager,
-         Settings, LazyLoader, TimeHeaders, Information,
-         PerformanceTestingHelper, App */
+         Settings, LazyLoader, TimeHeaders, Information, SilentSms,
+         PerformanceTestingHelper, App, Navigation */
 
 navigator.mozL10n.ready(function localized() {
   // This will be called during startup, and any time the languange is changed
@@ -44,12 +44,26 @@ navigator.mozL10n.ready(function localized() {
     }
   );
 
+  // Re-translate the placeholder messages
+  Array.prototype.forEach.call(
+    document.getElementsByClassName('js-l10n-placeholder'),
+    function(element) {
+      var id = element.getAttribute('id');
+
+      var l10nId = Utils.camelCase(id);
+      element.dataset.placeholder =
+        navigator.mozL10n.get(l10nId + '_placeholder');
+    }
+  );
+
 });
 
 window.addEventListener('load', function() {
   PerformanceTestingHelper.dispatch('load');
   function initUIApp() {
+    Navigation.init();
     TimeHeaders.init();
+    SilentSms.init();
     ActivityHandler.init();
 
     // Init UI Managers

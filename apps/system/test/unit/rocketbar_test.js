@@ -6,6 +6,7 @@ requireApp('system/test/unit/mock_app_window.js');
 requireApp('system/test/unit/mock_app_window_manager.js');
 requireApp('system/test/unit/mock_search_window.js');
 requireApp('system/shared/test/unit/mocks/mock_settings_listener.js');
+requireApp('system/shared/test/unit/mocks/mock_settings_url.js');
 requireApp('system/test/unit/mock_iac_handler.js');
 
 var mocksForRocketbar = new MocksHelper([
@@ -13,10 +14,9 @@ var mocksForRocketbar = new MocksHelper([
   'AppWindowManager',
   'SearchWindow',
   'SettingsListener',
+  'SettingsURL',
   'IACPort'
 ]).init();
-
-mocha.globals(['SearchWindow', 'Rocketbar']);
 
 suite('system/Rocketbar', function() {
   mocksForRocketbar.attachTestHelpers();
@@ -80,7 +80,6 @@ suite('system/Rocketbar', function() {
     subject.addEventListeners();
 
     assert.ok(windowAddEventListenerStub.calledWith('apploading'));
-    assert.ok(windowAddEventListenerStub.calledWith('appforeground'));
     assert.ok(windowAddEventListenerStub.calledWith('apptitlechange'));
     assert.ok(windowAddEventListenerStub.calledWith('applocationchange'));
     assert.ok(windowAddEventListenerStub.calledWith('home'));
@@ -116,7 +115,6 @@ suite('system/Rocketbar', function() {
     subject.removeEventListeners();
 
     assert.ok(windowRemoveEventListenerStub.calledWith('apploading'));
-    assert.ok(windowRemoveEventListenerStub.calledWith('appforeground'));
     assert.ok(windowRemoveEventListenerStub.calledWith('apptitlechange'));
     assert.ok(windowRemoveEventListenerStub.calledWith('applocationchange'));
     assert.ok(windowRemoveEventListenerStub.calledWith('home'));
@@ -255,16 +253,13 @@ suite('system/Rocketbar', function() {
     assert.ok(MockIACPort.mNumberOfMessages() == 1);
   });
 
-  test('showTaskManager()', function(done) {
+  test('showTaskManager()', function() {
     var showResultsStub = this.sinon.stub(subject, 'showResults');
     navigator.mozL10n = {
       'get': function() {
         return 'Search';
       }
     };
-    window.addEventListener('taskmanagershow', function() {
-      done();
-    });
     subject.showTaskManager();
     assert.ok(showResultsStub.calledOnce);
     assert.equal(subject.input.value, '');
@@ -313,7 +308,7 @@ suite('system/Rocketbar', function() {
     var hideResultsStub = this.sinon.stub(subject, 'hideResults');
     subject.handleAppChange({
       detail: {
-        manifestURL: 'http://example.com/manifest.webapp'
+        isBrowser: function() { return false; }
       }
      });
      assert.ok(handleLocationChangeStub.calledOnce);
@@ -340,7 +335,7 @@ suite('system/Rocketbar', function() {
     var hideResultsStub = this.sinon.stub(subject, 'hideResults');
     subject.handleAppChange({
       detail: {
-        manifestURL: null
+        isBrowser: function() { return true; }
       }
      });
     assert.ok(handleLocationChangeStub.calledOnce);
@@ -540,7 +535,7 @@ suite('system/Rocketbar', function() {
     assert.equal(subject._touchStart, 3);
   });
 
-  test('handleTouch() - touchmove', function() {
+  test('handleTouch() - touchmove', function(done) {
     // Assumes EXPANSION_THRESHOLD: 5, TASK_MANAGER_THRESHOLD: 200
     var expandStub = this.sinon.stub(subject, 'expand');
     var collapseStub = this.sinon.stub(subject, 'collapse');
@@ -583,8 +578,13 @@ suite('system/Rocketbar', function() {
         }
       ]
     };
+
+    window.addEventListener('taskmanagershow', function taskmanagershow() {
+      window.removeEventListener('taskmanagershow', taskmanagershow);
+      done();
+    });
+
     subject.handleTouch(event);
-    assert.ok(showTaskManagerStub.calledOnce);
 
     expandStub.restore();
     collapseStub.restore();
@@ -847,5 +847,14 @@ suite('system/Rocketbar', function() {
     assert.ok(spy.calledWithNew);
   });
 
+  test('setVisible', function() {
+    subject.activate();
+    var setVisibleStub = this.sinon.stub(subject.searchWindow, '_setVisible');
+    subject.showResults();
+    setVisibleStub.calledWith(true);
+    subject.hideResults();
+    setVisibleStub.calledWith(false);
+    setVisibleStub.restore();
+  });
 });
 

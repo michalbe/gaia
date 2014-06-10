@@ -24,10 +24,11 @@ function updateNumConns(cancelConns, callback) {
   };
 }
 
-// To display the received message returned by the subscriber app. If |message|
-// is assigned, it will be tested by the test_inter_app_comm.py.
-function updateReceivedMsg(message) {
-  var receivedMsg = document.getElementById('receivedMsg');
+// To display the received message returned by the subscriber app in the DOM 
+// element identified by |elementId|. If |message| is assigned, it will be 
+// tested by the test_inter_app_comm.py.
+function updateReceivedMsg(elementId, message) {
+  var receivedMsg = document.getElementById(elementId);
   if (receivedMsg) {
     document.body.removeChild(receivedMsg);
   }
@@ -39,7 +40,7 @@ function updateReceivedMsg(message) {
   receivedMsg = document.createElement('input');
   receivedMsg.type = 'text';
   receivedMsg.value = message;
-  receivedMsg.id = 'receivedMsg';
+  receivedMsg.id = elementId;
   receivedMsg.style = 'width:90%';
 
   document.body.appendChild(receivedMsg);
@@ -116,8 +117,8 @@ var tasks = {
 tasks.push(function testWrongKeyword() {
   connectToGetPorts("test-foo", null, function(accepted, result) {
     if (accepted) {
-      updateReceivedMsg("Error! Should reject to connect because the keyword " +
-                        "'test-foo' is wrong.");
+      updateReceivedMsg("receivedStrMsg", "Error! Should reject to connect " +
+                        "because the keyword 'test-foo' is wrong.");
       tasks.finish();
       return;
     }
@@ -134,8 +135,8 @@ tasks.push(function testWrongRulesManifestURLs() {
 
   connectToGetPorts("test", rules, function(accepted, result) {
     if (accepted) {
-      updateReceivedMsg("Error! Should reject to connect because " +
-                        "rules.manifestURLs doesn't match.");
+      updateReceivedMsg("receivedStrMsg", "Error! Should reject to connect " +
+                        "because rules.manifestURLs doesn't match.");
       tasks.finish();
       return;
     }
@@ -144,25 +145,7 @@ tasks.push(function testWrongRulesManifestURLs() {
   });
 });
 
-// Test task #3: wrong rules (installOrigins doesn't match).
-tasks.push(function testWrongRulesInstallOrigins() {
-  var rules = {
-    installOrigins: ["http://foo.test:8888"]
-  };
-
-  connectToGetPorts("test", rules, function(accepted, result) {
-    if (accepted) {
-      updateReceivedMsg("Error! Should reject to connect because " +
-                        "rules.installOrigins doesn't match.");
-      tasks.finish();
-      return;
-    }
-
-    tasks.next();
-  });
-});
-
-// Test task #4: correct rules.
+// Test task #3: correct rules.
 tasks.push(function testCorrectRules() {
   var rules = {
     manifestURLs: ["app://test-iac-subscriber.gaiamobile.org/manifest.webapp"]
@@ -170,15 +153,16 @@ tasks.push(function testCorrectRules() {
 
   connectToGetPorts("test", rules, function(accepted, result) {
     if (!accepted) {
-      updateReceivedMsg("Error! Should succeed to connect.");
+      updateReceivedMsg("receivedStrMsg", "Error! Should succeed to connect.");
       tasks.finish();
       return;
     }
 
     var ports = result;
     if (ports.length != 1) {
-      updateReceivedMsg("Error! Should get exactly one port because there is " +
-                        "only one subsriber app handling the 'test' keyword");
+      updateReceivedMsg("receivedStrMsg", "Error! Should get exactly one port " +
+                        "because there is only one subsriber app handling the " +
+                        "'test' keyword");
       tasks.finish();
       return;
     }
@@ -186,13 +170,52 @@ tasks.push(function testCorrectRules() {
     // Set the onmessage for the port to receive the message.
     var port = ports[0];
     port.onmessage = function(event) {
-      updateReceivedMsg(event.data.value);
+      updateReceivedMsg("receivedStrMsg", event.data.value);
       tasks.next();
     };
 
-    // Start to post message theough this port.
+    // Start to post message through this port.
     var msgToSend = document.getElementById('msgToSend')
     port.postMessage({ value: msgToSend.value });
+  });
+});
+
+//Test task #4: correct rules (with blob).
+tasks.push(function testCorrectRulesWithBlob() {
+  var rules = {
+    manifestURLs: ["app://test-iac-subscriber.gaiamobile.org/manifest.webapp"]
+  };
+
+  connectToGetPorts("test", rules, function(accepted, result) {
+    if (!accepted) {
+      updateReceivedMsg("receivedBlobMsg", "Error! Should succeed to connect.");
+      tasks.finish();
+      return;
+    }
+
+    var ports = result;
+    if (ports.length != 1) {
+      updateReceivedMsg("receivedBlobMsg", "Error! Should get exactly one port " +
+                        "because there is only one subsriber app handling the " + 
+                        "'test' keyword");
+      tasks.finish();
+      return;
+    }
+
+    // Set the onmessage for the port to receive the message.
+    var port = ports[0];
+    port.onmessage = function(event) {
+      var reader = new FileReader();
+      reader.addEventListener("loadend", function() {
+        updateReceivedMsg("receivedBlobMsg", window.atob(reader.result));
+        tasks.next();
+      });
+      reader.readAsText(event.data);
+    };
+
+    // Start to post message through this port.
+    var msgToSend = document.getElementById('msgToSend')
+    port.postMessage(new Blob([window.btoa(msgToSend.value)]));
   });
 });
 
@@ -205,13 +228,15 @@ tasks.push(function cleanUp() {
 window.addEventListener('load', function() {
   // For clicking the 'sendButton' button.
   document.getElementById('sendButton').addEventListener('click', function() {
-    updateReceivedMsg();
+    updateReceivedMsg("receivedStrMsg");
+    updateReceivedMsg("receivedBlobMsg");
     tasks.run();
   });
 
   // For clicking the 'cancelConnsButton' button.
   document.getElementById('cancelConnsButton').addEventListener('click', function() {
-    updateReceivedMsg();
+    updateReceivedMsg("receivedStrMsg");
+    updateReceivedMsg("receivedBlobMsg");
     updateNumConns(true);
   });
 });

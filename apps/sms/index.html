@@ -8,11 +8,11 @@
     <link rel="stylesheet" type="text/css" href="style/root.css">
     <!-- Stable Building blocks -->
     <link rel="stylesheet" type="text/css" href="shared/style/action_menu.css">
-    <link rel="stylesheet" type="text/css" href="shared/style_unstable/buttons.css">
+    <link rel="stylesheet" type="text/css" href="shared/style/buttons.css">
     <link rel="stylesheet" type="text/css" href="shared/style/confirm.css">
     <link rel="stylesheet" type="text/css" href="shared/style/edit_mode.css">
     <link rel="stylesheet" type="text/css" href="shared/style/headers.css">
-    <link rel="stylesheet" type="text/css" href="shared/style_unstable/input_areas.css">
+    <link rel="stylesheet" type="text/css" href="shared/style/input_areas.css">
     <link rel="stylesheet" type="text/css" href="shared/style/switches.css">
     <link rel="stylesheet" type="text/css" href="shared/style/lists.css">
     <link rel="stylesheet" type="text/css" href="shared/style/progress_activity.css">
@@ -21,6 +21,7 @@
     <!-- App styles -->
     <link rel="stylesheet" type="text/css" href="style/common.css">
     <link rel="stylesheet" type="text/css" href="style/sms.css">
+    <link rel="stylesheet" type="text/css" href="style/message.css">
     <link rel="stylesheet" type="text/css" href="style/notification.css">
     <link rel="stylesheet" type="text/css" href="style/report_view.css">
     <link rel="stylesheet" type="text/css" href="style/attachment.css">
@@ -43,8 +44,10 @@
     <script defer src="shared/js/settings_listener.js"></script>
     <script defer src="shared/js/sim_picker.js"></script>
     <script defer src="shared/js/multi_sim_action_button.js"></script>
+    <script defer src="js/navigation.js"></script>
     <script defer src="js/dialog.js"></script>
-    <script defer src="js/blacklist.js"></script>
+    <script defer src="js/task_runner.js"></script>
+    <script defer src="js/silent_sms.js"></script>
     <script defer src="js/contacts.js"></script>
     <script defer src="js/drafts.js"></script>
     <script defer src="js/recipients.js"></script>
@@ -73,20 +76,21 @@
     <script defer src="shared/js/fb/fb_data_reader.js"></script>
     <script defer src="shared/js/fb/fb_reader_utils.js"></script>
     <script defer src="shared/js/lazy_loader.js"></script>
+    <script defer src="shared/js/font_size_utils.js"></script>
     <script defer src="shared/js/performance_testing_helper.js"></script>
     <script defer src="shared/js/sticky_header.js"></script>
     <script defer src="js/app.js"></script>
     <script defer src="js/startup.js"></script>
     <!-- Elements -->
-    <link rel="import" href="/shared/elements/sim-picker.html">
+    <link rel="import" href="/shared/elements/sim_picker.html">
   </head>
 
-  <body role="application">
+  <body role="application" class="skin-comms">
     <article id="main-wrapper" class="wrapper">
       <section id="thread-list" class="panel" role="region">
         <header class="view-header regular-header">
           <menu type="toolbar">
-            <a href="#new" id="icon-add">
+            <a href="#composer" id="icon-add">
               <span class="icon icon-compose"></span>
             </a>
             <a id="threads-options-icon">
@@ -157,11 +161,6 @@
             <section data-l10n-id="to" id="to-label">
               To:
             </section>
-            <menu type="toolbar">
-              <a id="messages-contact-pick-button">
-                <span class="icon icon-user"></span>
-              </a>
-            </menu>
             <!-- When overflow occurs in the recipients list, scrolling is
             commonly triggered automatically through focus and keyboard events.
             In these cases, white space described by CSS `padding-bottom` will
@@ -169,13 +168,21 @@
             only scroll far enough to bring the cursor into view). A container
             element is necessary to consistently render this vertical space
             (instead realized with CSS `margin-bottom`). -->
-            <div id="messages-recipients-list-container">
+            <div id="messages-recipients-list-container" class="bb-editable">
               <section id="messages-recipients-list" class="singleline">
               </section>
             </div>
+            <menu type="toolbar">
+              <a id="messages-contact-pick-button">
+                <span class="icon icon-user"></span>
+              </a>
+            </menu>
           </section>
-          <div id="contact-carrier" data-l10n-id="carrier-unknown" class="carrier-wrapper">
-            Carrier unknown
+          <div id="contact-carrier" class="carrier-wrapper">
+            <span class="phone-type"></span>
+            <span class="phone-type-separator" data-l10n-id="thread-separator">
+            </span>
+            <span class="phone-details"></span>
           </div>
           <!-- Notifications in this container will be rendered on top of the
           Compose field. These notifications should be hidden automatically so
@@ -232,7 +239,7 @@
           <span class="contact-title"></span>
           <ul class="contact-list"></ul>
           <div class="received-detail">
-            <div>
+            <div class="sent-timestamp-label">
               <span data-l10n-id="message-sent"></span>
               <span class="sent-timeStamp l10n-contains-date"></span>
             </div>
@@ -259,10 +266,9 @@
             <form id="messages-compose-form" role="search" class="bottom" data-message-type="sms">
               <button id="messages-send-button" data-l10n-id="send" type="submit">Send</button>
               <div class="message-complete">
-                <div id="messages-subject-input" contentEditable="true" class="placeholder" data-l10n-id="composeSubject" data-max-length="40">
+                <div id="messages-subject-input" contentEditable="true" class="placeholder js-l10n-placeholder" data-max-length="40">
                 </div>
-                <div id="messages-input" contentEditable="true" name="message"
-            data-l10n-id="composeMessage" x-inputmode="-moz-sms">
+                <div id="messages-input" contentEditable="true" name="message" x-inputmode="-moz-sms" class="js-l10n-placeholder">
                 </div>
               </div>
             </form>
@@ -417,6 +423,20 @@
       -->
     </div>
 
+     <div id="messages-date-group-tmpl">
+      <!--
+      <div id="${id}" class="messages-date-group" data-timestamp="${timestamp}">
+        <header
+          class="messages-date-group-header"
+          data-time-update="${headerTimeUpdate}"
+          data-time="${headerTime}"
+          data-date-only="${headerDateOnly}">
+        </header>
+        <ul class="message-list"></ul>
+      </div>
+      -->
+    </div>
+
     <div id="messages-message-tmpl" class="hide">
       <!--
       <label class="pack-checkbox danger">
@@ -424,14 +444,17 @@
         <span></span>
       </label>
       <section class="bubble">
-        <h1 class="subject">
+        <h1 class="message-subject">
           ${subject}
         </h1>
         <div class="message-content">
-          <aside class="pack-end">
-            <progress class="light"></progress>
+          <aside class="message-status">
+            <progress class="${progressIndicatorClassName}"></progress>
           </aside>
-          <p>${bodyHTML}</p>
+          <div class="message-body">
+            <p>${bodyHTML}</p>
+            <time data-time-update="true" data-time-only="true" data-time="${timestamp}"></time>
+          </div>
         </div>
       </section>
       -->
@@ -445,7 +468,7 @@
       </label>
       <a href="${hash}">
         <aside class="icon icon-unread icon-draft">icon</aside>
-        <aside class="pack-end">
+        <aside class="pack-end empty">
           <span data-type="img"></span>
         </aside>
         <p class="name" data-l10n-id="no-recipient">${number}</p>

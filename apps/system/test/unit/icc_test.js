@@ -6,6 +6,8 @@
 requireApp('system/test/unit/mock_l10n.js');
 requireApp('system/test/unit/mock_system_icc_worker.js');
 requireApp('system/test/unit/mock_ftu_launcher.js');
+requireApp('system/test/unit/mock_statusbar.js');
+requireApp('system/test/unit/mock_keyboard_manager.js');
 require('/shared/test/unit/mocks/mock_navigator_moz_icc_manager.js');
 require('/shared/test/unit/mocks/mock_navigator_moz_settings.js');
 require('/shared/test/unit/mocks/mock_navigator_moz_set_message_handler.js');
@@ -14,12 +16,12 @@ require('/shared/test/unit/mocks/mock_dump.js');
 require('/shared/test/unit/load_body_html_helper.js');
 
 
-mocha.globals(['FtuLaucher', 'icc_worker', 'icc']);
-
 var mocksForIcc = new MocksHelper([
   'Dump',
   'FtuLauncher',
-  'SystemICCWorker'
+  'SystemICCWorker',
+  'StatusBar',
+  'KeyboardManager'
 ]).init();
 
 suite('STK (icc) >', function() {
@@ -247,7 +249,7 @@ suite('STK (icc) >', function() {
     assert.equal(document.getElementById('icc-input-btn').textContent, 'OK');
     assert.equal(document.getElementById('icc-input-btn').disabled, false);
     assert.equal(document.getElementById('icc-input-btn_back').textContent,
-      'Back');
+      'back');
     assert.equal(document.getElementById('icc-input-btn_help').textContent,
       'Help');
   });
