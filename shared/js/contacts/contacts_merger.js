@@ -309,22 +309,11 @@ contacts.Merger = (function() {
       var stringifiedDestination = destination.map(function(element){
         return JSON.stringify(element);
       });
-      // 
-      // var areEqual = function(ob1, ob2) {
-      //   for(var prop in ob1) {
-      // 		if(ob1[prop] !== "" && (ob1[prop] !== ob2[prop])){
-      // 			return false;
-      // 		}
-      // 	}
-      //   return true;
-      // }
+
       source.forEach(function(as, index) {
         // If the source value and destination value is the same we
         // don't want to merge and will leave contact as it is. This
         // prevents duplication of the data like in Bug 935636
-        console.log('lenght: ', stringifiedDestination.length);
-        console.log('value', stringifiedDestination[0]);
-        console.log('new one', JSON.stringify(as));
         if (stringifiedDestination.indexOf(JSON.stringify(as)) === -1) {
           if (defaultType && (!as.type || !as.type[0])) {
             as.type = [defaultType];

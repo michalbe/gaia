@@ -339,7 +339,7 @@ var VCFReader = (function _VCFReader() {
         // Because of adding empty fields while parsing the vCard
         // merging contacts sometimes doesn't work as expected
         // Check Bug 935636 for reference
-        if (decoded !== "") {
+        if (decoded !== '') {
           cur[ADDR_PARTS[j]] = decoded;
         }
       }
