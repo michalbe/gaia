@@ -3,6 +3,7 @@
 /* global ConfirmDialog */
 /* global contacts */
 /* global fb */
+/* global utils */
 
 var Contacts = window.Contacts || {};
 
@@ -251,7 +252,7 @@ if (typeof Contacts.extServices === 'undefined') {
         }
       };
 
-      Contacts.confirmDialog(null, msg, noObject, yesObject);
+      utils.confirmDialog(null, msg, noObject, yesObject);
     }
 
     function doUnlink(cid) {

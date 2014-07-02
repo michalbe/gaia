@@ -1,7 +1,7 @@
 'use strict';
 /* global Curtain */
 /* global LazyLoader */
-
+/* global utils */
 var contacts = window.contacts || {};
 
 if (!contacts.MatchingController) {
@@ -63,9 +63,10 @@ if (!contacts.MatchingController) {
 
       var matcherDependencies = ['/shared/js/text_normalizer.js',
                                  '/shared/js/simple_phone_matcher.js',
+                                 '/contacts/js/utilities/others.js',
                                  '/shared/js/contacts/contacts_matcher.js'];
       LazyLoader.load(matcherDependencies, function loaded() {
-        parent.contacts.List.getContactById(cid, function success(mContact) {
+        utils.getContactById(cid, function success(mContact) {
           // Master contact
           contact = mContact;
           contacts.Matcher.match(contact, 'active', callbacks);
@@ -97,7 +98,7 @@ if (!contacts.MatchingController) {
         };
 
         Object.keys(duplicateContacts).forEach(function(cid) {
-          parent.contacts.List.getContactById(cid, function success(contact) {
+          utils.getContactById(cid, function success(contact) {
             duplicateContacts[cid] = {
               matchingContact: contact,
               matchings: duplicateContacts[cid].matchings
