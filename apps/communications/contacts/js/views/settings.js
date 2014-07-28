@@ -28,14 +28,6 @@ contacts.Settings = (function() {
     importSettingsBack,
     orderCheckBox,
     orderByLastName,
-    iceSettingsPanel,
-    iceSettingsBack,
-    iceContactItem1,
-    iceContactItem2,
-    iceContactCheckbox1,
-    iceContactCheckbox2,
-    iceContactButton1,
-    iceContactButton2,
     setICEButton,
     importSettingsPanel,
     importSettingsTitle,
@@ -126,19 +118,8 @@ contacts.Settings = (function() {
     importLiveOption = document.getElementById('import-live-option');
     importGmailOption = document.getElementById('import-gmail-option');
 
-    // ICE DOM elements
-    iceSettingsPanel = document.getElementById('ice-settings');
-    iceSettingsBack = document.getElementById('ice-settings-back');
+    // ICE view
     setICEButton = document.getElementById('set-ice');
-
-    iceContactItem1 = document.getElementById('ice-contacts-1-switch');
-    iceContactItem2 = document.getElementById('ice-contacts-2-switch');
-    iceContactCheckbox1 = iceContactItem1
-                          .querySelector('[name="ice-contact-1-enabled"]');
-    iceContactCheckbox2 = iceContactItem2
-                          .querySelector('[name="ice-contact-2-enabled"]');
-    iceContactButton1 = document.getElementById('select-ice-contact-1');
-    iceContactButton2 = document.getElementById('select-ice-contact-2');
 
     /*
      * Adding listeners
@@ -171,6 +152,9 @@ contacts.Settings = (function() {
 
     exportOptions = document.getElementById('export-options');
     exportOptions.addEventListener('click', exportOptionsHandler);
+
+    // ICE view
+    setICEButton.addEventListener('click', showICEScreen);
 
     // Bulk delete
     bulkDeleteButton = document.getElementById('bulkDelete');
@@ -209,32 +193,6 @@ contacts.Settings = (function() {
     else {
       document.querySelector('#settings-article').dataset.state = 'fb-disabled';
     }
-
-    // ICE
-    setICEButton.addEventListener('click', function(){
-      navigationHandler.go('ice-settings', 'right-left');
-    });
-    iceSettingsBack.addEventListener('click', function(){
-      navigationHandler.back();
-    });
-
-    // Temporary logic & listeners, this will be removed or improved
-    // in Bug 1042584 in 2.1S1
-    iceContactItem1.addEventListener('click', function(){
-      var status = iceContactCheckbox1.checked;
-      iceContactCheckbox1.checked = !status;
-      iceContactButton1.disabled = status;
-    });
-    iceContactItem2.addEventListener('click', function(){
-      var status = iceContactCheckbox2.checked;
-      iceContactCheckbox2.checked = !status;
-      iceContactButton2.disabled = status;
-    });
-    [iceContactButton1, iceContactButton2].forEach(function(element){
-      element.addEventListener('click', function(){
-          alert('This feature is not implemented yet!');
-      });
-    });
   };
 
   // UI event handlers
@@ -267,6 +225,13 @@ contacts.Settings = (function() {
           navigationHandler.go('import-settings', 'right-left');
         }, Contacts.SHARED_CONTACTS);
       }
+  }
+
+  function showICEScreen() {
+    LazyLoader.load(['/contacts/js/ice.js'], function(){
+      contacts.ICE.init();
+      navigationHandler.go('ice-settings', 'right-left');
+    });
   }
 
   // Given an event, select wich should be the targeted
@@ -1074,7 +1039,7 @@ contacts.Settings = (function() {
     'refresh': refresh,
     'cardStateChanged': checkSIMCard,
     'updateTimestamps': updateTimestamps,
-    'navigation': navigationHandler,
+    get navigation() { return navigationHandler; },
     'importFromSDCard': onSdImport,
     'importFromSIMCard': onSimImport
   };
