@@ -1,7 +1,5 @@
 'use strict';
 
-/* global contacts */
-
 var contacts = window.contacts || {};
 
 contacts.ICE = (function() {
