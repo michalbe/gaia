@@ -49,10 +49,23 @@ contacts.ICE = (function() {
     });
     [iceContactButton1, iceContactButton2].forEach(function(element){
       element.addEventListener('click', function(){
-          alert('This feature is not implemented yet!');
+          showSelectList();
       });
     });
     iceScreenLoaded = true;
+  };
+
+  var showSelectList = function showSelectList() {
+    contacts.Settings.navigation.go('view-contacts-list', 'right-left');
+
+    //addButton.classList.add('hide');
+    contacts.List.clearClickHandlers();
+    contacts.List.handleClick(setAsICEContact);
+  };
+
+  var setAsICEContact = function(id) {
+    console.log('ID', id);
+    contacts.Settings.navigation.back();
   };
 
   return {
