@@ -44,7 +44,7 @@ contacts.ICE = (function() {
           var status = iceContactCheckboxes[i].checked;
           iceContactCheckboxes[i].checked = !status;
           iceContactButtons[i].disabled = status;
-        }
+        };
       }(index));
     });
 
@@ -83,9 +83,9 @@ contacts.ICE = (function() {
   };
 
   var setInitialButtonsState = function(iceContactsIds) {
-    var setButtonState = function(id) {
-
-    };
+    // var setButtonState = function(id) {
+    //
+    // };
     //for iceContactsIds
   };
 
